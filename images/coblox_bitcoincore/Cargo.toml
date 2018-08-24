@@ -23,3 +23,6 @@ hmac = "0.5"
 sha2 = "0.7"
 hex = "0.3.2"
 rand = "0.5.4"
+
+[dev-dependencies]
+bitcoin_rpc = { git = "ssh://git@github.com/coblox/bitcoincore-rpc_rust_client.git", branch = "prepare-for-open-source" }
