@@ -1,5 +1,5 @@
 [package]
-name = "trufflesuite_ganachecli"
+name = "tc_trufflesuite_ganachecli"
 version = "0.1.0"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
@@ -12,9 +12,6 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/coblox/testcontainers-rs"
 categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "ethereum"]
-
-[badges]
-travis-ci = { repository = "coblox/testcontainers-rs" }
 
 [dependencies]
 testcontainers = { path = "../../testcontainers", version = "0.1.0" }
