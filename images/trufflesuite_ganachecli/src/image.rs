@@ -1,5 +1,4 @@
-use testcontainers::{Container, ContainerClient, Docker, Image, WaitForMessage};
-use web3_client::Web3Client;
+use testcontainers::{Container, Docker, Image, WaitForMessage};
 
 pub struct GanacheCli {
     tag: String,
@@ -73,15 +72,5 @@ impl Image for GanacheCli {
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         GanacheCli { arguments, ..self }
-    }
-}
-
-impl ContainerClient<GanacheCli> for Web3Client {
-    fn new_container_client<D: Docker>(container: &Container<D, GanacheCli>) -> Web3Client {
-        let host_port = container.get_host_port(8545).unwrap();
-
-        let url = format!("http://localhost:{}", host_port);
-
-        Web3Client::new(&url).unwrap()
     }
 }

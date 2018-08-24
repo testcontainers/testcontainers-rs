@@ -2,7 +2,9 @@ extern crate testcontainers;
 
 use testcontainers::{clients::DockerCli, *};
 
-struct FakeImage {}
+struct FakeImage {
+    authentication_token: String,
+}
 
 impl Image for FakeImage {
     type Args = Vec<String>;
@@ -26,22 +28,27 @@ impl Image for FakeImage {
 
 impl Default for FakeImage {
     fn default() -> Self {
-        unimplemented!()
+        // Generate authentication information here
+        FakeImage {
+            authentication_token: unreachable!(),
+        }
     }
 }
 
 struct FakeClient {}
 
-impl ContainerClient<FakeImage> for FakeClient {
-    fn new_container_client<D: Docker>(_container: &Container<D, FakeImage>) -> Self {
-        unimplemented!()
-    }
-}
-
 fn main() {
-    let image = FakeImage {};
+    let image = FakeImage::default();
 
     let container = DockerCli::new().run(image);
 
-    let _client = container.connect::<FakeClient>();
+    let _client = container.connect(|c| {
+        // Query all the necessary information from our container so that you can connect to
+        // it with our client, like host ports or authentication information
+
+        let host_port = c.get_host_port(8080);
+        let auth_token = c.image().authentication_token;
+
+        FakeClient {}
+    });
 }

@@ -1,10 +1,9 @@
-use bitcoin_rpc::BitcoinCoreClient;
 use hex::encode;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::{env::var, thread::sleep, time::Duration};
-use testcontainers::{Container, ContainerClient, Docker, Image, WaitForMessage};
+use testcontainers::{Container, Docker, Image, WaitForMessage};
 
 pub struct BitcoinCore {
     tag: String,
@@ -187,18 +186,6 @@ impl Default for BitcoinCore {
             tag: "0.16.1-r2".into(),
             arguments: BitcoinCoreImageArgs::default(),
         }
-    }
-}
-
-impl ContainerClient<BitcoinCore> for BitcoinCoreClient {
-    fn new_container_client<D: Docker>(container: &Container<D, BitcoinCore>) -> BitcoinCoreClient {
-        let host_port = container.get_host_port(18443).unwrap();
-
-        let url = format!("http://localhost:{}", host_port);
-
-        let auth = container.image().auth();
-
-        BitcoinCoreClient::new(url.as_str(), auth.username(), auth.password())
     }
 }
 

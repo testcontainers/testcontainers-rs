@@ -27,10 +27,6 @@ where
     fn with_args(self, arguments: Self::Args) -> Self;
 }
 
-pub trait ContainerClient<I: Image> {
-    fn new_container_client<D: Docker>(container: &Container<D, I>) -> Self;
-}
-
 pub struct Container<D: Docker, I: Image> {
     id: String,
     docker_client: D,
@@ -96,8 +92,8 @@ impl<D: Docker, I: Image> Container<D, I> {
         self.image.wait_until_ready(self);
     }
 
-    pub fn connect<C: ContainerClient<I>>(&self) -> C {
-        C::new_container_client(&self)
+    pub fn connect<C, F: Fn(&Container<D, I>) -> C>(&self, client_factory: F) -> C {
+        client_factory(self)
     }
 
     pub fn image(&self) -> &I {

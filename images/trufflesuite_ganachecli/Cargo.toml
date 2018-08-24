@@ -18,4 +18,6 @@ travis-ci = { repository = "coblox/testcontainers-rs" }
 
 [dependencies]
 testcontainers = { path = "../../testcontainers", version = "0.1.0" }
+
+[dev-dependencies]
 web3 = "0.3.0"

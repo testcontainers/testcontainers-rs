@@ -1,4 +1,3 @@
-extern crate bitcoin_rpc;
 extern crate testcontainers;
 #[macro_use]
 extern crate log;
