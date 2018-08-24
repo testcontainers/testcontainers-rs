@@ -13,9 +13,6 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers"]
 description = "A library for integration-testing against docker containers from within Rust."
 
-[badges]
-travis-ci = { repository = "coblox/testcontainers-rs" }
-
 [dependencies]
 serde = "1.0.66"
 serde_json = "1.0.22"
