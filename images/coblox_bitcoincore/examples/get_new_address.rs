@@ -1,10 +1,10 @@
 extern crate bitcoin_rpc_client;
-extern crate coblox_bitcoincore;
+extern crate tc_coblox_bitcoincore;
 extern crate testcontainers;
 
 use bitcoin_rpc_client::BitcoinCoreClient;
 use bitcoin_rpc_client::BitcoinRpcApi;
-use coblox_bitcoincore::BitcoinCore;
+use tc_coblox_bitcoincore::BitcoinCore;
 use testcontainers::clients::DockerCli;
 use testcontainers::Docker;
 

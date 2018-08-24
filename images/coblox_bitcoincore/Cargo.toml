@@ -1,5 +1,5 @@
 [package]
-name = "coblox_bitcoincore"
+name = "tc_coblox_bitcoincore"
 version = "0.1.0"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
@@ -13,9 +13,6 @@ repository = "https://github.com/coblox/testcontainers-rs"
 categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "bitcoin"]
 
-[badges]
-travis-ci = { repository = "coblox/testcontainers-rs" }
-
 [dependencies]
 testcontainers = { path = "../../testcontainers", version = "0.1.0" }
 log = "0.4.3"
@@ -25,4 +22,4 @@ hex = "0.3.2"
 rand = "0.5.4"
 
 [dev-dependencies]
-bitcoin_rpc_client = { git = "https://github.com/coblox/bitcoincore-rpc_rust_client.git", tag = "v0.1.0" }
+bitcoin_rpc_client = "0.1.0"

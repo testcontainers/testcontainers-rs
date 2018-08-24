@@ -1,11 +1,11 @@
+extern crate tc_trufflesuite_ganachecli;
 extern crate testcontainers;
-extern crate trufflesuite_ganachecli;
 extern crate web3;
 
 use std::ops::Deref;
+use tc_trufflesuite_ganachecli::*;
 use testcontainers::Container;
 use testcontainers::{clients::DockerCli, Docker};
-use trufflesuite_ganachecli::*;
 use web3::futures::Future;
 use web3::{
     transports::{EventLoopHandle, Http},
