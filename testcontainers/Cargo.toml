@@ -11,6 +11,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/coblox/testcontainers-rs"
 categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers"]
+description = "A library for integration-testing against docker containers from within Rust."
 
 [badges]
 travis-ci = { repository = "coblox/testcontainers-rs" }
