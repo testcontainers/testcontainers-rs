@@ -92,10 +92,6 @@ impl<D: Docker, I: Image> Container<D, I> {
         self.image.wait_until_ready(self);
     }
 
-    pub fn connect<C, F: Fn(&Container<D, I>) -> C>(&self, client_factory: F) -> C {
-        client_factory(self)
-    }
-
     pub fn image(&self) -> &I {
         &self.image
     }

@@ -12,15 +12,15 @@ fn main() {
     let docker = DockerCli::new();
     let node = docker.run(BitcoinCore::default());
 
-    let client = node.connect(|container| {
-        let host_port = container.get_host_port(18443).unwrap();
+    let client = {
+        let host_port = node.get_host_port(18443).unwrap();
 
         let url = format!("http://localhost:{}", host_port);
 
-        let auth = container.image().auth();
+        let auth = node.image().auth();
 
         BitcoinCoreClient::new(url.as_str(), auth.username(), auth.password())
-    });
+    };
 
     let address = client.get_new_address().unwrap().unwrap();
 

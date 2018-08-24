@@ -17,7 +17,7 @@ fn main() {
 
     // This blocks until the container is ready to accept requests
     let node = docker.run(GanacheCli::default());
-    let client = node.connect(Web3Client::new);
+    let client = Web3Client::new(&node);
 
     let accounts = client.eth().accounts().wait().unwrap();
 
