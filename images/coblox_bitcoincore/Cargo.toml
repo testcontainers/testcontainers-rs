@@ -25,4 +25,4 @@ hex = "0.3.2"
 rand = "0.5.4"
 
 [dev-dependencies]
-bitcoin_rpc = { git = "https://github.com/coblox/bitcoincore-rpc_rust_client.git" }
+bitcoin_rpc_client = { git = "https://github.com/coblox/bitcoincore-rpc_rust_client.git", tag = "v0.1.0" }

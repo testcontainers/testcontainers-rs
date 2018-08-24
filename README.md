@@ -1,5 +1,7 @@
 # Testcontainers
 
+[![Build Status](https://travis-ci.com/coblox/testcontainers-rs.svg?branch=master)](https://travis-ci.com/coblox/testcontainers-rs)
+
 Testcontainers is a Rust-library inspired by [http://testcontainers.org](http://testcontainers.org).
 
 ## Usage
