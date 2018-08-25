@@ -1,6 +1,7 @@
 # Testcontainers
 
 [![Build Status](https://travis-ci.com/coblox/testcontainers-rs.svg?branch=master)](https://travis-ci.com/coblox/testcontainers-rs)
+[![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
 
 Testcontainers is a Rust-library inspired by [http://testcontainers.org](http://testcontainers.org).
 
