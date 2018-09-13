@@ -7,7 +7,7 @@ where
     fn new() -> Self;
     fn run<I: Image>(&self, image: I) -> Container<Self, I>;
 
-    fn logs(&self, id: &str) -> Box<Read>;
+    fn logs(&self, id: &str) -> Logs;
     fn inspect(&self, id: &str) -> ContainerInfo;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
@@ -58,7 +58,7 @@ impl<D: Docker, I: Image> Container<D, I> {
         &self.id
     }
 
-    pub fn logs(&self) -> Box<Read> {
+    pub fn logs(&self) -> Logs {
         self.docker_client.logs(&self.id)
     }
 
@@ -173,6 +173,11 @@ impl Ports {
 
         None
     }
+}
+
+pub struct Logs {
+    pub stdout: Box<Read>,
+    pub stderr: Box<Read>,
 }
 
 #[cfg(test)]

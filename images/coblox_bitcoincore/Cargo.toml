@@ -14,7 +14,7 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "bitcoin"]
 
 [dependencies]
-testcontainers = { path = "../../testcontainers", version = "0.1.0" }
+testcontainers = { path = "../../testcontainers", version = "0.2.0" }
 log = "0.4.3"
 hmac = "0.5"
 sha2 = "0.7"

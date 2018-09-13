@@ -154,6 +154,7 @@ impl Image for BitcoinCore {
     fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {
         container
             .logs()
+            .stdout
             .wait_for_message("Flushed wallet.dat")
             .unwrap();
 
