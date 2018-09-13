@@ -1,7 +1,7 @@
 use api::*;
 use serde_json;
 use std::{
-    io::{BufRead, BufReader, Read},
+    io::{BufRead, BufReader},
     process::{Command, Stdio},
     thread::sleep,
     time::Duration,
@@ -47,7 +47,7 @@ impl Docker for DockerCli {
         container
     }
 
-    fn logs(&self, id: &str) -> Box<Read> {
+    fn logs(&self, id: &str) -> Logs {
         // Hack to fix unstable CI builds. Sometimes the logs are not immediately available after starting the container.
         // Let's sleep for a little bit of time to let the container start up before we actually process the logs.
         sleep(Duration::from_millis(100));
@@ -57,10 +57,14 @@ impl Docker for DockerCli {
             .arg("-f")
             .arg(id)
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to execute docker command");
 
-        Box::new(child.stdout.unwrap())
+        Logs {
+            stdout: Box::new(child.stdout.unwrap()),
+            stderr: Box::new(child.stderr.unwrap()),
+        }
     }
 
     fn inspect(&self, id: &str) -> ContainerInfo {
