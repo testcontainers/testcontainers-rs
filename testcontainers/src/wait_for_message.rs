@@ -61,8 +61,7 @@ mod tests {
             Message one
             Message two
             Message three
-        "
-            .as_bytes();
+        ".as_bytes();
 
         let result = logs.wait_for_message("Message three");
 
