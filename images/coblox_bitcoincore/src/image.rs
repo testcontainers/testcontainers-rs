@@ -65,7 +65,7 @@ impl RpcAuth {
     }
 
     fn encode_password(&self) -> String {
-        let mut mac = Hmac::<Sha256>::new(self.salt.as_bytes().as_ref()).unwrap();
+        let mut mac = Hmac::<Sha256>::new_varkey(self.salt.as_bytes()).unwrap();
         mac.input(self.password.as_bytes().as_ref());
 
         let result = mac.result().code();
