@@ -17,4 +17,4 @@ keywords = ["docker", "testcontainers", "ethereum"]
 testcontainers = { path = "../../testcontainers", version = "0.2.0" }
 
 [dev-dependencies]
-web3 = { git = "https://github.com/tomusdrw/rust-web3" }
+web3 = "0.4"
