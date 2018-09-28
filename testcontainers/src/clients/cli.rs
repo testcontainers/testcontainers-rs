@@ -1,5 +1,6 @@
 use api;
 use serde_json;
+use std::collections::HashMap;
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -66,7 +67,7 @@ impl api::Docker for Cli {
         }
     }
 
-    fn inspect(&self, id: &str) -> api::ContainerInfo {
+    fn ports(&self, id: &str) -> api::Ports {
         let child = Command::new("docker")
             .arg("inspect")
             .arg(id)
@@ -76,13 +77,13 @@ impl api::Docker for Cli {
 
         let stdout = child.stdout.unwrap();
 
-        let mut infos: Vec<api::ContainerInfo> = serde_json::from_reader(stdout).unwrap();
+        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
 
         let info = infos.remove(0);
 
         trace!("Fetched container info: {:#?}", info);
 
-        info
+        info.network_settings.ports.into_ports()
     }
 
     fn rm(&self, id: &str) {
@@ -108,4 +109,88 @@ impl api::Docker for Cli {
             .spawn()
             .expect("Failed to execute docker command");
     }
+}
+
+#[derive(Deserialize, Debug)]
+struct NetworkSettings {
+    #[serde(rename = "Ports")]
+    ports: Ports,
+}
+
+#[derive(Deserialize, Debug)]
+struct PortMapping {
+    #[serde(rename = "HostIp")]
+    ip: String,
+    #[serde(rename = "HostPort")]
+    port: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ContainerInfo {
+    #[serde(rename = "Id")]
+    id: String,
+    #[serde(rename = "NetworkSettings")]
+    network_settings: NetworkSettings,
+}
+
+#[derive(Deserialize, Debug)]
+struct Ports(HashMap<String, Option<Vec<PortMapping>>>);
+
+impl Ports {
+    pub fn into_ports(self) -> ::api::Ports {
+        let mut mapping = HashMap::new();
+
+        for (internal, external) in self.0 {
+            let external = match external.and_then(|mut m| m.pop()).map(|m| m.port) {
+                Some(port) => port,
+                None => {
+                    debug!("Port {} is not mapped to host machine, skipping.", internal);
+                    continue;
+                }
+            };
+
+            let port = internal.split('/').next().unwrap();
+
+            let internal = Self::parse_port(port);
+            let external = Self::parse_port(&external);
+
+            mapping.insert(internal, external);
+        }
+
+        api::Ports { mapping }
+    }
+
+    fn parse_port(port: &str) -> u32 {
+        port.parse()
+            .unwrap_or_else(|e| panic!("Failed to parse {} as u32 because {}", port, e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use serde_json;
+
+    #[test]
+    fn can_deserialize_docker_inspect_response_into_api_ports() {
+        let info =
+            serde_json::from_str::<ContainerInfo>(include_str!("docker_inspect_response.json"))
+                .unwrap();
+
+        let ports = info.network_settings.ports.into_ports();
+
+        assert_eq!(
+            ports,
+            ::api::Ports {
+                mapping: hashmap!{
+                    18332 => 33076,
+                    18333 => 33075,
+                    8332 => 33078,
+                    8333 => 33077,
+                },
+            }
+        )
+    }
+
 }

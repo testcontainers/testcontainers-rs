@@ -5,6 +5,10 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
+#[cfg(test)]
+#[macro_use]
+extern crate maplit;
+
 mod api;
 mod wait_for_message;
 

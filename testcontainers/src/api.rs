@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env::var, fmt, io::Read, str::FromStr};
+use std::{collections::HashMap, env::var, fmt, io::Read};
 
 pub trait Docker
 where
@@ -8,7 +8,7 @@ where
     fn run<I: Image>(&self, image: I) -> Container<Self, I>;
 
     fn logs(&self, id: &str) -> Logs;
-    fn inspect(&self, id: &str) -> ContainerInfo;
+    fn ports(&self, id: &str) -> Ports;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
 }
@@ -82,9 +82,7 @@ where
     pub fn get_host_port(&self, internal_port: u32) -> Option<u32> {
         let resolved_port = self
             .docker_client
-            .inspect(&self.id)
-            .network_settings()
-            .ports()
+            .ports(&self.id)
             .map_to_external_port(internal_port);
 
         match resolved_port {
@@ -140,120 +138,18 @@ where
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct ContainerInfo {
-    #[serde(rename = "Id")]
-    id: String,
-    #[serde(rename = "NetworkSettings")]
-    network_settings: NetworkSettings,
-}
-
-impl ContainerInfo {
-    pub fn network_settings(&self) -> &NetworkSettings {
-        &self.network_settings
-    }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct NetworkSettings {
-    #[serde(rename = "Ports")]
-    ports: Ports,
-}
-
-impl NetworkSettings {
-    pub fn ports(&self) -> &Ports {
-        &self.ports
-    }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Ports(HashMap<String, Option<Vec<PortMapping>>>);
-
-#[derive(Deserialize, Debug)]
-pub struct PortMapping {
-    #[serde(rename = "HostIp")]
-    ip: String,
-    #[serde(rename = "HostPort")]
-    port: String,
+#[derive(Debug, PartialEq)]
+pub struct Ports {
+    pub(crate) mapping: HashMap<u32, u32>,
 }
 
 impl Ports {
-    pub fn map_to_external_port(&self, internal_port: u32) -> Option<u32> {
-        for key in self.0.keys() {
-            let internal_port = format!("{}", internal_port);
-            if key.contains(&internal_port) {
-                return self.0.get(key).and_then(|option| {
-                    option
-                        .as_ref()
-                        .and_then(|mappings| mappings.get(0))
-                        .map(|mapping| &mapping.port)
-                        .and_then(|port| u32::from_str(port).ok())
-                });
-            }
-        }
-
-        None
+    pub fn map_to_external_port(&self, port: u32) -> Option<u32> {
+        self.mapping.get(&port).map(|p| p.clone())
     }
 }
 
 pub struct Logs {
     pub stdout: Box<Read>,
     pub stderr: Box<Read>,
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    extern crate serde_json;
-
-    #[test]
-    fn can_deserialize_docker_inspect_response() {
-        let response = r#"{
-        "Id": "fd2e896b883052dae31202b065a06dc5374a214ae348b7a8f8da3734f690d010",
-        "NetworkSettings": {
-            "Ports": {
-                "18332/tcp": [
-                    {
-                        "HostIp": "0.0.0.0",
-                        "HostPort": "33076"
-                    }
-                ],
-                "18333/tcp": [
-                    {
-                        "HostIp": "0.0.0.0",
-                        "HostPort": "33075"
-                    }
-                ],
-                "18443/tcp": null,
-                "18444/tcp": null,
-                "8332/tcp": [
-                    {
-                        "HostIp": "0.0.0.0",
-                        "HostPort": "33078"
-                    }
-                ],
-                "8333/tcp": [
-                    {
-                        "HostIp": "0.0.0.0",
-                        "HostPort": "33077"
-                    }
-                ]
-            }
-        }
-    }"#;
-
-        let info = serde_json::from_str::<ContainerInfo>(response).unwrap();
-
-        let ports = info.network_settings.ports;
-
-        let external_port = ports.map_to_external_port(18332);
-
-        assert_eq!(
-            info.id,
-            "fd2e896b883052dae31202b065a06dc5374a214ae348b7a8f8da3734f690d010"
-        );
-        assert_eq!(external_port, Some(33076));
-    }
-
 }

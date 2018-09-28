@@ -1,0 +1,34 @@
+{
+  "Id": "fd2e896b883052dae31202b065a06dc5374a214ae348b7a8f8da3734f690d010",
+  "NetworkSettings": {
+    "Ports": {
+      "18332/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "33076"
+        }
+      ],
+      "18333/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "33075"
+        }
+      ],
+      "18443/tcp": null,
+      "18444/tcp": null,
+      "8332/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "33078"
+        }
+      ],
+      "8333/tcp": [
+        {
+          "HostIp": "0.0.0.0",
+          "HostPort": "33077"
+        }
+      ]
+    }
+  }
+}
+
