@@ -1,1 +1,3 @@
-pub mod cli;
+mod cli;
+
+pub use self::cli::Cli;
