@@ -4,8 +4,7 @@ extern crate web3;
 
 use std::ops::Deref;
 use tc_trufflesuite_ganachecli::*;
-use testcontainers::Container;
-use testcontainers::{clients::DockerCli, Docker};
+use testcontainers::prelude::*;
 use web3::futures::Future;
 use web3::{
     transports::{EventLoopHandle, Http},
@@ -13,7 +12,7 @@ use web3::{
 };
 
 fn main() {
-    let docker = DockerCli::new();
+    let docker = clients::Cli::new();
 
     // This blocks until the container is ready to accept requests
     let node = docker.run(GanacheCli::default());
