@@ -27,26 +27,43 @@ where
     fn with_args(self, arguments: Self::Args) -> Self;
 }
 
-pub struct Container<D: Docker, I: Image> {
+pub struct Container<'d, D, I>
+where
+    D: 'd,
+    D: Docker,
+    I: Image,
+{
     id: String,
-    docker_client: D,
+    docker_client: &'d D,
     image: I,
 }
 
-impl<D: Docker, I: Image> fmt::Debug for Container<D, I> {
+impl<'d, D, I> fmt::Debug for Container<'d, D, I>
+where
+    D: Docker,
+    I: Image,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "Container ({})", self.id)
     }
 }
 
-impl<D: Docker, I: Image> fmt::Display for Container<D, I> {
+impl<'d, D, I> fmt::Display for Container<'d, D, I>
+where
+    D: Docker,
+    I: Image,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "Container ({})", self.id)
     }
 }
 
-impl<D: Docker, I: Image> Container<D, I> {
-    pub fn new(id: String, docker_client: D, image: I) -> Self {
+impl<'d, D, I> Container<'d, D, I>
+where
+    D: Docker,
+    I: Image,
+{
+    pub fn new(id: String, docker_client: &'d D, image: I) -> Self {
         Container {
             id,
             docker_client,
@@ -105,7 +122,11 @@ impl<D: Docker, I: Image> Container<D, I> {
     }
 }
 
-impl<D: Docker, I: Image> Drop for Container<D, I> {
+impl<'d, D, I> Drop for Container<'d, D, I>
+where
+    D: Docker,
+    I: Image,
+{
     fn drop(&mut self) {
         let keep_container = var("KEEP_CONTAINERS")
             .ok()

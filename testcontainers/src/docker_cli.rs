@@ -36,7 +36,7 @@ impl Docker for DockerCli {
         let container_id = reader.lines().next().unwrap().unwrap();
 
         // TODO maybe move log statements to container
-        let container = Container::new(container_id, DockerCli {}, image);
+        let container = Container::new(container_id, self, image);
 
         debug!("Waiting for {} to be ready.", container);
 
