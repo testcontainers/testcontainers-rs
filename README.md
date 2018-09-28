@@ -1,9 +1,9 @@
-# Testcontainers
+# Testcontainers-rs
 
-[![Build Status](https://travis-ci.com/coblox/testcontainers-rs.svg?branch=master)](https://travis-ci.com/coblox/testcontainers-rs)
+[![Build Status](https://travis-ci.org/testcontainers/testcontainers-rs.svg?branch=master)](https://travis-ci.org/testcontainers/testcontainers-rs)
 [![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
 
-Testcontainers is a Rust-library inspired by [http://testcontainers.org](http://testcontainers.org).
+Testcontainers-rs is the official Rust language fork of [http://testcontainers.org](http://testcontainers.org).
 
 ## Usage
 
