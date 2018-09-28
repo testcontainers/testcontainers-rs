@@ -2,7 +2,7 @@ use std::{collections::HashMap, env::var, fmt, io::Read, str::FromStr};
 
 pub trait Docker
 where
-    Self: Sized + Copy,
+    Self: Sized,
 {
     fn new() -> Self;
     fn run<I: Image>(&self, image: I) -> Container<Self, I>;

@@ -1,4 +1,4 @@
-use api::*;
+use api;
 use serde_json;
 use std::{
     io::{BufRead, BufReader},
@@ -7,15 +7,14 @@ use std::{
     time::Duration,
 };
 
-#[derive(Copy, Clone)]
-pub struct DockerCli;
+pub struct Cli;
 
-impl Docker for DockerCli {
+impl api::Docker for Cli {
     fn new() -> Self {
-        DockerCli
+        Cli
     }
 
-    fn run<I: Image>(&self, image: I) -> Container<DockerCli, I> {
+    fn run<I: api::Image>(&self, image: I) -> api::Container<Cli, I> {
         let mut docker = Command::new("docker");
 
         let command = docker
@@ -36,7 +35,7 @@ impl Docker for DockerCli {
         let container_id = reader.lines().next().unwrap().unwrap();
 
         // TODO maybe move log statements to container
-        let container = Container::new(container_id, self, image);
+        let container = api::Container::new(container_id, self, image);
 
         debug!("Waiting for {} to be ready.", container);
 
@@ -47,7 +46,7 @@ impl Docker for DockerCli {
         container
     }
 
-    fn logs(&self, id: &str) -> Logs {
+    fn logs(&self, id: &str) -> api::Logs {
         // Hack to fix unstable CI builds. Sometimes the logs are not immediately available after starting the container.
         // Let's sleep for a little bit of time to let the container start up before we actually process the logs.
         sleep(Duration::from_millis(100));
@@ -61,13 +60,13 @@ impl Docker for DockerCli {
             .spawn()
             .expect("Failed to execute docker command");
 
-        Logs {
+        api::Logs {
             stdout: Box::new(child.stdout.unwrap()),
             stderr: Box::new(child.stderr.unwrap()),
         }
     }
 
-    fn inspect(&self, id: &str) -> ContainerInfo {
+    fn inspect(&self, id: &str) -> api::ContainerInfo {
         let child = Command::new("docker")
             .arg("inspect")
             .arg(id)
@@ -77,7 +76,7 @@ impl Docker for DockerCli {
 
         let stdout = child.stdout.unwrap();
 
-        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
+        let mut infos: Vec<api::ContainerInfo> = serde_json::from_reader(stdout).unwrap();
 
         let info = infos.remove(0);
 
