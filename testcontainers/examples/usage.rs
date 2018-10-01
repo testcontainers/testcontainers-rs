@@ -1,6 +1,6 @@
 extern crate testcontainers;
 
-use testcontainers::{clients::DockerCli, *};
+use testcontainers::prelude::*;
 
 struct FakeImage {
     authentication_token: String,
@@ -39,8 +39,9 @@ struct FakeClient {}
 
 fn main() {
     let image = FakeImage::default();
+    let cli = clients::Cli::new();
 
-    let container = DockerCli::new().run(image);
+    let container = cli.run(image);
 
     let _client = {
         // Query all the necessary information from our container so that you can connect to

@@ -5,11 +5,10 @@ extern crate testcontainers;
 use bitcoin_rpc_client::BitcoinCoreClient;
 use bitcoin_rpc_client::BitcoinRpcApi;
 use tc_coblox_bitcoincore::BitcoinCore;
-use testcontainers::clients::DockerCli;
-use testcontainers::Docker;
+use testcontainers::prelude::*;
 
 fn main() {
-    let docker = DockerCli::new();
+    let docker = clients::Cli::new();
     let node = docker.run(BitcoinCore::default());
 
     let client = {

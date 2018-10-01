@@ -5,13 +5,29 @@ extern crate serde_derive;
 #[macro_use]
 extern crate log;
 
+#[cfg(test)]
+#[macro_use]
+extern crate maplit;
+
 mod api;
-mod docker_cli;
 mod wait_for_message;
+
+pub mod clients;
 
 pub use api::*;
 pub use wait_for_message::{WaitError, WaitForMessage};
 
-pub mod clients {
-    pub use docker_cli::DockerCli;
+pub mod prelude {
+
+    pub use Docker;
+    pub use Image;
+
+    pub use Container;
+    pub use Logs;
+    pub use Ports;
+
+    pub use WaitError;
+    pub use WaitForMessage;
+
+    pub use clients;
 }
