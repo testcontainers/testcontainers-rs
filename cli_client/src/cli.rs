@@ -1,4 +1,3 @@
-use api;
 use serde_json;
 use std::collections::HashMap;
 use std::{
@@ -7,15 +6,13 @@ use std::{
     thread::sleep,
     time::Duration,
 };
+use tc_core::{self, Container, Docker, Image, Logs};
 
+#[derive(Debug, Default)]
 pub struct Cli;
 
-impl api::Docker for Cli {
-    fn new() -> Self {
-        Cli
-    }
-
-    fn run<I: api::Image>(&self, image: I) -> api::Container<Cli, I> {
+impl Docker for Cli {
+    fn run<I: Image>(&self, image: I) -> Container<Cli, I> {
         let mut docker = Command::new("docker");
 
         let command = docker
@@ -26,7 +23,7 @@ impl api::Docker for Cli {
             .args(image.args())
             .stdout(Stdio::piped());
 
-        info!("Executing command: {:?}", command);
+        debug!("Executing command: {:?}", command);
 
         let child = command.spawn().expect("Failed to execute docker command");
 
@@ -35,19 +32,14 @@ impl api::Docker for Cli {
 
         let container_id = reader.lines().next().unwrap().unwrap();
 
-        // TODO maybe move log statements to container
-        let container = api::Container::new(container_id, self, image);
-
-        debug!("Waiting for {} to be ready.", container);
+        let container = Container::new(container_id, self, image);
 
         container.block_until_ready();
-
-        debug!("{} is now ready!", container);
 
         container
     }
 
-    fn logs(&self, id: &str) -> api::Logs {
+    fn logs(&self, id: &str) -> Logs {
         // Hack to fix unstable CI builds. Sometimes the logs are not immediately available after starting the container.
         // Let's sleep for a little bit of time to let the container start up before we actually process the logs.
         sleep(Duration::from_millis(100));
@@ -61,13 +53,13 @@ impl api::Docker for Cli {
             .spawn()
             .expect("Failed to execute docker command");
 
-        api::Logs {
+        Logs {
             stdout: Box::new(child.stdout.unwrap()),
             stderr: Box::new(child.stderr.unwrap()),
         }
     }
 
-    fn ports(&self, id: &str) -> api::Ports {
+    fn ports(&self, id: &str) -> tc_core::Ports {
         let child = Command::new("docker")
             .arg("inspect")
             .arg(id)
@@ -87,8 +79,6 @@ impl api::Docker for Cli {
     }
 
     fn rm(&self, id: &str) {
-        info!("Killing docker container: {}", id);
-
         Command::new("docker")
             .arg("rm")
             .arg("-f")
@@ -100,8 +90,6 @@ impl api::Docker for Cli {
     }
 
     fn stop(&self, id: &str) {
-        info!("Stopping docker container: {}", id);
-
         Command::new("docker")
             .arg("stop")
             .arg(id)
@@ -137,8 +125,8 @@ struct ContainerInfo {
 struct Ports(HashMap<String, Option<Vec<PortMapping>>>);
 
 impl Ports {
-    pub fn into_ports(self) -> ::api::Ports {
-        let mut mapping = HashMap::new();
+    pub fn into_ports(self) -> tc_core::Ports {
+        let mut ports = tc_core::Ports::default();
 
         for (internal, external) in self.0 {
             let external = match external.and_then(|mut m| m.pop()).map(|m| m.port) {
@@ -154,10 +142,10 @@ impl Ports {
             let internal = Self::parse_port(port);
             let external = Self::parse_port(&external);
 
-            mapping.insert(internal, external);
+            ports.add_mapping(internal, external);
         }
 
-        api::Ports { mapping }
+        ports
     }
 
     fn parse_port(port: &str) -> u32 {
@@ -178,19 +166,16 @@ mod tests {
             serde_json::from_str::<ContainerInfo>(include_str!("docker_inspect_response.json"))
                 .unwrap();
 
-        let ports = info.network_settings.ports.into_ports();
+        let parsed_ports = info.network_settings.ports.into_ports();
+        let mut expected_ports = tc_core::Ports::default();
 
-        assert_eq!(
-            ports,
-            ::api::Ports {
-                mapping: hashmap!{
-                    18332 => 33076,
-                    18333 => 33075,
-                    8332 => 33078,
-                    8333 => 33077,
-                },
-            }
-        )
+        expected_ports
+            .add_mapping(18332, 33076)
+            .add_mapping(18333, 33075)
+            .add_mapping(8332, 33078)
+            .add_mapping(8333, 33077);
+
+        assert_eq!(parsed_ports, expected_ports)
     }
 
 }

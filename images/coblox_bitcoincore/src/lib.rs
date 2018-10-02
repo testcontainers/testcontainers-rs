@@ -1,4 +1,6 @@
-extern crate testcontainers;
+#![deny(missing_debug_implementations)]
+
+extern crate tc_core;
 #[macro_use]
 extern crate log;
 extern crate hex;

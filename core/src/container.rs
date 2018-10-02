@@ -1,32 +1,8 @@
-use std::{collections::HashMap, env::var, fmt, io::Read};
+use std::{collections::HashMap, env::var, io::Read};
+use Docker;
+use Image;
 
-pub trait Docker
-where
-    Self: Sized,
-{
-    fn new() -> Self;
-    fn run<I: Image>(&self, image: I) -> Container<Self, I>;
-
-    fn logs(&self, id: &str) -> Logs;
-    fn ports(&self, id: &str) -> Ports;
-    fn rm(&self, id: &str);
-    fn stop(&self, id: &str);
-}
-
-pub trait Image
-where
-    Self: Sized + Default,
-    Self::Args: IntoIterator<Item = String>,
-{
-    type Args;
-
-    fn descriptor(&self) -> String;
-    fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>);
-    fn args(&self) -> Self::Args;
-
-    fn with_args(self, arguments: Self::Args) -> Self;
-}
-
+#[derive(Debug)]
 pub struct Container<'d, D, I>
 where
     D: 'd,
@@ -36,26 +12,6 @@ where
     id: String,
     docker_client: &'d D,
     image: I,
-}
-
-impl<'d, D, I> fmt::Debug for Container<'d, D, I>
-where
-    D: Docker,
-    I: Image,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Container ({})", self.id)
-    }
-}
-
-impl<'d, D, I> fmt::Display for Container<'d, D, I>
-where
-    D: Docker,
-    I: Image,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "Container ({})", self.id)
-    }
 }
 
 impl<'d, D, I> Container<'d, D, I>
@@ -103,8 +59,12 @@ where
         resolved_port
     }
 
-    pub(crate) fn block_until_ready(&self) {
+    pub fn block_until_ready(&self) {
+        debug!("Waiting for container {} to be ready", self.id);
+
         self.image.wait_until_ready(self);
+
+        debug!("Container {} is now ready!", self.id);
     }
 
     pub fn image(&self) -> &I {
@@ -112,10 +72,14 @@ where
     }
 
     pub fn stop(&self) {
+        debug!("Stopping docker container {}", self.id);
+
         self.docker_client.stop(&self.id)
     }
 
     pub fn rm(&self) {
+        debug!("Deleting docker container {}", self.id);
+
         self.docker_client.rm(&self.id)
     }
 }
@@ -138,18 +102,29 @@ where
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct Ports {
-    pub(crate) mapping: HashMap<u32, u32>,
+    mapping: HashMap<u32, u32>,
 }
 
 impl Ports {
+    pub fn add_mapping(&mut self, internal: u32, external: u32) -> &mut Self {
+        debug!("Registering port mapping: {} -> {}", internal, external);
+
+        self.mapping.insert(internal, external);
+
+        self
+    }
+
     pub fn map_to_external_port(&self, port: u32) -> Option<u32> {
         self.mapping.get(&port).map(|p| p.clone())
     }
 }
 
+#[derive(DebugStub)]
 pub struct Logs {
+    #[debug_stub = "stream"]
     pub stdout: Box<Read>,
+    #[debug_stub = "stream"]
     pub stderr: Box<Read>,
 }

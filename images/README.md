@@ -12,10 +12,13 @@ The crate for the docker image `coblox/bitcoin-core` is named `tc_coblox_bitcoin
 
 ## Adding a new image
 
-- Fork the repository
-- Create a new subfolder in `images/`
-- Implement the `Image` trait for your docker image.
-- Provide an example
-- Submit a pull request
+1. Fork the repository
+2. Create a new subfolder in `images/`
+    1. Implement the `Image` trait for your docker image.
+    2. Add necessary unit-tests for your `Image`. Check the [coblox_bitcoincore](coblox_bitcoincore/) image for an example.
+3. Add your image as a dependency to the `testcontainers` meta-crate.
+    1. Re-export all necessary items from your crate in the `images` module.
+    2. Add a test to `tests/images.rs` for your image. Check the [README.md](../testcontainers/tests/README.md) for information on the testing strategy.
+4. Submit a pull request!
 
 After merging the PR, we will publish the crate on crates.io.

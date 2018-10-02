@@ -3,8 +3,9 @@ use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::{env::var, thread::sleep, time::Duration};
-use testcontainers::{Container, Docker, Image, WaitForMessage};
+use tc_core::{Container, Docker, Image, WaitForMessage};
 
+#[derive(Debug)]
 pub struct BitcoinCore {
     tag: String,
     arguments: BitcoinCoreImageArgs,
@@ -16,14 +17,14 @@ impl BitcoinCore {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Network {
     Mainnet,
     Testnet,
     Regtest,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RpcAuth {
     pub username: String,
     pub password: String,
@@ -78,7 +79,7 @@ impl RpcAuth {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BitcoinCoreImageArgs {
     pub server: bool,
     pub network: Network,
@@ -162,13 +163,15 @@ impl Image for BitcoinCore {
             var("BITCOIND_ADDITIONAL_SLEEP_PERIOD").map(|value| value.parse());
 
         if let Ok(Ok(sleep_period)) = additional_sleep_period {
+            let sleep_period = Duration::from_millis(sleep_period);
+
             trace!(
-                "Waiting for an additional {} ms for {}",
+                "Waiting for an additional {:?} for container {}.",
                 sleep_period,
-                container
+                container.id()
             );
 
-            sleep(Duration::from_millis(sleep_period))
+            sleep(sleep_period)
         }
     }
 
