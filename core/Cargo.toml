@@ -1,22 +1,18 @@
 [package]
-name = "tc_coblox_bitcoincore"
-version = "0.2.0"
+name = "tc_core"
+version = "0.1.0"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
     "Philipp Hoenisch <philipp@coblox.tech>",
     "Franck Royer <franck@coblox.tech>",
     "Lloyd Fournier <lloyd@coblox.tech>",
 ]
-description = "Testcontainers image for the coblox/bitcoin-core docker image."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/coblox/testcontainers-rs"
 categories = ["development-tools::testing"]
-keywords = ["docker", "testcontainers", "bitcoin"]
+keywords = ["docker", "testcontainers"]
+description = "Core crate of testcontainers, a library for integration-testing against docker containers from within Rust."
 
 [dependencies]
-tc_core = { path = "../../core", version = "0.1.0" }
-log = "0.4.3"
-hmac = "0.6"
-sha2 = "0.7"
-hex = "0.3.2"
-rand = "0.5.4"
+log = "0.4"
+debug_stub_derive = "0.3"

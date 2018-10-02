@@ -1,11 +1,12 @@
+use tc_core::{Container, Docker, Image, WaitForMessage};
+
+#[derive(Debug)]
 pub struct ParityEthereum {
     arguments: ParityEthereumArgs,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ParityEthereumArgs {}
-
-use testcontainers::{Container, Docker, Image, WaitForMessage};
 
 impl IntoIterator for ParityEthereumArgs {
     type Item = String;

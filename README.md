@@ -7,14 +7,20 @@ Testcontainers-rs is the official Rust language fork of [http://testcontainers.o
 
 ## Usage
 
-Check [testcontainers/examples](./testcontainers/examples) on how to use the library.
+**TL:DR**: Depend on `testcontainers`, this will give you everything you need.
+
+Check [the integration tests](./testcontainers/tests) on how to use the library.
 
 ## Structure
 
 The repository is structured into the several crates.
 
-- `testcontainers` contains the actual library and trait definitions
+- `core`: Contains the core traits and structs necessary for the testcontainers ecosystem.
+- `cli_client`: Contains an implementation of the `Docker` trait that uses the `docker`-CLI to issue commands.
 - The folder `images` contains several crates named after the respective docker image. Each crate adds support for one particular image. This allows to selectively import the images you need.
+
+Last but not least:
+`testcontainers`: This is a meta crate that bundles all these crates together for convenient usage.
 
 ## License
 

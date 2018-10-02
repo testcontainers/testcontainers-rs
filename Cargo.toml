@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "testcontainers",
+    "core",
+    "cli_client",
     "images/trufflesuite_ganachecli",
     "images/coblox_bitcoincore",
     "images/parity_parity",

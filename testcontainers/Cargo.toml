@@ -11,13 +11,21 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/coblox/testcontainers-rs"
 categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers"]
-description = "A library for integration-testing against docker containers from within Rust."
+description = "Meta crate for testcontainers, a library for integration-testing against docker containers from within Rust."
 
 [dependencies]
-serde = "1.0.66"
-serde_json = "1.0.22"
-serde_derive = "1.0.66"
-log = "0.4.3"
+tc_core = { path = "../core", version = "0.1" }
+
+# Clients
+tc_cli_client = { path = "../cli_client", version = "0.1" }
+
+# Images
+tc_coblox_bitcoincore = { path = "../images/coblox_bitcoincore", version = "0.2" }
+tc_trufflesuite_ganachecli = { path = "../images/trufflesuite_ganachecli", version = "0.2" }
+tc_parity_parity = { path = "../images/parity_parity", version = "0.1" }
 
 [dev-dependencies]
-maplit = "1"
+bitcoin_rpc_client = "0.2"
+spectral = "0.6"
+web3 = "0.4"
+pretty_env_logger = "0.2"

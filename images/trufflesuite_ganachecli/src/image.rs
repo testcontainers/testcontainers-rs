@@ -1,11 +1,12 @@
-use testcontainers::{Container, Docker, Image, WaitForMessage};
+use tc_core::{Container, Docker, Image, WaitForMessage};
 
+#[derive(Debug)]
 pub struct GanacheCli {
     tag: String,
     arguments: GanacheCliArgs,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GanacheCliArgs {
     pub network_id: u32,
     pub number_of_accounts: u32,
