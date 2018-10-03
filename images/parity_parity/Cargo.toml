@@ -1,6 +1,6 @@
 [package]
 name = "tc_parity_parity"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
     "Philipp Hoenisch <philipp@coblox.tech>",
