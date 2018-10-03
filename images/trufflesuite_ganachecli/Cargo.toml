@@ -14,7 +14,7 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "ethereum"]
 
 [dependencies]
-tc_core = { path = "../../core", version = "0.1.0" }
+tc_core = { path = "../../core", version = "0.1" }
 
 [dev-dependencies]
 web3 = "0.4"
