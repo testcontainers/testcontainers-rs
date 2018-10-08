@@ -87,6 +87,9 @@ pub struct BitcoinCoreImageArgs {
     pub rpc_bind: String,
     pub rpc_allowip: String,
     pub rpc_auth: RpcAuth,
+    pub zmq_enable: bool,
+    pub zmq_pub_raw_block: String,
+    pub zmq_pub_raw_tx: String,
 }
 
 impl Default for BitcoinCoreImageArgs {
@@ -99,6 +102,9 @@ impl Default for BitcoinCoreImageArgs {
             tx_index: true,
             rpc_bind: "0.0.0.0".to_string(), // This allows to bind on all ports
             rpc_allowip: "0.0.0.0/0".to_string(),
+            zmq_enable: true,
+            zmq_pub_raw_block: "tcp://0.0.0.0:18501".to_string(),
+            zmq_pub_raw_tx: "tcp://0.0.0.0:18501".to_string(),
         }
     }
 }
@@ -134,6 +140,11 @@ impl IntoIterator for BitcoinCoreImageArgs {
             args.push(format!("-rpcbind={}", self.rpc_bind));
         }
 
+        if self.zmq_enable {
+            args.push(format!("-zmqpubrawblock={}", self.zmq_pub_raw_block));
+            args.push(format!("-zmqpubrawtx={}", self.zmq_pub_raw_tx));
+        }
+
         if self.print_to_console {
             args.push("-printtoconsole".to_string())
         }
@@ -148,7 +159,7 @@ impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
 
     fn descriptor(&self) -> String {
-        format!("coblox/bitcoin-core:{}", self.tag)
+        format!("lightningnetwork/bitcoind-alpine:{}", self.tag)
     }
 
     fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {
