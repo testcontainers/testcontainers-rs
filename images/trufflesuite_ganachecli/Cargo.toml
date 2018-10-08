@@ -1,6 +1,6 @@
 [package]
 name = "tc_trufflesuite_ganachecli"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
     "Philipp Hoenisch <philipp@coblox.tech>",
@@ -14,7 +14,7 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "ethereum"]
 
 [dependencies]
-tc_core = { path = "../../core", version = "0.1" }
+tc_core = { path = "../../core", version = "0.2" }
 
 [dev-dependencies]
 web3 = "0.4"

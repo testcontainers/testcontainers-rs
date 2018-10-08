@@ -1,6 +1,6 @@
 [package]
 name = "testcontainers"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
     "Philipp Hoenisch <philipp@coblox.tech>",
@@ -14,7 +14,7 @@ keywords = ["docker", "testcontainers"]
 description = "Meta crate for testcontainers, a library for integration-testing against docker containers from within Rust."
 
 [dependencies]
-tc_core = { path = "../core", version = "0.1" }
+tc_core = { path = "../core", version = "0.2" }
 
 # Clients
 tc_cli_client = { path = "../cli_client", version = "0.1" }
