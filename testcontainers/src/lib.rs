@@ -5,7 +5,7 @@
 //! This crate is the official Rust language fork of [`Testcontainers`][tc_website].
 //!
 //! Tests should be self-contained and isolated. While this is usually easy for unit-tests, integration-tests typically require a more complex environment.
-//! The testcontainers ecosystem facilitates self-contained and isolated integration tests. It allows to easily spin up Docker containers from within in your tests and removes them afterwards.
+//! The testcontainers ecosystem facilitates self-contained and isolated integration tests. It allows to easily spin up Docker containers from within your tests and removes them afterwards.
 //!
 //! A very typical usecase for testcontainers are integration-tests of persistence layers. These require an actual database to be present. Using testcontainers, your tests can spin up database containers themselves, without the need for any other setup.
 //!
@@ -18,7 +18,7 @@
 //!
 //! Unsurprisingly, working with testcontainers is very similar to working with Docker itself.
 //!
-//! First you choose a [`Client`]. Given a client instance, you can [`run`][docker_run] [`Images`]. This gives you back a [`Container`]. Containers implement [`Drop`]. As soon as they go out of scope, the underlying docker container is removed.
+//! First you choose a [`Client`]. Given a client instance, you can [`run`][docker_run] [`Images`]. This gives you back a [`Container`]. Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
 //!
 //! # Usage in production code
 //!

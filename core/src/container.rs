@@ -129,7 +129,7 @@ where
 
 /// The destructor implementation for a Container.
 ///
-/// As soon as the container goes out of scope, the destructor will either only stop or completely the docker container.
+/// As soon as the container goes out of scope, the destructor will either only stop or delete the docker container.
 /// This behaviour can be controlled through the `KEEP_CONTAINERS` environment variable. Setting it to `true` will only stop containers instead of removing them. Any other or no value will remove the container.
 impl<'d, D, I> Drop for Container<'d, D, I>
 where
