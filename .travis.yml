@@ -1,13 +1,37 @@
 language: rust
+sudo: required
+addons:
+  apt:
+    packages:
+    - libssl-dev
 cache:
   directories:
   - "$HOME/.cargo"
   - "$HOME/.cache/sccache"
-rust: stable
+matrix:
+  allow_failures:
+    - rust: nightly
+rust:
+  - stable
+  - nightly
+services:
+  - docker
 before_script:
+- docker pull coblox/bitcoin-core:0.16.1-r2
+- docker pull trufflesuite/ganache-cli:v6.1.3
+- docker pull parity/parity:v1.11.11
 - rustup component add rustfmt-preview
 - which sccache || cargo install sccache
+before_cache: |
+  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo +nightly install cargo-tarpaulin
+  fi
 script:
 - cargo fmt -- --check
 - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all
 - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo test --all
+after_success: |
+  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
+    cargo +nightly tarpaulin --out Xml
+    bash <(curl -s https://codecov.io/bash)
+  fi
