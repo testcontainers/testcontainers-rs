@@ -10,4 +10,4 @@ extern crate sha2;
 
 mod image;
 
-pub use image::BitcoinCore;
+pub use image::{BitcoinCore, BitcoinCoreImageArgs, Network, RpcAuth};

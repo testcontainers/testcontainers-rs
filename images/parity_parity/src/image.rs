@@ -5,7 +5,7 @@ pub struct ParityEthereum {
     arguments: ParityEthereumArgs,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ParityEthereumArgs {}
 
 impl IntoIterator for ParityEthereumArgs {

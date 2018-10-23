@@ -1,5 +1,6 @@
 use std::io::{self, BufRead, BufReader, Read};
 
+/// Defines error cases when waiting for a message in a stream.
 #[derive(Debug)]
 pub enum WaitError {
     EndOfStream,
@@ -12,6 +13,7 @@ impl From<io::Error> for WaitError {
     }
 }
 
+/// Extension trait for io::Read to wait for a message to appear in the given stream.
 pub trait WaitForMessage {
     fn wait_for_message(self, message: &str) -> Result<(), WaitError>;
 }

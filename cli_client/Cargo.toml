@@ -1,6 +1,6 @@
 [package]
 name = "tc_cli_client"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     "Thomas Eizinger <thomas@coblox.tech>",
     "Philipp Hoenisch <philipp@coblox.tech>",
@@ -14,7 +14,7 @@ keywords = ["docker", "testcontainers"]
 description = "An implementation of the testcontainers `Docker` trait that uses the Docker CLI to issue the necessary commands to the docker daemon."
 
 [dependencies]
-tc_core = { path = "../core", version = "0.1" }
+tc_core = { path = "../core", version = "0.2" }
 serde = "1"
 serde_json = "1"
 serde_derive = "1"

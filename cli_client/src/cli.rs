@@ -8,6 +8,9 @@ use std::{
 };
 use tc_core::{self, Container, Docker, Image, Logs};
 
+/// Implementation of the Docker client API using the docker cli.
+///
+/// This (fairly naive) implementation of the Docker client API simply creates `Command`s to the `docker` CLI. It thereby assumes that the `docker` CLI is installed and that it is in the PATH of the current execution environment.
 #[derive(Debug, Default)]
 pub struct Cli;
 
@@ -32,11 +35,7 @@ impl Docker for Cli {
 
         let container_id = reader.lines().next().unwrap().unwrap();
 
-        let container = Container::new(container_id, self, image);
-
-        container.block_until_ready();
-
-        container
+        Container::new(container_id, self, image)
     }
 
     fn logs(&self, id: &str) -> Logs {
