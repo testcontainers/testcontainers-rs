@@ -40,7 +40,7 @@ impl Cli {
         let start_timestamp = Instant::now();
 
         trace!(
-            "Registring starting of container {} at {:?}",
+            "Registering starting of container {} at {:?}",
             id,
             start_timestamp
         );
