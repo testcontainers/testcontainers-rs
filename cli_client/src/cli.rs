@@ -1,5 +1,7 @@
 use serde_json;
 use std::collections::HashMap;
+use std::sync::RwLock;
+use std::time::Instant;
 use std::{
     io::{BufRead, BufReader},
     process::{Command, Stdio},
@@ -8,11 +10,68 @@ use std::{
 };
 use tc_core::{self, Container, Docker, Image, Logs};
 
+const ONE_SECOND: Duration = Duration::from_secs(1);
+const ZERO: Duration = Duration::from_secs(0);
+
 /// Implementation of the Docker client API using the docker cli.
 ///
 /// This (fairly naive) implementation of the Docker client API simply creates `Command`s to the `docker` CLI. It thereby assumes that the `docker` CLI is installed and that it is in the PATH of the current execution environment.
 #[derive(Debug, Default)]
-pub struct Cli;
+pub struct Cli {
+    /// The docker CLI has an issue that if you request logs for a container
+    /// too quickly after it was started up, the resulting stream will never
+    /// emit any data, even if the container is already emitting logs.
+    ///
+    /// We keep track of when we started a container in order to make sure
+    /// that we wait at least one second after that. Subsequent invocations
+    /// directly fetch the logs of a container.
+    container_startup_timestamps: RwLock<HashMap<String, Instant>>,
+}
+
+impl Cli {
+    fn register_container_started(&self, id: String) {
+        let mut lock_guard = match self.container_startup_timestamps.write() {
+            Ok(lock_guard) => lock_guard,
+
+            // We only need the mutex to not require a &mut self in this function.
+            // Data cannot be in-consistent even if a thread panics while holding the lock
+            Err(e) => e.into_inner(),
+        };
+        let start_timestamp = Instant::now();
+
+        trace!(
+            "Registering starting of container {} at {:?}",
+            id,
+            start_timestamp
+        );
+
+        lock_guard.insert(id, start_timestamp);
+    }
+
+    fn time_since_container_was_started(&self, id: &str) -> Option<Duration> {
+        let lock_guard = match self.container_startup_timestamps.read() {
+            Ok(lock_guard) => lock_guard,
+
+            // We only need the mutex to not require a &mut self in this function.
+            // Data cannot be in-consistent even if a thread panics while holding the lock
+            Err(e) => e.into_inner(),
+        };
+
+        let result = lock_guard.get(id).map(|i| Instant::now() - *i);
+
+        trace!("Time since container {} was started: {:?}", id, result);
+
+        result
+    }
+
+    fn wait_at_least_one_second_after_container_was_started(&self, id: &str) {
+        if let Some(duration) = self.time_since_container_was_started(id) {
+            if duration < ONE_SECOND {
+                sleep(ONE_SECOND.checked_sub(duration).unwrap_or_else(|| ZERO))
+            }
+        }
+    }
+}
 
 impl Docker for Cli {
     fn run<I: Image>(&self, image: I) -> Container<Cli, I> {
@@ -35,13 +94,13 @@ impl Docker for Cli {
 
         let container_id = reader.lines().next().unwrap().unwrap();
 
+        self.register_container_started(container_id.clone());
+
         Container::new(container_id, self, image)
     }
 
     fn logs(&self, id: &str) -> Logs {
-        // Hack to fix unstable CI builds. Sometimes the logs are not immediately available after starting the container.
-        // Let's sleep for a little bit of time to let the container start up before we actually process the logs.
-        sleep(Duration::from_millis(100));
+        self.wait_at_least_one_second_after_container_was_started(id);
 
         let child = Command::new("docker")
             .arg("logs")
