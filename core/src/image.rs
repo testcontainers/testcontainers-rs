@@ -36,7 +36,7 @@ where
 
     /// Blocks the current thread until the started container is ready.
     ///
-    /// This method is the **bread and butter** of the whole testcontainers library. Containers are
+    /// This method is the **🍞 and butter** of the whole testcontainers library. Containers are
     /// rarely instantly available as soon as they are started. Most of them take some time to boot
     /// up.
     ///
