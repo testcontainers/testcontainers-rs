@@ -1,12 +1,7 @@
 [package]
 name = "tc_cli_client"
 version = "0.1.1"
-authors = [
-    "Thomas Eizinger <thomas@coblox.tech>",
-    "Philipp Hoenisch <philipp@coblox.tech>",
-    "Franck Royer <franck@coblox.tech>",
-    "Lloyd Fournier <lloyd@coblox.tech>",
-]
+authors = [ "CoBloX developers <team@coblox.tech>" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/coblox/testcontainers-rs"
 categories = ["development-tools::testing"]
