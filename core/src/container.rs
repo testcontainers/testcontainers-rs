@@ -98,7 +98,7 @@ where
     /// Returns a reference to the [`Image`] of this container.
     ///
     /// Access to this is useful if the [`arguments`] of the [`Image`] change how to connect to the
-    /// container (for example, because of authentication information).
+    /// Access to this is useful to retrieve [`Image`] specific information such as authentication details or other relevant information which have been passed as [`arguments`]
     ///
     /// [`Image`]: trait.Image.html
     /// [`arguments`]: trait.Image.html#associatedtype.Args
