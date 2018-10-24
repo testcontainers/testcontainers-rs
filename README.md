@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/testcontainers/testcontainers-rs.svg?branch=master)](https://travis-ci.org/testcontainers/testcontainers-rs)
 [![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
+[![Docs.rs](https://docs.rs/testcontainers/badge.svg)](https://docs.rs/testcontainers)
 
 Testcontainers-rs is the official Rust language fork of [http://testcontainers.org](http://testcontainers.org).
 
