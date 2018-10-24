@@ -12,6 +12,6 @@ keywords = ["docker", "testcontainers", "bitcoin"]
 tc_core = { path = "../../core", version = "0.2" }
 log = "0.4"
 hmac = "0.6"
-sha2 = "0.7"
+sha2 = "0.8"
 hex = "0.3"
 rand = "0.5"
