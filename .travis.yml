@@ -28,7 +28,7 @@ before_cache: |
   fi
 script:
 - cargo fmt -- --check
-- RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all
+- RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all --all-targets
 - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo test --all
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
