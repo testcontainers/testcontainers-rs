@@ -20,7 +20,7 @@ tc_trufflesuite_ganachecli = { path = "../images/trufflesuite_ganachecli", versi
 tc_parity_parity = { path = "../images/parity_parity", version = "0.2" }
 
 [dev-dependencies]
-bitcoin_rpc_client = "0.2"
+bitcoin_rpc_client = "0.4"
 spectral = "0.6"
 web3 = "0.4"
 pretty_env_logger = "0.2"
