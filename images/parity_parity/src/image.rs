@@ -18,7 +18,8 @@ impl IntoIterator for ParityEthereumArgs {
             "--jsonrpc-apis=all".to_string(),
             "--unsafe-expose".to_string(),
             "--tracing=on".to_string(),
-        ].into_iter()
+        ]
+        .into_iter()
     }
 }
 
