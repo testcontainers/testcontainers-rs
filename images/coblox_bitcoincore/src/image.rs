@@ -187,7 +187,7 @@ impl Image for BitcoinCore {
 impl Default for BitcoinCore {
     fn default() -> Self {
         BitcoinCore {
-            tag: "0.16.1-r2".into(),
+            tag: "0.17.0".into(),
             arguments: BitcoinCoreImageArgs::default(),
         }
     }
