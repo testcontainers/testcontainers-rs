@@ -22,6 +22,7 @@ tc_dynamodb_local = { path = "../images/dynamodb_local", version = "0.1" }
 tc_redis = { path = "../images/redis", version = "0.1" }
 tc_elasticmq = { path = "../images/elasticmq", version = "0.1" }
 tc_generic = { path = "../images/generic", version = "0.1" }
+tc_postgres = { path = "../images/postgres", version = "0.1" }
 
 [dev-dependencies]
 bitcoin_rpc_client = "0.5"

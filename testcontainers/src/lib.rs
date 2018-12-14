@@ -43,6 +43,7 @@ extern crate tc_dynamodb_local;
 extern crate tc_elasticmq;
 extern crate tc_generic;
 extern crate tc_parity_parity;
+extern crate tc_postgres;
 extern crate tc_redis;
 extern crate tc_trufflesuite_ganachecli;
 
@@ -63,6 +64,10 @@ pub mod images {
 
     pub mod trufflesuite_ganachecli {
         pub use tc_trufflesuite_ganachecli::{GanacheCli, GanacheCliArgs};
+    }
+
+    pub mod postgres {
+        pub use tc_postgres::{Postgres, PostgresArgs};
     }
 
     pub mod dynamodb_local {

@@ -201,3 +201,23 @@ fn build_sqs_client(host_port: u32) -> SqsClient {
 
     SqsClient::new_with(dispatcher, credentials_provider, region)
 }
+
+#[test]
+fn postgres_one_plus_one() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::postgres::Postgres::default());
+
+    let conn = Connection::connect(
+        format!(
+            "postgres://postgres@localhost:{}",
+            node.get_host_port(5432).unwrap()
+        ),
+        TlsMode::None,
+    )
+        .unwrap();
+    let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+}
