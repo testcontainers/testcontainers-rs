@@ -1,11 +1,10 @@
 use std::{env::var, thread::sleep, time::Duration};
-use tc_core::{Image, Container, Docker, WaitForMessage};
+use tc_core::{Container, Docker, Image, WaitForMessage};
 
 const ADDITIONAL_SLEEP_PERIOD: &'static str = "DYNAMODB_ADDITIONAL_SLEEP_PERIOD";
-const DEFAULT_WAIT: u64 = 2000;
 const CONTAINER_IDENTIFIER: &'static str = "amazon/dynamodb-local";
+const DEFAULT_WAIT: u64 = 2000;
 const DEFAULT_TAG: &'static str = "latest";
-
 
 #[derive(Debug, Default, Clone)]
 pub struct DynamoDbArgs;
@@ -22,14 +21,14 @@ impl IntoIterator for DynamoDbArgs {
 #[derive(Debug)]
 pub struct DynamoDb {
     tag: String,
-    arguments: DynamoDbArgs
+    arguments: DynamoDbArgs,
 }
 
 impl Default for DynamoDb {
     fn default() -> Self {
         DynamoDb {
             tag: DEFAULT_TAG.to_string(),
-            arguments: DynamoDbArgs {}
+            arguments: DynamoDbArgs {},
         }
     }
 }
@@ -68,18 +67,15 @@ impl Image for DynamoDb {
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        DynamoDb {
-            arguments, ..self
-        }
+        DynamoDb { arguments, ..self }
     }
-
 }
 
 impl DynamoDb {
-    pub fn with_tag_args(self, tag_str: &str, arguments: <Self as Image>::Args) -> Self {
-        DynamoDb{tag: tag_str.to_string(), arguments, ..self}
+    pub fn with_tag(self, tag_str: &str) -> Self {
+        DynamoDb {
+            tag: tag_str.to_string(),
+            ..self
+        }
     }
 }
-
-
-

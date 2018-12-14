@@ -1,30 +1,25 @@
 extern crate bitcoin_rpc_client;
 extern crate pretty_env_logger;
+extern crate rusoto_core;
+extern crate rusoto_credential;
+extern crate rusoto_dynamodb;
 extern crate spectral;
 extern crate testcontainers;
 extern crate web3;
-extern crate rusoto_core;
-extern crate rusoto_dynamodb;
-extern crate rusoto_credential;
-
-use spectral::prelude::*;
-use testcontainers::*;
 
 use bitcoin_rpc_client::BitcoinRpcApi;
+use rusoto_core::HttpClient;
+use rusoto_core::Region;
+use rusoto_credential::StaticProvider;
+use rusoto_dynamodb::{
+    AttributeDefinition, CreateTableInput, DynamoDb, DynamoDbClient, KeySchemaElement,
+    ProvisionedThroughput,
+};
+use spectral::prelude::*;
+use testcontainers::*;
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::Web3;
-use rusoto_core::Region;
-use rusoto_dynamodb::{
-    DynamoDb,
-    DynamoDbClient,
-    CreateTableInput,
-    KeySchemaElement,
-    AttributeDefinition,
-    ProvisionedThroughput
-};
-use rusoto_credential::StaticProvider;
-use rusoto_core::HttpClient;
 
 #[test]
 fn coblox_bitcoincore_getnewaddress() {
@@ -115,25 +110,20 @@ fn dynamodb_local_create_table() {
     provisioned_throughput.write_capacity_units = 5;
     create_tables_input.provisioned_throughput = provisioned_throughput;
 
-
     let dynamodb = build_dynamodb_client(host_port);
     let result = dynamodb.create_table(create_tables_input).sync();
     assert_that(&result).is_ok();
 }
 
 fn build_dynamodb_client(host_port: u32) -> DynamoDbClient {
-    let credentials_provider = StaticProvider::new(
-        "fakeKey".to_string(),
-        "fakeSecret".to_string(),
-        None,
-        None);
+    let credentials_provider =
+        StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
 
-    let dispatcher = HttpClient::new()
-        .expect("could not create http client");
+    let dispatcher = HttpClient::new().expect("could not create http client");
 
     let region = Region::Custom {
         name: "dynamodb-local".to_string(),
-        endpoint: format!("http://localhost:{}", host_port)
+        endpoint: format!("http://localhost:{}", host_port),
     };
 
     DynamoDbClient::new_with(dispatcher, credentials_provider, region)
