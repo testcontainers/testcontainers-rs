@@ -39,6 +39,7 @@ extern crate tc_cli_client;
 extern crate tc_core;
 
 extern crate tc_coblox_bitcoincore;
+extern crate tc_dynamodb_local;
 extern crate tc_parity_parity;
 extern crate tc_trufflesuite_ganachecli;
 
@@ -60,6 +61,11 @@ pub mod images {
     pub mod trufflesuite_ganachecli {
         pub use tc_trufflesuite_ganachecli::{GanacheCli, GanacheCliArgs};
     }
+
+    pub mod dynamodb_local {
+        pub use tc_dynamodb_local::{DynamoDb, DynamoDbArgs};
+    }
+
 }
 
 pub use tc_core::*;
