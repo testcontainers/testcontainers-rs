@@ -41,6 +41,7 @@ extern crate tc_core;
 extern crate tc_coblox_bitcoincore;
 extern crate tc_dynamodb_local;
 extern crate tc_parity_parity;
+extern crate tc_redis;
 extern crate tc_trufflesuite_ganachecli;
 
 /// All available Docker clients.
@@ -64,6 +65,10 @@ pub mod images {
 
     pub mod dynamodb_local {
         pub use tc_dynamodb_local::{DynamoDb, DynamoDbArgs};
+    }
+
+    pub mod redis {
+        pub use tc_redis::{Redis, RedisArgs};
     }
 
 }
