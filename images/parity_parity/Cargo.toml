@@ -4,7 +4,7 @@ version = "0.2.1"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 description = "Testcontainers image for the parity/parity docker image."
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/coblox/testcontainers-rs"
+repository = "https://github.com/testcontainers/testcontainers-rs"
 categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "parity", "ethereum"]
 
