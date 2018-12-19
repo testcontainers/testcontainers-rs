@@ -1,5 +1,6 @@
 extern crate bitcoin_rpc_client;
 extern crate pretty_env_logger;
+extern crate redis;
 extern crate rusoto_core;
 extern crate rusoto_credential;
 extern crate rusoto_dynamodb;
@@ -8,6 +9,7 @@ extern crate testcontainers;
 extern crate web3;
 
 use bitcoin_rpc_client::BitcoinRpcApi;
+use redis::Commands;
 use rusoto_core::HttpClient;
 use rusoto_core::Region;
 use rusoto_credential::StaticProvider;
@@ -127,4 +129,20 @@ fn build_dynamodb_client(host_port: u32) -> DynamoDbClient {
     };
 
     DynamoDbClient::new_with(dispatcher, credentials_provider, region)
+}
+
+#[test]
+fn redis_fetch_an_integer() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::redis::Redis::default());
+    let host_port = node.get_host_port(6379).unwrap();
+    let url = format!("redis://localhost:{}", host_port);
+
+    let client = redis::Client::open(url.as_ref()).unwrap();
+    let con = client.get_connection().unwrap();
+
+    let _: () = con.set("my_key", 42).unwrap();
+    let result: i64 = con.get("my_key").unwrap();
+    assert_eq!(42, result);
 }

@@ -19,6 +19,7 @@ tc_coblox_bitcoincore = { path = "../images/coblox_bitcoincore", version = "0.3"
 tc_trufflesuite_ganachecli = { path = "../images/trufflesuite_ganachecli", version = "0.3" }
 tc_parity_parity = { path = "../images/parity_parity", version = "0.2" }
 tc_dynamodb_local = { path = "../images/dynamodb_local", version = "0.1" }
+tc_redis = { path = "../images/redis", version = "0.1" }
 
 [dev-dependencies]
 bitcoin_rpc_client = "0.4"
@@ -30,3 +31,6 @@ pretty_env_logger = "0.3"
 rusoto_core = "0.35"
 rusoto_dynamodb = "0.35"
 rusoto_credential = "0.14"
+
+# Redis client
+redis = "0.9"
