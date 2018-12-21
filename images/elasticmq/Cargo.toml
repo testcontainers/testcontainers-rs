@@ -1,0 +1,12 @@
+[package]
+name = "tc_elasticmq"
+version = "0.1.0"
+authors = [ "Jack Wright <ayax79@gmail.com>" ]
+description = "Testcontainers image for ElasticMQ"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/coblox/testcontainers-rs"
+categories = ["development-tools::testing"]
+keywords = ["docker", "testcontainers", "elasticmq", "sqs"]
+
+[dependencies]
+tc_core = { path = "../../core", version = "0.2" }

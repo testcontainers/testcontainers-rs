@@ -6,5 +6,7 @@ members = [
     "images/trufflesuite_ganachecli",
     "images/coblox_bitcoincore",
     "images/parity_parity",
-    "images/dynamodb_local"
+    "images/dynamodb_local",
+    "images/redis",
+    "images/elasticmq",
 ]

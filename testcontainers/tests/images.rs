@@ -4,6 +4,7 @@ extern crate redis;
 extern crate rusoto_core;
 extern crate rusoto_credential;
 extern crate rusoto_dynamodb;
+extern crate rusoto_sqs;
 extern crate spectral;
 extern crate testcontainers;
 extern crate web3;
@@ -17,6 +18,7 @@ use rusoto_dynamodb::{
     AttributeDefinition, CreateTableInput, DynamoDb, DynamoDbClient, KeySchemaElement,
     ProvisionedThroughput,
 };
+use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
 use testcontainers::*;
 use web3::futures::Future;
@@ -145,4 +147,20 @@ fn redis_fetch_an_integer() {
     let _: () = con.set("my_key", 42).unwrap();
     let result: i64 = con.get("my_key").unwrap();
     assert_eq!(42, result);
+}
+
+#[test]
+fn sqs_list_queues() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::elasticmq::ElasticMQ::default());
+    let host_port = node.get_host_port(9324).unwrap();
+    let region = Region::Custom {
+        name: "sqs-local".to_string(),
+        endpoint: format!("http://localhost:{}", host_port),
+    };
+    let request = ListQueuesRequest::default();
+    let client = SqsClient::new(region);
+    let result = client.list_queues(request).sync().unwrap();
+    assert!(result.queue_urls.is_none()); // there shouldn't be any queues
 }
