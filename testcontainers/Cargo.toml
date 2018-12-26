@@ -30,7 +30,7 @@ pretty_env_logger = "0.3"
 # Dynamodb client needed for dynamodb local
 rusoto_core = "0.35"
 rusoto_dynamodb = "0.35"
-rusoto_credential = "0.14"
+rusoto_credential = "0.15"
 
 # Redis client
 redis = "0.9"
