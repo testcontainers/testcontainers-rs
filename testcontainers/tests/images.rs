@@ -151,16 +151,24 @@ fn redis_fetch_an_integer() {
 
 #[test]
 fn sqs_list_queues() {
-    let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::elasticmq::ElasticMQ::default());
     let host_port = node.get_host_port(9324).unwrap();
+    let client = build_sqs_client(host_port);
+
+    let request = ListQueuesRequest::default();
+    let result = client.list_queues(request).sync().unwrap();
+    assert!(result.queue_urls.is_none()); // there shouldn't be any queues
+}
+
+fn build_sqs_client(host_port: u32) -> SqsClient {
+    let dispatcher = HttpClient::new().expect("could not create http client");
+    let credentials_provider =
+        StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
     let region = Region::Custom {
         name: "sqs-local".to_string(),
         endpoint: format!("http://localhost:{}", host_port),
     };
-    let request = ListQueuesRequest::default();
-    let client = SqsClient::new(region);
-    let result = client.list_queues(request).sync().unwrap();
-    assert!(result.queue_urls.is_none()); // there shouldn't be any queues
+
+    SqsClient::new_with(dispatcher, credentials_provider, region)
 }
