@@ -158,7 +158,7 @@ fn sqs_list_queues() {
 
     let request = ListQueuesRequest::default();
     let result = client.list_queues(request).sync().unwrap();
-    assert!(result.queue_urls.is_none()); // there shouldn't be any queues
+    assert!(result.queue_urls.is_none());
 }
 
 fn build_sqs_client(host_port: u32) -> SqsClient {
