@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = [ "Jack Wright <ayax79@gmail.com>" ]
 description = "Testcontainers image for local dynamodb"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/coblox/testcontainers-rs"
+repository = "https://github.com/testcontainers/testcontainers-rs"
 categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "dynamodb"]
 
