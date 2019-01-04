@@ -1,10 +1,12 @@
 [workspace]
 members = [
-    "testcontainers",
-    "core",
     "cli_client",
-    "images/trufflesuite_ganachecli",
+    "core",
     "images/coblox_bitcoincore",
+    "images/dynamodb_local",
+    "images/elasticmq",
     "images/parity_parity",
-    "images/dynamodb_local"
+    "images/redis",
+    "images/trufflesuite_ganachecli",
+    "testcontainers",
 ]
