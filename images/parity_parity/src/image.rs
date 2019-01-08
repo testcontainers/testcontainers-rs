@@ -1,8 +1,12 @@
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
+const CONTAINER_IDENTIFIER: &'static str = "parity/parity";
+const DEFAULT_TAG: &'static str = "v2.1.3";
+
 #[derive(Debug)]
 pub struct ParityEthereum {
     arguments: ParityEthereumArgs,
+    tag: String,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -27,6 +31,7 @@ impl Default for ParityEthereum {
     fn default() -> Self {
         ParityEthereum {
             arguments: ParityEthereumArgs {},
+            tag: DEFAULT_TAG.to_string(),
         }
     }
 }
@@ -35,7 +40,7 @@ impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
 
     fn descriptor(&self) -> String {
-        "parity/parity:v1.11.11".to_string()
+        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
     fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {
@@ -51,6 +56,15 @@ impl Image for ParityEthereum {
     }
 
     fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments }
+        Self { arguments, ..self }
+    }
+}
+
+impl ParityEthereum {
+    pub fn with_tag(self, tag_str: &str) -> Self {
+        ParityEthereum {
+            tag: tag_str.to_string(),
+            ..self
+        }
     }
 }
