@@ -193,6 +193,15 @@ impl Default for BitcoinCore {
     }
 }
 
+impl BitcoinCore {
+    pub fn with_tag(self, tag_str: &str) -> Self {
+        BitcoinCore {
+            tag: tag_str.to_string(),
+            ..self
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
