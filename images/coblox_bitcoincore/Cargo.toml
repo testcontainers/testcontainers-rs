@@ -1,6 +1,6 @@
 [package]
 name = "tc_coblox_bitcoincore"
-version = "0.3.3"
+version = "0.4.0"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 description = "Testcontainers image for the coblox/bitcoin-core docker image."
 license = "MIT OR Apache-2.0"
