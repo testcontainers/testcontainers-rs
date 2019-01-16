@@ -35,6 +35,14 @@ Licensed under either of
 
 at your option.
 
+## Developing
+
+While developing, please make sure that your code is formatted using `cargo-fmt`.
+You can easily do that by using the pre-defined `git` hooks:
+```bash
+git config core.hookspath .githooks
+```
+
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
