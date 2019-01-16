@@ -29,7 +29,7 @@ Last but not least:
 
 To not make it too inconvenient, the meta crate `testcontainers` cannot strictly follow semver.
 Thus you are encouraged to at least depend on the minor version of the library, i.e. `X.Y`. 
-If you are interested in the versioning approach, chosen by this crate, checkout the [release guide](./RELEASING.md).
+If you are interested in this crate versioning approach, checkout the [release guide](./RELEASING.md).
 
 ## License
 

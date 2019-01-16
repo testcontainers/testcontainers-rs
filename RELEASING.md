@@ -11,7 +11,7 @@ Very likely, all downstream crates like concrete images and clients will require
 
 ## Images
 
-Versioning the image crates can be quite tricky and the consequences are not super obvious. 
+Versioning the image crates can be quite tricky and the consequences are not obvious. 
 When releasing a new version of an image crate, two aspects should be considered when choosing the next version:
 
 - Compatibility of the Rust API
@@ -21,7 +21,7 @@ In regards to the Rust API of an Image (the `XYArgs` struct or the `XY` Image st
 For example, removing or renaming a previously public field is a breaking change.
 
 Changes to the used Docker image a bit trickier. 
-It very much depends on the what changed in the underlying Docker image. 
+It very much depends on what changed in the underlying Docker image. 
 If there are backwards-incompatible changes in the network API (whatever the service inside the container speaks over the exposed ports), you should appropriately reflect this in the versioning. 
 
 Let's take the `coblox/bitcoincore` image as an example.
@@ -36,17 +36,17 @@ Its main purpose is convenience by re-exporting a **valid** and **working** set 
 
 To achieve this, the version of `tc_core` needs to be compatible among all the dependencies (i.e. the image and client crates). 
 
-The meta-crate doesn't have any code on it's own, so what does the version number actually represent?
-It represents, which images you can use, i.e. a set of features.
+The meta-crate doesn't have any code on its own, so you may wonder what does the version number actually represent.
+It represents which images you can use, i.e. a set of features.
 Because it is a meta-crate, reflecting all major version upgrades as a major version upgrade would result in an explosion of versions.
 
 For this reason, breaking changes in downstream system **will not** be propagated as such to users of the meta crate.
-What is meant by that?
-This means, a version upgrade vom `tc_coblox_bitcoincore` from `1.0` to `2.0` **does not** result in a major version upgrade of the `testcontainers` meta crate.
+This means a version upgrade of `tc_coblox_bitcoincore` from `1.0` to `2.0` **does not** result in a major version upgrade of the `testcontainers` meta crate.
 Instead, `testcontainers` will only have its minor version bumped.
 Because of that, users of `testcontainers` are encouraged to at least specify the minor version when depending on `testcontainers`.
 
 ## What about the problems this causes?
 
-Are are some potential problems with this approach. Remember, the meta-crate only exists as a **convenience** for the majority of users.
+There are some potential problems with this approach.
+Remember, the meta-crate only exists as a **convenience** for the majority of users.
 If it doesn't work for you, you can always depend on the individual crates themselves and pick exactly the versions you want.
