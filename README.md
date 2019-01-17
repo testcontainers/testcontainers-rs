@@ -20,7 +20,8 @@ The repository is structured into the several crates.
 - `core`: Contains the core traits and structs necessary for the testcontainers ecosystem.
 - `cli_client`: Contains an implementation of the `Docker` trait that uses the `docker`-CLI to issue commands.
 - The folder `images` contains several crates named after the respective docker image. 
-Each crate adds support for one particular image. This allows to selectively import the images you need.
+Each crate adds support for one particular image.
+This allows to selectively import the images you need.
 
 Last but not least:
 `testcontainers`: This is a meta crate that bundles all these crates together for convenient usage.
