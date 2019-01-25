@@ -1,7 +1,7 @@
 [package]
 name = "tc_postgres"
 version = "0.1.0"
-authors = [ "CoBloX developers <team@coblox.tech>" ]
+authors = [ "Thomas Eizinger <thomas@eizinger.io>" ]
 description = "Testcontainers image for the postgres docker image."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/testcontainers/testcontainers-rs"
