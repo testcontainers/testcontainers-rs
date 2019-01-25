@@ -215,7 +215,7 @@ fn postgres_one_plus_one() {
         ),
         TlsMode::None,
     )
-        .unwrap();
+    .unwrap();
     let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
 
     assert_eq!(rows.len(), 1);
