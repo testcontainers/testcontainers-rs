@@ -1,4 +1,5 @@
 extern crate bitcoin_rpc_client;
+extern crate postgres;
 extern crate pretty_env_logger;
 extern crate redis;
 extern crate rusoto_core;
@@ -10,6 +11,7 @@ extern crate testcontainers;
 extern crate web3;
 
 use bitcoin_rpc_client::BitcoinRpcApi;
+use postgres::{Connection, TlsMode};
 use redis::Commands;
 use rusoto_core::HttpClient;
 use rusoto_core::Region;
@@ -159,6 +161,32 @@ fn sqs_list_queues() {
     let request = ListQueuesRequest::default();
     let result = client.list_queues(request).sync().unwrap();
     assert!(result.queue_urls.is_none());
+}
+
+#[test]
+fn generic_image() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+
+    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine")
+        .with_wait_for(images::generic::WaitFor::LogMessage(
+            "database system is ready to accept connections".to_owned(),
+        ));
+
+    let node = docker.run(generic_postgres);
+
+    let conn = Connection::connect(
+        format!(
+            "postgres://postgres@localhost:{}",
+            node.get_host_port(5432).unwrap()
+        ),
+        TlsMode::None,
+    )
+    .unwrap();
+    let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
 }
 
 fn build_sqs_client(host_port: u32) -> SqsClient {
