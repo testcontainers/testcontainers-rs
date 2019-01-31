@@ -1,4 +1,4 @@
-# Postgres
+# Generic Image
 
 This crate provides a generic `Image` for `testcontainers`.
 
