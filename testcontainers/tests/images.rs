@@ -168,10 +168,11 @@ fn generic_image() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
 
-    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine")
-        .with_wait_for(images::generic::WaitFor::LogMessage(
+    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine").with_wait_for(
+        images::generic::WaitFor::LogMessage(
             "database system is ready to accept connections".to_owned(),
-        ));
+        ),
+    );
 
     let node = docker.run(generic_postgres);
 
