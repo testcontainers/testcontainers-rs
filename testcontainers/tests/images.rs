@@ -169,8 +169,8 @@ fn generic_image() {
     let docker = clients::Cli::default();
 
     let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine").with_wait_for(
-        images::generic::WaitFor::LogMessage(
-            "database system is ready to accept connections".to_owned(),
+        images::generic::WaitFor::message_on_stderr(
+            "database system is ready to accept connections",
         ),
     );
 
