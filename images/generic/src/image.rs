@@ -3,7 +3,7 @@ use tc_core::{Container, Docker, Image, WaitError, WaitForMessage};
 #[derive(Debug, PartialEq, Clone)]
 pub enum WaitFor {
     Nothing,
-    LogMessage{message: String, stream: Stream},
+    LogMessage { message: String, stream: Stream },
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -13,29 +13,26 @@ pub enum Stream {
 }
 
 impl WaitFor {
-
     pub fn message_on_stdout<S: Into<String>>(message: S) -> WaitFor {
         WaitFor::LogMessage {
             message: message.into(),
-            stream: Stream::StdOut
+            stream: Stream::StdOut,
         }
     }
 
     pub fn message_on_stderr<S: Into<String>>(message: S) -> WaitFor {
         WaitFor::LogMessage {
             message: message.into(),
-            stream: Stream::StdErr
+            stream: Stream::StdErr,
         }
     }
 
     fn wait<D: Docker, I: Image>(&self, container: &Container<D, I>) -> Result<(), WaitError> {
         match self {
             WaitFor::Nothing => Ok(()),
-            WaitFor::LogMessage{message, stream} => {
-                match stream {
-                    Stream::StdOut => container.logs().stdout.wait_for_message(message),
-                    Stream::StdErr => container.logs().stderr.wait_for_message(message),
-                }
+            WaitFor::LogMessage { message, stream } => match stream {
+                Stream::StdOut => container.logs().stdout.wait_for_message(message),
+                Stream::StdErr => container.logs().stderr.wait_for_message(message),
             },
         }
     }
