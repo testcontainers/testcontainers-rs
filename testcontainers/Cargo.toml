@@ -26,7 +26,7 @@ tc_generic = { path = "../images/generic", version = "0.1" }
 [dev-dependencies]
 bitcoin_rpc_client = "0.5"
 spectral = "0.6"
-web3 = "0.4"
+web3 = "0.5"
 pretty_env_logger = "0.3"
 postgres = "0.15"
 
