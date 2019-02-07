@@ -24,7 +24,7 @@ tc_elasticmq = { path = "../images/elasticmq", version = "0.1" }
 tc_generic = { path = "../images/generic", version = "0.1" }
 
 [dev-dependencies]
-bitcoin_rpc_client = "0.4"
+bitcoin_rpc_client = "0.5"
 spectral = "0.6"
 web3 = "0.4"
 pretty_env_logger = "0.3"
