@@ -13,5 +13,5 @@ tc_core = { path = "../../core", version = "0.2" }
 log = "0.4"
 
 [dev-dependencies]
-web3 = "0.4"
+web3 = "0.5"
 
