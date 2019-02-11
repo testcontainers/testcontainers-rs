@@ -2,6 +2,7 @@ use hex::encode;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
+use std::collections::HashMap;
 use std::{env::var, thread::sleep, time::Duration};
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
@@ -147,6 +148,7 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
 impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)
@@ -177,6 +179,10 @@ impl Image for BitcoinCore {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

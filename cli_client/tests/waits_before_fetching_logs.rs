@@ -4,6 +4,7 @@ extern crate tc_cli_client;
 extern crate tc_core;
 
 use spectral::prelude::*;
+use std::collections::HashMap;
 use std::time::Duration;
 use std::time::Instant;
 use tc_cli_client::Cli;
@@ -17,6 +18,7 @@ struct HelloWorld;
 
 impl Image for HelloWorld {
     type Args = Vec<String>;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         String::from("hello-world")
@@ -32,6 +34,10 @@ impl Image for HelloWorld {
 
     fn args(&self) -> <Self as Image>::Args {
         vec![]
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
     }
 
     fn with_args(self, _arguments: <Self as Image>::Args) -> Self {

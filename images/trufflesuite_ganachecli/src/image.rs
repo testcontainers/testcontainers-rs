@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
 #[derive(Debug)]
@@ -55,6 +56,7 @@ impl IntoIterator for GanacheCliArgs {
 
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("trufflesuite/ganache-cli:{}", self.tag)
@@ -70,6 +72,10 @@ impl Image for GanacheCli {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

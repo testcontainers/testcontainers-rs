@@ -71,19 +71,28 @@ impl Cli {
             }
         }
     }
+
+    fn build_run_command<'a, I: Image>(image: &I, command: &'a mut Command) -> &'a mut Command {
+        command.arg("run");
+
+        for (key, value) in image.env_vars() {
+            command.arg("-e").arg(format!("{}={}", key, value));
+        }
+
+        command
+            .arg("-d") // Always run detached
+            .arg("-P") // Always expose all ports
+            .arg(image.descriptor())
+            .args(image.args())
+            .stdout(Stdio::piped())
+    }
 }
 
 impl Docker for Cli {
     fn run<I: Image>(&self, image: I) -> Container<Cli, I> {
         let mut docker = Command::new("docker");
 
-        let command = docker
-            .arg("run")
-            .arg("-d") // Always run detached
-            .arg("-P") // Always expose all ports
-            .arg(&image.descriptor())
-            .args(image.args())
-            .stdout(Stdio::piped());
+        let command = Cli::build_run_command(&image, &mut docker);
 
         debug!("Executing command: {:?}", command);
 
@@ -234,6 +243,51 @@ mod tests {
             .add_mapping(8333, 33077);
 
         assert_eq!(parsed_ports, expected_ports)
+    }
+
+    #[derive(Default)]
+    struct HelloWorld {
+        env_vars: HashMap<String, String>,
+    }
+
+    impl Image for HelloWorld {
+        type Args = Vec<String>;
+        type EnvVars = HashMap<String, String>;
+
+        fn descriptor(&self) -> String {
+            String::from("hello-world")
+        }
+
+        fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {}
+
+        fn args(&self) -> <Self as Image>::Args {
+            vec![]
+        }
+
+        fn env_vars(&self) -> Self::EnvVars {
+            self.env_vars.clone()
+        }
+
+        fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
+            self
+        }
+    }
+
+    #[test]
+    fn cli_run_command_should_include_env_vars() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("one-key".to_owned(), "one-value".to_owned());
+        env_vars.insert("two-key".to_owned(), "two-value".to_owned());
+
+        let image = HelloWorld { env_vars };
+
+        let mut docker = Command::new("docker");
+        let command = Cli::build_run_command(&image, &mut docker);
+
+        println!("Executing command: {:?}", command);
+
+        assert!(format!("{:?}", command).contains(r#""-e" "one-key=one-value""#));
+        assert!(format!("{:?}", command).contains(r#""-e" "two-key=two-value""#));
     }
 
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tc_core::{Container, Docker, Image, WaitError, WaitForMessage};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -42,6 +43,7 @@ impl WaitFor {
 pub struct GenericImage {
     descriptor: String,
     arguments: Vec<String>,
+    env_vars: HashMap<String, String>,
     wait_for: WaitFor,
 }
 
@@ -50,6 +52,7 @@ impl Default for GenericImage {
         Self {
             descriptor: "".to_owned(),
             arguments: vec![],
+            env_vars: HashMap::new(),
             wait_for: WaitFor::Nothing,
         }
     }
@@ -60,8 +63,14 @@ impl GenericImage {
         Self {
             descriptor: descriptor.into(),
             arguments: vec![],
+            env_vars: HashMap::new(),
             wait_for: WaitFor::Nothing,
         }
+    }
+
+    pub fn with_env_var<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
+        self.env_vars.insert(key.into(), value.into());
+        self
     }
 
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
@@ -72,6 +81,7 @@ impl GenericImage {
 
 impl Image for GenericImage {
     type Args = Vec<String>;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
@@ -85,7 +95,30 @@ impl Image for GenericImage {
         self.arguments.clone()
     }
 
+    fn env_vars(&self) -> Self::EnvVars {
+        self.env_vars.clone()
+    }
+
     fn with_args(self, arguments: Self::Args) -> Self {
         Self { arguments, ..self }
     }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn should_return_env_vars() {
+        let image = GenericImage::new("hello")
+            .with_env_var("one-key", "one-value")
+            .with_env_var("two-key", "two-value");
+
+        let env_vars = image.env_vars();
+        assert_eq!(2, env_vars.len());
+        assert_eq!("one-value", env_vars.get("one-key").unwrap());
+        assert_eq!("two-value", env_vars.get("two-key").unwrap());
+    }
+
 }

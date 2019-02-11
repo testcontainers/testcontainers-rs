@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &'static str = "softwaremill/elasticmq";
@@ -32,6 +33,7 @@ impl Default for ElasticMQ {
 
 impl Image for ElasticMQ {
     type Args = ElasticMQArgs;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -47,6 +49,10 @@ impl Image for ElasticMQ {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

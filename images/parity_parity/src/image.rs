@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &'static str = "parity/parity";
@@ -38,6 +39,7 @@ impl Default for ParityEthereum {
 
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -53,6 +55,10 @@ impl Image for ParityEthereum {
 
     fn args(&self) -> Self::Args {
         self.arguments.clone()
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
     }
 
     fn with_args(self, arguments: Self::Args) -> Self {
