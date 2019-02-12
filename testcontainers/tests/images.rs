@@ -168,18 +168,27 @@ fn generic_image() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
 
-    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine").with_wait_for(
-        images::generic::WaitFor::message_on_stderr(
+    let db = "postgres-db-test";
+    let user = "postgres-user-test";
+    let password = "postgres-password-test";
+
+    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine")
+        .with_wait_for(images::generic::WaitFor::message_on_stderr(
             "database system is ready to accept connections",
-        ),
-    );
+        ))
+        .with_env_var("POSTGRES_DB", db)
+        .with_env_var("POSTGRES_USER", user)
+        .with_env_var("POSTGRES_PASSWORD", password);
 
     let node = docker.run(generic_postgres);
 
     let conn = Connection::connect(
         format!(
-            "postgres://postgres@localhost:{}",
-            node.get_host_port(5432).unwrap()
+            "postgres://{}:{}@localhost:{}/{}",
+            user,
+            password,
+            node.get_host_port(5432).unwrap(),
+            db
         ),
         TlsMode::None,
     )

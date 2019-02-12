@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{env::var, thread::sleep, time::Duration};
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
@@ -35,6 +36,7 @@ impl Default for DynamoDb {
 
 impl Image for DynamoDb {
     type Args = DynamoDbArgs;
+    type EnvVars = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -64,6 +66,10 @@ impl Image for DynamoDb {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
