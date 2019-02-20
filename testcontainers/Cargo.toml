@@ -37,7 +37,7 @@ rusoto_dynamodb = "0.36"
 rusoto_credential = "0.15"
 
 # Redis client
-redis = "0.9"
+redis = "0.10"
 
 # ElasticMQ (also requires rusoto_core, rusoto_credential)
 rusoto_sqs = "0.36"
