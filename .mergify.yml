@@ -1,0 +1,14 @@
+pull_request_rules:
+  - name: merge on CI success and one approval
+    conditions:
+      - "status-success=Travis CI - Pull Request"
+      - "#approved-reviews-by>=1"
+      - label!=work-in-progress
+      - label!=blocked
+      - label=automagically-mergify-this
+    actions:
+      merge:
+        method: merge
+        strict: smart
+        strict_method: rebase
+      delete_head_branch:
