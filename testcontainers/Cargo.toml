@@ -1,6 +1,6 @@
 [package]
 name = "testcontainers"
-version = "0.5.0"
+version = "0.5.1"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/testcontainers/testcontainers-rs"
@@ -9,20 +9,20 @@ keywords = ["docker", "testcontainers"]
 description = "Meta crate for testcontainers, a library for integration-testing against docker containers from within Rust."
 
 [dependencies]
-tc_core = { path = "../core", version = "0.2" }
+tc_core = { path = "../core", version = "0.3" }
 
 # Clients
-tc_cli_client = { path = "../cli_client", version = "0.1" }
+tc_cli_client = { path = "../cli_client", version = "0.2" }
 
 # Images
-tc_coblox_bitcoincore = { path = "../images/coblox_bitcoincore", version = "0.4" }
-tc_trufflesuite_ganachecli = { path = "../images/trufflesuite_ganachecli", version = "0.3" }
-tc_parity_parity = { path = "../images/parity_parity", version = "0.3" }
-tc_dynamodb_local = { path = "../images/dynamodb_local", version = "0.1" }
-tc_redis = { path = "../images/redis", version = "0.1" }
-tc_elasticmq = { path = "../images/elasticmq", version = "0.1" }
-tc_generic = { path = "../images/generic", version = "0.1" }
-tc_postgres = { path = "../images/postgres", version = "0.1" }
+tc_coblox_bitcoincore = { path = "../images/coblox_bitcoincore", version = "0.5" }
+tc_trufflesuite_ganachecli = { path = "../images/trufflesuite_ganachecli", version = "0.4" }
+tc_parity_parity = { path = "../images/parity_parity", version = "0.4" }
+tc_dynamodb_local = { path = "../images/dynamodb_local", version = "0.2" }
+tc_redis = { path = "../images/redis", version = "0.2" }
+tc_elasticmq = { path = "../images/elasticmq", version = "0.2" }
+tc_generic = { path = "../images/generic", version = "0.2" }
+tc_postgres = { path = "../images/postgres", version = "0.2" }
 
 [dev-dependencies]
 bitcoin_rpc_client = "0.5"
