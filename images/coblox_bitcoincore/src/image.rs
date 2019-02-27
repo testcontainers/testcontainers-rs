@@ -89,6 +89,7 @@ pub struct BitcoinCoreImageArgs {
     pub rpc_bind: String,
     pub rpc_allowip: String,
     pub rpc_auth: RpcAuth,
+    pub accept_non_std_txn: Option<bool>,
 }
 
 impl Default for BitcoinCoreImageArgs {
@@ -101,6 +102,7 @@ impl Default for BitcoinCoreImageArgs {
             tx_index: true,
             rpc_bind: "0.0.0.0".to_string(), // This allows to bind on all ports
             rpc_allowip: "0.0.0.0/0".to_string(),
+            accept_non_std_txn: Some(false),
         }
     }
 }
@@ -138,6 +140,14 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
         if self.print_to_console {
             args.push("-printtoconsole".to_string())
+        }
+
+        if let Some(accept_non_std_txn) = self.accept_non_std_txn {
+            if accept_non_std_txn {
+                args.push("-acceptnonstdtxn=1".to_string());
+            } else {
+                args.push("-acceptnonstdtxn=0".to_string());
+            }
         }
 
         args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
