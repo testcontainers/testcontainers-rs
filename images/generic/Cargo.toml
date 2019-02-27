@@ -1,6 +1,6 @@
 [package]
 name = "tc_generic"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "Francesco Cina <ufoscout@gmail.com>" ]
 description = "Testcontainers generic image"
 license = "MIT OR Apache-2.0"
@@ -9,4 +9,4 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers"]
 
 [dependencies]
-tc_core = { path = "../../core", version = "0.2" }
+tc_core = { path = "../../core", version = "0.3" }

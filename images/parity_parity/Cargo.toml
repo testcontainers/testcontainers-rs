@@ -1,6 +1,6 @@
 [package]
 name = "tc_parity_parity"
-version = "0.3.0"
+version = "0.4.0"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 description = "Testcontainers image for the parity/parity docker image."
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "parity", "ethereum"]
 
 [dependencies]
-tc_core = { path = "../../core", version = "0.2" }
+tc_core = { path = "../../core", version = "0.3" }
 log = "0.4"
 
 [dev-dependencies]

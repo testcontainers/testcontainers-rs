@@ -1,6 +1,6 @@
 [package]
 name = "tc_coblox_bitcoincore"
-version = "0.4.0"
+version = "0.5.0"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 description = "Testcontainers image for the coblox/bitcoin-core docker image."
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ categories = ["development-tools::testing"]
 keywords = ["docker", "testcontainers", "bitcoin"]
 
 [dependencies]
-tc_core = { path = "../../core", version = "0.2" }
+tc_core = { path = "../../core", version = "0.3" }
 log = "0.4"
 hmac = "0.7"
 sha2 = "0.8"
