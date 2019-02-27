@@ -102,7 +102,7 @@ impl Default for BitcoinCoreImageArgs {
             tx_index: true,
             rpc_bind: "0.0.0.0".to_string(), // This allows to bind on all ports
             rpc_allowip: "0.0.0.0/0".to_string(),
-            accept_non_std_txn: None,
+            accept_non_std_txn: Some(false),
         }
     }
 }
