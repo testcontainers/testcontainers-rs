@@ -16,4 +16,4 @@
 11. Checkout latest master
 12. Create a new tag based on your new version: `git tag <CRATE>-<NEW_VERSION>`, f.e. `git tag testcontainers-0.5.1`
 13. Make sure `cargo test` and `cargo package` pass
-14  . Do `cargo release`
+14. Do `cargo release`
