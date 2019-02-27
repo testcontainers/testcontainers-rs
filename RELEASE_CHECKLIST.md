@@ -10,8 +10,8 @@
 5. Determine the degree of changes with respect to the [release guide](./RELEASING.md)
 6. Bump the version accordingly
 7. Do step 3. through all crates that need bumping
-8. Make one commit
-9. Make sure `cargo test` and `cargo package` pass
+8. Make sure `cargo test` pass
+9. Make one commit
 10. Create PR, merge in master
 11. Checkout latest master
 12. Create a new tag based on your new version: `git tag <CRATE>-<NEW_VERSION>`, f.e. `git tag testcontainers-0.5.1`
