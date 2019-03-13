@@ -97,24 +97,22 @@ fn dynamodb_local_create_table() {
     let node = docker.run(images::dynamodb_local::DynamoDb::default());
     let host_port = node.get_host_port(8000).unwrap();
 
-    let mut create_tables_input = CreateTableInput::default();
-    create_tables_input.table_name = "books".to_string();
-
-    let mut key_schema_input = KeySchemaElement::default();
-    key_schema_input.key_type = "HASH".to_string();
-    key_schema_input.attribute_name = "title".to_string();
-    create_tables_input.key_schema = vec![key_schema_input];
-
-    let mut att0 = AttributeDefinition::default();
-    att0.attribute_name = "title".to_string();
-    att0.attribute_type = "S".to_string();
-
-    create_tables_input.attribute_definitions = vec![att0];
-
-    let mut provisioned_throughput = ProvisionedThroughput::default();
-    provisioned_throughput.read_capacity_units = 5;
-    provisioned_throughput.write_capacity_units = 5;
-    create_tables_input.provisioned_throughput = provisioned_throughput;
+    let create_tables_input = CreateTableInput {
+        table_name: "books".to_string(),
+        key_schema: vec![KeySchemaElement {
+            key_type: "HASH".to_string(),
+            attribute_name: "title".to_string(),
+        }],
+        attribute_definitions: vec![AttributeDefinition {
+            attribute_name: "title".to_string(),
+            attribute_type: "S".to_string(),
+        }],
+        provisioned_throughput: ProvisionedThroughput {
+            read_capacity_units: 5,
+            write_capacity_units: 5,
+        },
+        ..Default::default()
+    };
 
     let dynamodb = build_dynamodb_client(host_port);
     let result = dynamodb.create_table(create_tables_input).sync();
