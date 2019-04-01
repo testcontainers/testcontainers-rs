@@ -107,10 +107,10 @@ fn dynamodb_local_create_table() {
             attribute_name: "title".to_string(),
             attribute_type: "S".to_string(),
         }],
-        provisioned_throughput: ProvisionedThroughput {
+        provisioned_throughput: Some(ProvisionedThroughput {
             read_capacity_units: 5,
             write_capacity_units: 5,
-        },
+        }),
         ..Default::default()
     };
 
