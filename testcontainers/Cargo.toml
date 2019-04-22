@@ -40,4 +40,4 @@ rusoto_credential = "0.16"
 redis = "0.10"
 
 # ElasticMQ (also requires rusoto_core, rusoto_credential)
-rusoto_sqs = "0.37"
+rusoto_sqs = "0.38"
