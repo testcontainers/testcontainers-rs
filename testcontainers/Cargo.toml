@@ -1,6 +1,6 @@
 [package]
 name = "testcontainers"
-version = "0.6.0"
+version = "0.7.0"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/testcontainers/testcontainers-rs"
@@ -17,7 +17,7 @@ tc_cli_client = { path = "../cli_client", version = "0.2" }
 # Images
 tc_coblox_bitcoincore = { path = "../images/coblox_bitcoincore", version = "0.5" }
 tc_trufflesuite_ganachecli = { path = "../images/trufflesuite_ganachecli", version = "0.4" }
-tc_parity_parity = { path = "../images/parity_parity", version = "0.4" }
+tc_parity_parity = { path = "../images/parity_parity", version = "0.5" }
 tc_dynamodb_local = { path = "../images/dynamodb_local", version = "0.2" }
 tc_redis = { path = "../images/redis", version = "0.2" }
 tc_elasticmq = { path = "../images/elasticmq", version = "0.2" }

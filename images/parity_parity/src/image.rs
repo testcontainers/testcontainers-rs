@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use tc_core::{Container, Docker, Image, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &'static str = "parity/parity";
-const DEFAULT_TAG: &'static str = "v2.1.3";
+const DEFAULT_TAG: &'static str = "v2.5.0";
 
 #[derive(Debug)]
 pub struct ParityEthereum {
