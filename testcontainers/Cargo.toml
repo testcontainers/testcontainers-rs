@@ -33,11 +33,11 @@ postgres = "0.15"
 
 # Dynamodb client needed for dynamodb local
 rusoto_core = "0.40"
-rusoto_dynamodb = "0.39"
-rusoto_credential = "0.39"
+rusoto_dynamodb = "0.40"
+rusoto_credential = "0.40"
 
 # Redis client
 redis = "0.10"
 
 # ElasticMQ (also requires rusoto_core, rusoto_credential)
-rusoto_sqs = "0.39"
+rusoto_sqs = "0.40"
