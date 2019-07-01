@@ -34,7 +34,7 @@ postgres = "0.15"
 # Dynamodb client needed for dynamodb local
 rusoto_core = "0.39"
 rusoto_dynamodb = "0.39"
-rusoto_credential = "0.39"
+rusoto_credential = "0.40"
 
 # Redis client
 redis = "0.10"
