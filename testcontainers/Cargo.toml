@@ -27,7 +27,7 @@ tc_postgres = { path = "../images/postgres", version = "0.2" }
 [dev-dependencies]
 bitcoin_rpc_client = "0.6"
 spectral = "0.6"
-web3 = "0.7"
+web3 = "0.8"
 pretty_env_logger = "0.3"
 postgres = "0.15"
 
