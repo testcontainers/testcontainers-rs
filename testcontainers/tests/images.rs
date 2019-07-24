@@ -142,7 +142,7 @@ fn redis_fetch_an_integer() {
     let url = format!("redis://localhost:{}", host_port);
 
     let client = redis::Client::open(url.as_ref()).unwrap();
-    let con = client.get_connection().unwrap();
+    let mut con = client.get_connection().unwrap();
 
     let _: () = con.set("my_key", 42).unwrap();
     let result: i64 = con.get("my_key").unwrap();
