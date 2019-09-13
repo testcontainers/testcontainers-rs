@@ -1,6 +1,6 @@
 [package]
 name = "tc_elasticmq"
-version = "0.2.0"
+version = "0.2.1"
 authors = [ "Jack Wright <ayax79@gmail.com>" ]
 description = "Testcontainers image for ElasticMQ"
 license = "MIT OR Apache-2.0"
