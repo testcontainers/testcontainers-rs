@@ -1,6 +1,6 @@
 [package]
 name = "tc_parity_parity"
-version = "0.5.0"
+version = "0.5.1"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 description = "Testcontainers image for the parity/parity docker image."
 license = "MIT OR Apache-2.0"

@@ -1,6 +1,6 @@
 [package]
 name = "tc_trufflesuite_ganachecli"
-version = "0.4.0"
+version = "0.4.1"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 description = "Testcontainers image for the trufflesuite/ganache-cli docker image."
 license = "MIT OR Apache-2.0"
