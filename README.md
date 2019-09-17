@@ -9,28 +9,10 @@ Testcontainers-rs is the official Rust language fork of [http://testcontainers.o
 
 ## Usage
 
-**TL:DR**: Depend on `testcontainers`, this will give you everything you need.
+1. Depend on `testcontainers`
+2. Import `use testcontainers::*`.
 
 Check [the integration tests](./testcontainers/tests) on how to use the library.
-
-## Structure
-
-The repository is structured into the several crates.
-
-- `core`: Contains the core traits and structs necessary for the testcontainers ecosystem.
-- `cli_client`: Contains an implementation of the `Docker` trait that uses the `docker`-CLI to issue commands.
-- The folder `images` contains several crates named after the respective docker image. 
-Each crate adds support for one particular image.
-This allows to selectively import the images you need.
-
-Last but not least:
-`testcontainers`: This is a meta crate that bundles all these crates together for convenient usage.
-
-## Versioning
-
-To not make it too inconvenient, the meta crate `testcontainers` cannot strictly follow semver.
-Thus you are encouraged to at least depend on the minor version of the library, i.e. `X.Y`. 
-If you are interested in this crate versioning approach, checkout the [release guide](./RELEASING.md).
 
 ## License
 
@@ -42,15 +24,3 @@ Licensed under either of
    ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
-
-## Developing
-
-While developing, please make sure that your code is formatted using `cargo-fmt`.
-You can easily do that by using the pre-defined `git` hooks:
-```bash
-git config core.hookspath .githooks
-```
-
-## Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

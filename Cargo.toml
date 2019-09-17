@@ -1,14 +1,32 @@
-[workspace]
-members = [
-    "cli_client",
-    "core",
-    "images/coblox_bitcoincore",
-    "images/dynamodb_local",
-    "images/elasticmq",
-    "images/generic",
-    "images/parity_parity",
-    "images/postgres",
-    "images/redis",
-    "images/trufflesuite_ganachecli",
-    "testcontainers",
-]
+[package]
+authors = [ "CoBloX developers <team@coblox.tech>" ]
+categories = ["development-tools::testing"]
+description = "Testcontainers, a library for integration-testing against docker containers from within Rust."
+edition = "2018"
+keywords = ["docker", "testcontainers"]
+license = "MIT OR Apache-2.0"
+name = "testcontainers"
+repository = "https://github.com/testcontainers/testcontainers-rs"
+version = "0.8.0"
+
+[dependencies]
+derivative = "1.0.3"
+hex = "0.3"
+hmac = "0.7"
+log = "0.4"
+rand = "0.7"
+serde = {version = "1", features = ["derive"]}
+serde_json = "1"
+sha2 = "0.8"
+
+[dev-dependencies]
+bitcoin_rpc_client = "0.6"
+postgres = "0.15"
+pretty_env_logger = "0.3"
+redis = "0.12"
+rusoto_core = "0.40"
+rusoto_credential = "0.40"
+rusoto_dynamodb = "0.40"
+rusoto_sqs = "0.40"
+spectral = "0.6"
+web3 = "0.8"
