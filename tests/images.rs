@@ -1,4 +1,4 @@
-use bitcoin_rpc_client::BitcoinRpcApi;
+use bitcoincore_rpc::RpcApi;
 use postgres::{Connection, TlsMode};
 use redis::Commands;
 use rusoto_core::HttpClient;
@@ -29,10 +29,14 @@ fn coblox_bitcoincore_getnewaddress() {
 
         let auth = node.image().auth();
 
-        bitcoin_rpc_client::BitcoinCoreClient::new(url.as_str(), auth.username(), auth.password())
+        bitcoincore_rpc::Client::new(
+            url,
+            bitcoincore_rpc::Auth::UserPass(auth.username().to_owned(), auth.password().to_owned()),
+        )
+        .unwrap()
     };
 
-    assert_that(&client.get_new_address()).is_ok().is_ok();
+    assert_that(&client.get_new_address(None, None)).is_ok();
 }
 
 #[test]
