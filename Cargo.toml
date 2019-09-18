@@ -11,7 +11,7 @@ version = "0.8.0"
 
 [dependencies]
 derivative = "1.0.3"
-hex = "0.3"
+hex = "0.4"
 hmac = "0.7"
 log = "0.4"
 rand = "0.7"
