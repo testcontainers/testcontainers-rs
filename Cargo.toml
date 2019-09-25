@@ -7,7 +7,7 @@ keywords = ["docker", "testcontainers"]
 license = "MIT OR Apache-2.0"
 name = "testcontainers"
 repository = "https://github.com/testcontainers/testcontainers-rs"
-version = "0.8.0"
+version = "0.8.1"
 
 [dependencies]
 derivative = "1.0.3"
