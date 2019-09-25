@@ -157,7 +157,7 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
         args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
 
-        args.to_vec().into_iter()
+        args.into_iter()
     }
 }
 
