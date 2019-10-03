@@ -1,17 +1,22 @@
 language: rust
-rust: stable
-cache: cargo
-sudo: required
-addons:
-  apt:
-    packages:
-    - libssl-dev
-services:
-  - docker
-before_script:
-- rustup component add rustfmt
-- which sccache || cargo install sccache
-script:
-- cargo fmt -- --check
-- RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all --all-targets
-- RUSTC_WRAPPER=~/.cargo/bin/sccache cargo test --all
+matrix:
+  include:
+    - rust: 1.32.0 # test for the MSRV when included as a library
+      cache: cargo
+      script: cargo build
+    - rust: 1.34.0 # our tests need 1.34 to compile certain dependencies
+      sudo: required
+      cache: cargo
+      services:
+        - docker
+      addons:
+        apt:
+          packages:
+            - libssl-dev
+      before_script:
+        - rustup component add rustfmt
+        - which sccache || cargo install sccache
+      script:
+        - cargo fmt -- --check
+        - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all-targets
+        - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo test
