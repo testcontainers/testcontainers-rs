@@ -12,7 +12,7 @@ Testcontainers-rs is the official Rust language fork of [http://testcontainers.o
 1. Depend on `testcontainers`
 2. Import `use testcontainers::*`.
 
-Check [the integration tests](./testcontainers/tests) on how to use the library.
+Check [the integration tests](./tests) on how to use the library.
 
 ## License
 
