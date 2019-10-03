@@ -20,3 +20,8 @@ matrix:
         - cargo fmt -- --check
         - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all-targets
         - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo test
+branches:
+  only:
+    - staging # This is where pull requests from "bors r+" are built.
+    - trying # This is where pull requests from "bors try" are built.
+    - master
