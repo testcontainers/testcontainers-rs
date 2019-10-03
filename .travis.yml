@@ -25,3 +25,6 @@ branches:
     - staging # This is where pull requests from "bors r+" are built.
     - trying # This is where pull requests from "bors try" are built.
     - master
+  except:
+    - staging.tmp
+    - trying.tmp
