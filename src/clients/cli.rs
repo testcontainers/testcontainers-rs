@@ -214,9 +214,9 @@ impl Ports {
         ports
     }
 
-    fn parse_port(port: &str) -> u32 {
+    fn parse_port(port: &str) -> u16 {
         port.parse()
-            .unwrap_or_else(|e| panic!("Failed to parse {} as u32 because {}", port, e))
+            .unwrap_or_else(|e| panic!("Failed to parse {} as u16 because {}", port, e))
     }
 }
 

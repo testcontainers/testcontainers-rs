@@ -112,7 +112,7 @@ fn dynamodb_local_create_table() {
     assert_that(&result).is_ok();
 }
 
-fn build_dynamodb_client(host_port: u32) -> DynamoDbClient {
+fn build_dynamodb_client(host_port: u16) -> DynamoDbClient {
     let credentials_provider =
         StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
 
@@ -190,7 +190,7 @@ fn generic_image() {
     assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
 }
 
-fn build_sqs_client(host_port: u32) -> SqsClient {
+fn build_sqs_client(host_port: u16) -> SqsClient {
     let dispatcher = HttpClient::new().expect("could not create http client");
     let credentials_provider =
         StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
