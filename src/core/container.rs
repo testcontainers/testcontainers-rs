@@ -69,7 +69,7 @@ where
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker image does not expose a port, this method will not
     /// be able to resolve it.
-    pub fn get_host_port(&self, internal_port: u32) -> Option<u32> {
+    pub fn get_host_port(&self, internal_port: u16) -> Option<u16> {
         let resolved_port = self
             .docker_client
             .ports(&self.id)

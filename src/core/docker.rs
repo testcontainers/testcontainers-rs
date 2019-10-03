@@ -16,12 +16,12 @@ where
 /// The exposed ports of a running container.
 #[derive(Debug, PartialEq, Default)]
 pub struct Ports {
-    mapping: HashMap<u32, u32>,
+    mapping: HashMap<u16, u16>,
 }
 
 impl Ports {
     /// Registers the mapping of an exposed port.
-    pub fn add_mapping(&mut self, internal: u32, host: u32) -> &mut Self {
+    pub fn add_mapping(&mut self, internal: u16, host: u16) -> &mut Self {
         log::debug!("Registering port mapping: {} -> {}", internal, host);
 
         self.mapping.insert(internal, host);
@@ -30,8 +30,8 @@ impl Ports {
     }
 
     /// Returns the host port for the given internal port.
-    pub fn map_to_host_port(&self, internal_port: u32) -> Option<u32> {
-        self.mapping.get(&internal_port).map(|p| p.clone())
+    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
+        self.mapping.get(&internal_port).cloned()
     }
 }
 

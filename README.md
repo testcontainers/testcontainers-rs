@@ -4,6 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
 [![Docs.rs](https://docs.rs/testcontainers/badge.svg)](https://docs.rs/testcontainers)
 [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=testcontainers/testcontainers-rs)](https://dependabot.com)
+[![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/20716)
 
 Testcontainers-rs is the official Rust language fork of [http://testcontainers.org](http://testcontainers.org).
 
