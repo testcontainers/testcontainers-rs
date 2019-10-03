@@ -1,2 +1,3 @@
 status = ["continuous-integration/travis-ci/push"]
 pr_status = ["continuous-integration/travis-ci/push"]
+delete_merged_branches = true
