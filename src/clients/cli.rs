@@ -290,7 +290,7 @@ mod tests {
             String::from("hello-world")
         }
 
-        fn wait_until_ready<D: Docker>(&self, _container: &Container<D, Self>) {}
+        fn wait_until_ready<D: Docker>(&self, _container: &Container<'_, D, Self>) {}
 
         fn args(&self) -> <Self as Image>::Args {
             vec![]
