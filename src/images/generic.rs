@@ -119,5 +119,4 @@ mod tests {
         assert_eq!("one-value", env_vars.get("one-key").unwrap());
         assert_eq!("two-value", env_vars.get("two-key").unwrap());
     }
-
 }

@@ -321,5 +321,4 @@ mod tests {
         assert!(format!("{:?}", command).contains(r#""-e" "one-key=one-value""#));
         assert!(format!("{:?}", command).contains(r#""-e" "two-key=two-value""#));
     }
-
 }
