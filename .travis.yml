@@ -4,7 +4,7 @@ matrix:
     - rust: 1.32.0 # test for the MSRV when included as a library
       cache: cargo
       script: cargo build
-    - rust: 1.34.0 # our tests need 1.34 to compile certain dependencies
+    - rust: 1.36.0 # our tests need this to compile certain dependencies
       sudo: required
       cache: cargo
       services:
@@ -15,11 +15,10 @@ matrix:
             - libssl-dev
       before_script:
         - rustup component add rustfmt
-        - which sccache || cargo install sccache
       script:
         - cargo fmt -- --check
-        - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo build --all-targets
-        - RUSTC_WRAPPER=~/.cargo/bin/sccache cargo test
+        - cargo build --all-targets
+        - cargo test
 branches:
   only:
     - staging # This is where pull requests from "bors r+" are built.
