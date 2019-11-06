@@ -1,8 +1,7 @@
 use bitcoincore_rpc::RpcApi;
 use postgres::{Connection, TlsMode};
 use redis::Commands;
-use rusoto_core::HttpClient;
-use rusoto_core::Region;
+use rusoto_core::{HttpClient, Region};
 use rusoto_credential::StaticProvider;
 use rusoto_dynamodb::{
     AttributeDefinition, CreateTableInput, DynamoDb, DynamoDbClient, KeySchemaElement,
@@ -10,10 +9,6 @@ use rusoto_dynamodb::{
 };
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
-use web3::futures::Future;
-use web3::transports::Http;
-use web3::Web3;
-
 use testcontainers::*;
 
 #[test]
@@ -40,25 +35,31 @@ fn coblox_bitcoincore_getnewaddress() {
 }
 
 #[test]
-fn parity_parity_listaccounts() {
+fn parity_parity_net_version() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::parity_parity::ParityEthereum::default());
+    let host_port = node.get_host_port(8545).unwrap();
 
-    let (_event_loop, web3) = {
-        let host_port = node.get_host_port(8545).unwrap();
+    let mut response = reqwest::Client::new()
+        .post(&format!("http://localhost:{}", host_port))
+        .body(
+            json::object! {
+                "jsonrpc" => "2.0",
+                "method" => "net_version",
+                "params" => json::array![],
+                "id" => 1
+            }
+            .dump(),
+        )
+        .header("content-type", "application/json")
+        .send()
+        .unwrap();
 
-        let url = format!("http://localhost:{}", host_port);
+    let response = response.text().unwrap();
+    let response = json::parse(&response).unwrap();
 
-        let (_event_loop, transport) = Http::new(&url).unwrap();
-        let web3 = Web3::new(transport);
-
-        (_event_loop, web3)
-    };
-
-    let accounts = web3.eth().accounts().wait();
-
-    assert_that(&accounts).is_ok();
+    assert_eq!(response["result"], "17");
 }
 
 #[test]
@@ -66,21 +67,27 @@ fn trufflesuite_ganachecli_listaccounts() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::trufflesuite_ganachecli::GanacheCli::default());
+    let host_port = node.get_host_port(8545).unwrap();
 
-    let (_event_loop, web3) = {
-        let host_port = node.get_host_port(8545).unwrap();
+    let mut response = reqwest::Client::new()
+        .post(&format!("http://localhost:{}", host_port))
+        .body(
+            json::object! {
+                "jsonrpc" => "2.0",
+                "method" => "net_version",
+                "params" => json::array![],
+                "id" => 1
+            }
+            .dump(),
+        )
+        .header("content-type", "application/json")
+        .send()
+        .unwrap();
 
-        let url = format!("http://localhost:{}", host_port);
+    let response = response.text().unwrap();
+    let response = json::parse(&response).unwrap();
 
-        let (_event_loop, transport) = Http::new(&url).unwrap();
-        let web3 = Web3::new(transport);
-
-        (_event_loop, web3)
-    };
-
-    let accounts = web3.eth().accounts().wait();
-
-    assert_that(&accounts).is_ok();
+    assert_eq!(response["result"], "42");
 }
 
 #[test]
