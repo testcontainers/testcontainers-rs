@@ -29,6 +29,7 @@ impl Default for Postgres {
 impl Image for Postgres {
     type Args = PostgresArgs;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         "postgres:11-alpine".to_string()
@@ -44,6 +45,10 @@ impl Image for Postgres {
 
     fn args(&self) -> Self::Args {
         self.arguments.clone()
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
     }
 
     fn env_vars(&self) -> Self::EnvVars {

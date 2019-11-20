@@ -164,6 +164,7 @@ impl IntoIterator for BitcoinCoreImageArgs {
 impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)
@@ -194,6 +195,10 @@ impl Image for BitcoinCore {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
     }
 
     fn env_vars(&self) -> Self::EnvVars {

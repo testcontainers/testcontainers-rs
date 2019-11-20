@@ -57,6 +57,7 @@ impl IntoIterator for GanacheCliArgs {
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("trufflesuite/ganache-cli:{}", self.tag)
@@ -72,6 +73,10 @@ impl Image for GanacheCli {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
     }
 
     fn env_vars(&self) -> Self::EnvVars {

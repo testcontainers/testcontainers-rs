@@ -13,6 +13,7 @@ where
     Self: Sized + Default,
     Self::Args: Default + IntoIterator<Item = String>,
     Self::EnvVars: Default + IntoIterator<Item = (String, String)>,
+    Self::Volumes: Default + IntoIterator<Item = (String, String)>,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -37,6 +38,18 @@ where
     /// the environment variables of your image, consider that the whole purpose is to facilitate integration
     /// testing. Only expose those that actually make sense for this case.
     type EnvVars;
+
+    /// A type representing the volumes for an Image.
+    ///
+    /// There are a couple of things regarding the arguments of images:
+    ///
+    /// 1. Similar to the Default implementation of an Image, the Default instance
+    /// of its volumes should be meaningful!
+    /// 2. Implementations should be conservative about which volumes they expose. Many times,
+    /// users will either go with the default ones or just override one or two. When defining
+    /// the volumes of your image, consider that the whole purpose is to facilitate integration
+    /// testing. Only expose those that actually make sense for this case.
+    type Volumes;
 
     /// The descriptor of the docker image.
     ///
@@ -64,6 +77,9 @@ where
 
     /// Returns the environment variables this instance was created with.
     fn env_vars(&self) -> Self::EnvVars;
+
+    /// Returns the volumes this instance was created with.
+    fn volumes(&self) -> Self::Volumes;
 
     /// Re-configures the current instance of this image with the given arguments.
     fn with_args(self, arguments: Self::Args) -> Self;

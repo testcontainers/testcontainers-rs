@@ -36,6 +36,7 @@ impl Default for DynamoDb {
 impl Image for DynamoDb {
     type Args = DynamoDbArgs;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -65,6 +66,10 @@ impl Image for DynamoDb {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
     }
 
     fn env_vars(&self) -> Self::EnvVars {

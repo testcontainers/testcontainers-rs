@@ -40,6 +40,7 @@ impl Default for ParityEthereum {
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -55,6 +56,10 @@ impl Image for ParityEthereum {
 
     fn args(&self) -> Self::Args {
         self.arguments.clone()
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
     }
 
     fn env_vars(&self) -> Self::EnvVars {
