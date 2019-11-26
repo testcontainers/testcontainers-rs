@@ -12,6 +12,7 @@ struct HelloWorld;
 impl Image for HelloWorld {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         String::from("hello-world")
@@ -27,6 +28,10 @@ impl Image for HelloWorld {
 
     fn args(&self) -> <Self as Image>::Args {
         vec![]
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
     }
 
     fn env_vars(&self) -> Self::EnvVars {

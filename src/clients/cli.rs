@@ -78,6 +78,10 @@ impl Cli {
             command.arg("-e").arg(format!("{}={}", key, value));
         }
 
+        for (orig, dest) in image.volumes() {
+            command.arg("-v").arg(format!("{}:{}", orig, dest));
+        }
+
         command
             .arg("-d") // Always run detached
             .arg("-P") // Always expose all ports
@@ -279,12 +283,14 @@ mod tests {
 
     #[derive(Default)]
     struct HelloWorld {
+        volumes: HashMap<String, String>,
         env_vars: HashMap<String, String>,
     }
 
     impl Image for HelloWorld {
         type Args = Vec<String>;
         type EnvVars = HashMap<String, String>;
+        type Volumes = HashMap<String, String>;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")
@@ -294,6 +300,10 @@ mod tests {
 
         fn args(&self) -> <Self as Image>::Args {
             vec![]
+        }
+
+        fn volumes(&self) -> Self::Volumes {
+            self.volumes.clone()
         }
 
         fn env_vars(&self) -> Self::EnvVars {
@@ -307,17 +317,23 @@ mod tests {
 
     #[test]
     fn cli_run_command_should_include_env_vars() {
+        let mut volumes = HashMap::new();
+        volumes.insert("one-from".to_owned(), "one-dest".to_owned());
+        volumes.insert("two-from".to_owned(), "two-dest".to_owned());
+
         let mut env_vars = HashMap::new();
         env_vars.insert("one-key".to_owned(), "one-value".to_owned());
         env_vars.insert("two-key".to_owned(), "two-value".to_owned());
 
-        let image = HelloWorld { env_vars };
+        let image = HelloWorld { volumes, env_vars };
 
         let mut docker = Command::new("docker");
         let command = Cli::build_run_command(&image, &mut docker);
 
         println!("Executing command: {:?}", command);
 
+        assert!(format!("{:?}", command).contains(r#""-v" "one-from:one-dest"#));
+        assert!(format!("{:?}", command).contains(r#""-v" "two-from:two-dest"#));
         assert!(format!("{:?}", command).contains(r#""-e" "one-key=one-value""#));
         assert!(format!("{:?}", command).contains(r#""-e" "two-key=two-value""#));
     }

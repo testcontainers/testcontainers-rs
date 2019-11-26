@@ -43,6 +43,7 @@ impl WaitFor {
 pub struct GenericImage {
     descriptor: String,
     arguments: Vec<String>,
+    volumes: HashMap<String, String>,
     env_vars: HashMap<String, String>,
     wait_for: WaitFor,
 }
@@ -52,6 +53,7 @@ impl Default for GenericImage {
         Self {
             descriptor: "".to_owned(),
             arguments: vec![],
+            volumes: HashMap::new(),
             env_vars: HashMap::new(),
             wait_for: WaitFor::Nothing,
         }
@@ -63,9 +65,15 @@ impl GenericImage {
         Self {
             descriptor: descriptor.into(),
             arguments: vec![],
+            volumes: HashMap::new(),
             env_vars: HashMap::new(),
             wait_for: WaitFor::Nothing,
         }
+    }
+
+    pub fn with_volume<F: Into<String>, D: Into<String>>(mut self, from: F, dest: D) -> Self {
+        self.volumes.insert(from.into(), dest.into());
+        self
     }
 
     pub fn with_env_var<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
@@ -82,6 +90,7 @@ impl GenericImage {
 impl Image for GenericImage {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
@@ -93,6 +102,10 @@ impl Image for GenericImage {
 
     fn args(&self) -> Self::Args {
         self.arguments.clone()
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        self.volumes.clone()
     }
 
     fn env_vars(&self) -> Self::EnvVars {
