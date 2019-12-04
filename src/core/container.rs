@@ -1,6 +1,38 @@
+use cached;
 use crate::{core::Logs, Docker, Image};
-use std::{env::var, path::Path};
+use std::{str, env::var, collections::HashMap, path::Path};
 use url::{Url, ParseError};
+
+#[derive(Default)]
+struct Alpine;
+impl Image for Alpine {
+    type Args = Vec<String>;
+    type EnvVars = HashMap<String, String>;
+    type Volumes = HashMap<String, String>;
+
+    fn descriptor(&self) -> String {
+        String::from("alpine:3.5")
+    }
+
+    fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {
+    }
+
+    fn args(&self) -> <Self as Image>::Args {
+        vec!["sh".to_string(), "-c".to_string(), "ip route|awk '/default/ { print $3 }'".to_string()]
+    }
+
+    fn volumes(&self) -> Self::Volumes {
+        HashMap::new()
+    }
+
+    fn env_vars(&self) -> Self::EnvVars {
+        HashMap::new()
+    }
+
+    fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
+        self
+    }
+}
 
 /// Represents a running docker container.
 ///
@@ -77,9 +109,14 @@ where
                 }
         }
         if Path::new("/.dockerenv").exists() {
-            return String::from("172.17.0.1")
+            let container = self.docker_client.run(Alpine);
+        
+            let mut buffer: Vec<u8> = Vec::new();
+            let boxed_output = self.docker_client.logs(container.id()).stdout.read_to_end(&mut buffer);
+            str::from_utf8(&buffer).unwrap().to_string()
+        } else {
+            String::from("localhost")
         }
-        String::from("localhost")
     }
 
     /// Returns the mapped host port for an internal port of this docker container.

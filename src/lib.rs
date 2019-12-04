@@ -36,6 +36,8 @@
 //! [`Images`]: trait.Image.html#implementors
 //! [`Container`]: struct.Container.html
 
+#[macro_use] extern crate cached;
+
 pub use crate::core::Container;
 pub use crate::core::Docker;
 pub use crate::core::Image;
