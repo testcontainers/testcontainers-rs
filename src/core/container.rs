@@ -1,5 +1,7 @@
 use crate::{core::Logs, Docker, Image};
 use std::env::var;
+use shiplift;
+use url::{Url, ParseError};
 
 /// Represents a running docker container.
 ///
@@ -62,6 +64,24 @@ where
     /// Gives access to the log streams of this container.
     pub fn logs(&self) -> Logs {
         self.docker_client.logs(&self.id)
+    }
+
+    /// Returns the host
+    pub fn get_host(&self) -> String {
+        match std::env::var("DOCKER_HOST").ok() {
+            Some(host) => {
+                let host_url = Url::parse(&host).expect("failed to parse url");
+                match host_url.scheme() {
+                    "https" | "https" | "tcp" => {
+                        host_url.host().unwrap().to_string()
+                    },
+                    _ => String::new()
+                }
+            }
+            _ => {
+                String::from("/var/run/docker.sock")
+            }
+        }
     }
 
     /// Returns the mapped host port for an internal port of this docker container.
