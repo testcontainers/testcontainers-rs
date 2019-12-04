@@ -72,14 +72,14 @@ where
             Some(host) => {
                 let host_url = Url::parse(&host).expect("failed to parse url");
                 match host_url.scheme() {
-                    "https" | "https" | "tcp" => {
-                        host_url.host().unwrap().to_string()
+                    "https" | "http" | "tcp" => {
+                        host_url.host_str().unwrap().to_string()
                     },
-                    _ => String::new()
+                    _ => String::from("localhost")
                 }
             }
             _ => {
-                String::from("/var/run/docker.sock")
+                String::from("localhost")
             }
         }
     }
