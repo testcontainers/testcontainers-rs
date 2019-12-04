@@ -1,5 +1,5 @@
 use crate::{core::Logs, Docker, Image};
-use std::env::var;
+use std::{env::var, path::Path};
 use url::{Url, ParseError};
 
 /// Represents a running docker container.
@@ -67,20 +67,17 @@ where
 
     /// Returns the host
     pub fn get_host(&self) -> String {
-        match std::env::var("DOCKER_HOST").ok() {
-            Some(host) => {
-                let host_url = Url::parse(&host).expect("failed to parse url");
+        if let Some(host) = std::env::var("DOCKER_HOST").ok() {
+            let host_url = Url::parse(&host).expect("failed to parse url");
                 match host_url.scheme() {
                     "https" | "http" | "tcp" => {
-                        host_url.host_str().unwrap().to_string()
+                        return host_url.host_str().unwrap().to_string();
                     },
-                    _ => String::from("localhost")
+                    _ => (),
                 }
-            }
-            _ => {
-                String::from("localhost")
-            }
         }
+        // add in-container detection
+        String::from("localhost")
     }
 
     /// Returns the mapped host port for an internal port of this docker container.
