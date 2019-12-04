@@ -76,7 +76,9 @@ where
                     _ => (),
                 }
         }
-        // add in-container detection
+        if Path::new("/.dockerenv").exists() {
+            return String::from("172.17.0.1")
+        }
         String::from("localhost")
     }
 
