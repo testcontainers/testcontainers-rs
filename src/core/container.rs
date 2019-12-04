@@ -1,6 +1,5 @@
 use crate::{core::Logs, Docker, Image};
 use std::env::var;
-use shiplift;
 use url::{Url, ParseError};
 
 /// Represents a running docker container.
