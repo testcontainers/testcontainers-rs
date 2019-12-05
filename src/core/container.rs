@@ -1,6 +1,6 @@
 use crate::{core::Logs, Docker, Image};
-use std::{str, env::var, collections::HashMap, path::Path};
-use url::{Url, ParseError};
+use std::{collections::HashMap, env::var, path::Path, str};
+use url::{ParseError, Url};
 
 #[derive(Default)]
 struct Alpine;
@@ -13,11 +13,14 @@ impl Image for Alpine {
         String::from("alpine:3.5")
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {
-    }
+    fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {}
 
     fn args(&self) -> <Self as Image>::Args {
-        vec!["sh".to_string(), "-c".to_string(), "ip route|awk '/default/ { print $3 }'".to_string()]
+        vec![
+            "sh".to_string(),
+            "-c".to_string(),
+            "ip route|awk '/default/ { print $3 }'".to_string(),
+        ]
     }
 
     fn volumes(&self) -> Self::Volumes {
@@ -60,6 +63,7 @@ where
     I: Image,
 {
     id: String,
+    host: String,
     docker_client: &'d D,
     image: I,
 }
@@ -77,6 +81,7 @@ where
     pub fn new(id: String, docker_client: &'d D, image: I) -> Self {
         let container = Container {
             id,
+            host: Self::set_host(docker_client),
             docker_client,
             image,
         };
@@ -84,6 +89,34 @@ where
         container.block_until_ready();
 
         container
+    }
+
+    /// Sets the host given the docker client.
+    ///
+    /// to cache this value for frequent checks via `get_host`
+    fn set_host(docker_client: &'d D) -> String {
+        if let Some(host) = std::env::var("DOCKER_HOST").ok() {
+            let host_url = Url::parse(&host).expect("failed to parse url");
+            match host_url.scheme() {
+                "https" | "http" | "tcp" => {
+                    return host_url.host_str().unwrap().to_string();
+                }
+                _ => (),
+            }
+        }
+        if Path::new("/.dockerenv").exists() {
+            let container = docker_client.run(Alpine);
+            let mut buffer: Vec<u8> = Vec::new();
+            let _ = docker_client.logs(container.id()).stdout.read(&mut buffer);
+            str::from_utf8(&buffer).unwrap().to_string()
+        } else {
+            String::from("localhost")
+        }
+    }
+
+    /// Returns the host of this container.
+    pub fn host(&self) -> String {
+        self.host.clone()
     }
 
     /// Returns the id of this container.
@@ -94,27 +127,6 @@ where
     /// Gives access to the log streams of this container.
     pub fn logs(&self) -> Logs {
         self.docker_client.logs(&self.id)
-    }
-
-    /// Returns the host
-    pub fn get_host(&self) -> String {
-        if let Some(host) = std::env::var("DOCKER_HOST").ok() {
-            let host_url = Url::parse(&host).expect("failed to parse url");
-                match host_url.scheme() {
-                    "https" | "http" | "tcp" => {
-                        return host_url.host_str().unwrap().to_string();
-                    },
-                    _ => (),
-                }
-        }
-        if Path::new("/.dockerenv").exists() {
-            let container = self.docker_client.run(Alpine);
-            let mut buffer: Vec<u8> = Vec::new();
-            let _ = self.docker_client.logs(container.id()).stdout.read(&mut buffer);
-            str::from_utf8(&buffer).unwrap().to_string()
-        } else {
-            String::from("localhost")
-        }
     }
 
     /// Returns the mapped host port for an internal port of this docker container.
