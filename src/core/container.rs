@@ -93,7 +93,7 @@ where
 
     /// Sets the host given the docker client.
     ///
-    /// to cache this value for frequent checks via `get_host`
+    /// to cache this value for frequent checks via `host`
     fn set_host(docker_client: &'d D) -> String {
         if let Some(host) = std::env::var("DOCKER_HOST").ok() {
             let host_url = Url::parse(&host).expect("failed to parse url");
