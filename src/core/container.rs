@@ -1,4 +1,3 @@
-use cached;
 use crate::{core::Logs, Docker, Image};
 use std::{str, env::var, collections::HashMap, path::Path};
 use url::{Url, ParseError};
@@ -110,9 +109,8 @@ where
         }
         if Path::new("/.dockerenv").exists() {
             let container = self.docker_client.run(Alpine);
-        
             let mut buffer: Vec<u8> = Vec::new();
-            let boxed_output = self.docker_client.logs(container.id()).stdout.read_to_end(&mut buffer);
+            let _ = self.docker_client.logs(container.id()).stdout.read(&mut buffer);
             str::from_utf8(&buffer).unwrap().to_string()
         } else {
             String::from("localhost")
