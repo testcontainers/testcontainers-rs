@@ -81,7 +81,7 @@ where
     pub fn new(id: String, docker_client: &'d D, image: I) -> Self {
         let container = Container {
             id,
-            host: Self::set_host(docker_client),
+            host: Self::get_host(docker_client),
             docker_client,
             image,
         };
@@ -91,10 +91,10 @@ where
         container
     }
 
-    /// Sets the host given the docker client.
+    /// Gets the host given the docker client.
     ///
     /// to cache this value for frequent checks via `host`
-    fn set_host(docker_client: &'d D) -> String {
+    fn get_host(docker_client: &'d D) -> String {
         if let Some(host) = std::env::var("DOCKER_HOST").ok() {
             let host_url = Url::parse(&host).expect("failed to parse url");
             match host_url.scheme() {
@@ -105,6 +105,7 @@ where
             }
         }
         if Path::new("/.dockerenv").exists() {
+            // TODO: globally cache with `lazy_static` to prevent re-running for every container
             let container = docker_client.run(Alpine);
             let mut buffer: Vec<u8> = Vec::new();
             let _ = docker_client.logs(container.id()).stdout.read(&mut buffer);
