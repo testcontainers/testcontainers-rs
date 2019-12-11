@@ -64,11 +64,3 @@ fn should_wait_for_at_least_one_second_before_fetching_logs() {
     assert_that(&(after_run - before_run)).is_greater_than(Duration::from_secs(1));
     assert_that(&(after_logs - before_logs)).is_less_than(Duration::from_secs(1));
 }
-
-#[test]
-fn local_host_detected() {
-    let _ = pretty_env_logger::try_init();
-    let docker = clients::Cli::default();
-    let container = docker.run(HelloWorld);
-    assert_eq!(container.host(), "localhost");
-}

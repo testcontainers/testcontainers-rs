@@ -19,6 +19,7 @@ matrix:
         - cargo fmt -- --check
         - cargo build --all-targets
         - cargo test
+        - docker run -it --rm -v $PWD:$PWD -w $PWD -v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.cargo:/root/.cargo rust cargo test
 branches:
   only:
     - staging # This is where pull requests from "bors r+" are built.

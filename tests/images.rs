@@ -31,7 +31,6 @@ fn coblox_bitcoincore_getnewaddress() {
         .unwrap()
     };
 
-    assert_eq!(node.host(), "localhost");
     assert_that(&client.get_new_address(None, None)).is_ok();
 }
 
@@ -60,7 +59,6 @@ fn parity_parity_net_version() {
     let response = response.text().unwrap();
     let response = json::parse(&response).unwrap();
 
-    assert_eq!(node.host(), "localhost");
     assert_eq!(response["result"], "17");
 }
 
@@ -89,7 +87,6 @@ fn trufflesuite_ganachecli_listaccounts() {
     let response = response.text().unwrap();
     let response = json::parse(&response).unwrap();
 
-    assert_eq!(node.host(), "localhost");
     assert_eq!(response["result"], "42");
 }
 
@@ -117,7 +114,6 @@ fn dynamodb_local_create_table() {
         ..Default::default()
     };
 
-    assert_eq!(node.host(), "localhost");
     let dynamodb = build_dynamodb_client(host_port);
     let result = dynamodb.create_table(create_tables_input).sync();
     assert_that(&result).is_ok();
@@ -150,7 +146,6 @@ fn redis_fetch_an_integer() {
 
     let _: () = con.set("my_key", 42).unwrap();
     let result: i64 = con.get("my_key").unwrap();
-    assert_eq!(node.host(), "localhost");
     assert_eq!(42, result);
 }
 
@@ -163,7 +158,6 @@ fn sqs_list_queues() {
 
     let request = ListQueuesRequest::default();
     let result = client.list_queues(request).sync().unwrap();
-    assert_eq!(node.host(), "localhost");
     assert!(result.queue_urls.is_none());
 }
 
@@ -199,7 +193,6 @@ fn generic_image() {
     .unwrap();
     let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
 
-    assert_eq!(node.host(), "localhost");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
 }
@@ -232,7 +225,6 @@ fn postgres_one_plus_one() {
     .unwrap();
     let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
 
-    assert_eq!(node.host(), "localhost");
     assert_eq!(rows.len(), 1);
     assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
 }
