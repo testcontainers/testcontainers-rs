@@ -18,9 +18,9 @@ fn coblox_bitcoincore_getnewaddress() {
     let node = docker.run(images::coblox_bitcoincore::BitcoinCore::default());
 
     let client = {
-        let host_port = node.get_host_port(18443).unwrap();
+        let ip = docker.ip_address(node.id());
 
-        let url = format!("http://localhost:{}", host_port);
+        let url = format!("http://{}:18443", ip);
 
         let auth = node.image().auth();
 
@@ -39,10 +39,10 @@ fn parity_parity_net_version() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::parity_parity::ParityEthereum::default());
-    let host_port = node.get_host_port(8545).unwrap();
+    let ip = docker.ip_address(node.id());
 
     let mut response = reqwest::Client::new()
-        .post(&format!("http://localhost:{}", host_port))
+        .post(&format!("http://{}:8545", ip))
         .body(
             json::object! {
                 "jsonrpc" => "2.0",
@@ -67,10 +67,10 @@ fn trufflesuite_ganachecli_listaccounts() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::trufflesuite_ganachecli::GanacheCli::default());
-    let host_port = node.get_host_port(8545).unwrap();
+    let ip = docker.ip_address(node.id());
 
     let mut response = reqwest::Client::new()
-        .post(&format!("http://localhost:{}", host_port))
+        .post(&format!("http://{}:8545", ip))
         .body(
             json::object! {
                 "jsonrpc" => "2.0",
@@ -95,7 +95,7 @@ fn dynamodb_local_create_table() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::dynamodb_local::DynamoDb::default());
-    let host_port = node.get_host_port(8000).unwrap();
+    let ip = docker.ip_address(node.id());
 
     let create_tables_input = CreateTableInput {
         table_name: "books".to_string(),
@@ -114,12 +114,12 @@ fn dynamodb_local_create_table() {
         ..Default::default()
     };
 
-    let dynamodb = build_dynamodb_client(host_port);
+    let dynamodb = build_dynamodb_client(ip);
     let result = dynamodb.create_table(create_tables_input).sync();
     assert_that(&result).is_ok();
 }
 
-fn build_dynamodb_client(host_port: u16) -> DynamoDbClient {
+fn build_dynamodb_client(ip: String) -> DynamoDbClient {
     let credentials_provider =
         StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
 
@@ -127,7 +127,7 @@ fn build_dynamodb_client(host_port: u16) -> DynamoDbClient {
 
     let region = Region::Custom {
         name: "dynamodb-local".to_string(),
-        endpoint: format!("http://localhost:{}", host_port),
+        endpoint: format!("http://{}:8000", ip),
     };
 
     DynamoDbClient::new_with(dispatcher, credentials_provider, region)
@@ -138,8 +138,8 @@ fn redis_fetch_an_integer() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::redis::Redis::default());
-    let host_port = node.get_host_port(6379).unwrap();
-    let url = format!("redis://localhost:{}", host_port);
+    let ip = docker.ip_address(node.id());
+    let url = format!("redis://{}:6379", ip);
 
     let client = redis::Client::open(url.as_ref()).unwrap();
     let mut con = client.get_connection().unwrap();
@@ -153,8 +153,8 @@ fn redis_fetch_an_integer() {
 fn sqs_list_queues() {
     let docker = clients::Cli::default();
     let node = docker.run(images::elasticmq::ElasticMQ::default());
-    let host_port = node.get_host_port(9324).unwrap();
-    let client = build_sqs_client(host_port);
+    let ip = docker.ip_address(node.id());
+    let client = build_sqs_client(ip);
 
     let request = ListQueuesRequest::default();
     let result = client.list_queues(request).sync().unwrap();
@@ -179,13 +179,12 @@ fn generic_image() {
         .with_env_var("POSTGRES_PASSWORD", password);
 
     let node = docker.run(generic_postgres);
-
     let conn = Connection::connect(
         format!(
-            "postgres://{}:{}@localhost:{}/{}",
+            "postgres://{}:{}@{}:5432/{}",
             user,
             password,
-            node.get_host_port(5432).unwrap(),
+            docker.ip_address(node.id()),
             db
         ),
         TlsMode::None,
@@ -197,13 +196,13 @@ fn generic_image() {
     assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
 }
 
-fn build_sqs_client(host_port: u16) -> SqsClient {
+fn build_sqs_client(ip: String) -> SqsClient {
     let dispatcher = HttpClient::new().expect("could not create http client");
     let credentials_provider =
         StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
     let region = Region::Custom {
         name: "sqs-local".to_string(),
-        endpoint: format!("http://localhost:{}", host_port),
+        endpoint: format!("http://{}:9324", ip),
     };
 
     SqsClient::new_with(dispatcher, credentials_provider, region)
@@ -216,10 +215,7 @@ fn postgres_one_plus_one() {
     let node = docker.run(images::postgres::Postgres::default());
 
     let conn = Connection::connect(
-        format!(
-            "postgres://postgres@localhost:{}",
-            node.get_host_port(5432).unwrap()
-        ),
+        format!("postgres://postgres@{}:5432", docker.ip_address(node.id()),),
         TlsMode::None,
     )
     .unwrap();

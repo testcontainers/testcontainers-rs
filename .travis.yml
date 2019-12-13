@@ -9,6 +9,8 @@ matrix:
       cache: cargo
       services:
         - docker
+      before_install:
+        - docker build -t cargo-dockercli tests
       addons:
         apt:
           packages:
@@ -19,6 +21,7 @@ matrix:
         - cargo fmt -- --check
         - cargo build --all-targets
         - cargo test
+        - docker run -it -w /src/ -v $PWD:/src/ -v /var/run/docker.sock:/var/run/docker.sock cargo-dockercli:latest cargo test
 branches:
   only:
     - staging # This is where pull requests from "bors r+" are built.
