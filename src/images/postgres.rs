@@ -4,6 +4,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct Postgres {
     arguments: PostgresArgs,
+    env_vars: HashMap<String, String>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -20,9 +21,20 @@ impl IntoIterator for PostgresArgs {
 
 impl Default for Postgres {
     fn default() -> Self {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("POSTGRES_DB".to_owned(), "postgres".to_owned());
+        env_vars.insert("POSTGRES_USER".to_owned(), "postgres".to_owned());
+        env_vars.insert("POSTGRES_PASSWORD".to_owned(), "postgres".to_owned());
+
         Self {
             arguments: PostgresArgs::default(),
+            env_vars,
         }
+    }
+}
+impl Postgres {
+    pub fn with_env_vars(self, env_vars: HashMap<String, String>) -> Self {
+        Self { env_vars, ..self }
     }
 }
 
@@ -52,7 +64,7 @@ impl Image for Postgres {
     }
 
     fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
+        self.env_vars.clone()
     }
 
     fn with_args(self, arguments: Self::Args) -> Self {
