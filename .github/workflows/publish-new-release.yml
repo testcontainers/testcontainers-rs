@@ -33,6 +33,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Verify release build
+        run: cargo test --release
+
       - name: Publish package
         run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
 
