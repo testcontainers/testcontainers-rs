@@ -11,10 +11,7 @@ jobs:
   publish_release:
     if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/') # only merged release branches must trigger this
     name: Build binary
-    strategy:
-      matrix:
-        os: ubuntu-latest
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout merge commit
         uses: actions/checkout@v2

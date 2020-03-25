@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.0] - 2020-03-24
+## [0.9.1] - 2020-03-24
 
 ### Added
 
@@ -24,6 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -   Provide a default password for the postgres image.
 There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
-[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...HEAD
 
-[0.9.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.0
+[0.9.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
