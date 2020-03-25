@@ -217,7 +217,7 @@ fn postgres_one_plus_one() {
 
     let conn = Connection::connect(
         format!(
-            "postgres://postgres@localhost:{}",
+            "postgres://postgres:postgres@localhost:{}/postgres",
             node.get_host_port(5432).unwrap()
         ),
         TlsMode::None,
