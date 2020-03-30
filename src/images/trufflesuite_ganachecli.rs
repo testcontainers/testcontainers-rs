@@ -1,3 +1,4 @@
+use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
@@ -5,6 +6,7 @@ use std::collections::HashMap;
 pub struct GanacheCli {
     tag: String,
     arguments: GanacheCliArgs,
+    ports: Option<Vec<Port>>,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +21,7 @@ impl Default for GanacheCli {
         GanacheCli {
             tag: "v6.1.3".into(),
             arguments: GanacheCliArgs::default(),
+            ports: None,
         }
     }
 }
@@ -83,7 +86,20 @@ impl Image for GanacheCli {
         HashMap::new()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         GanacheCli { arguments, ..self }
+    }
+}
+
+impl GanacheCli {
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
     }
 }
