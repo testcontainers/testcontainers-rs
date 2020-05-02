@@ -1,7 +1,6 @@
 use bitcoincore_rpc::RpcApi;
 use bson::{self, doc, Document};
 use mongodb::{self, Client};
-use postgres::{Connection, TlsMode};
 use redis::Commands;
 use rusoto_core::{HttpClient, Region};
 use rusoto_credential::StaticProvider;
@@ -207,21 +206,21 @@ fn generic_image() {
 
     let node = docker.run(generic_postgres);
 
-    let conn = Connection::connect(
-        format!(
-            "postgres://{}:{}@localhost:{}/{}",
-            user,
-            password,
-            node.get_host_port(5432).unwrap(),
-            db
-        ),
-        TlsMode::None,
-    )
-    .unwrap();
-    let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
+    let connection_string = &format!(
+        "postgres://{}:{}@localhost:{}/{}",
+        user,
+        password,
+        node.get_host_port(5432).unwrap(),
+        db
+    );
+    let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
+    let rows = conn.query("SELECT 1 + 1", &[]).unwrap();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+
+    let first_row = &rows[0];
+    let first_column: i32 = first_row.get(0);
+    assert_eq!(first_column, 2);
 }
 
 fn build_sqs_client(host_port: u16) -> SqsClient {
@@ -238,22 +237,22 @@ fn build_sqs_client(host_port: u16) -> SqsClient {
 
 #[test]
 fn postgres_one_plus_one() {
-    let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::postgres::Postgres::default());
+    let postgres_image = images::postgres::Postgres::default();
+    let node = docker.run(postgres_image);
 
-    let conn = Connection::connect(
-        format!(
-            "postgres://postgres:postgres@localhost:{}/postgres",
-            node.get_host_port(5432).unwrap()
-        ),
-        TlsMode::None,
-    )
-    .unwrap();
-    let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
+    let connection_string = &format!(
+        "postgres://postgres:postgres@localhost:{}/postgres",
+        node.get_host_port(5432).unwrap()
+    );
+    let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
+    let rows = conn.query("SELECT 1 + 1", &[]).unwrap();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+
+    let first_row = &rows[0];
+    let first_column: i32 = first_row.get(0);
+    assert_eq!(first_column, 2);
 }
 
 #[test]
@@ -265,18 +264,18 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let _node =
         docker.run(images::postgres::Postgres::default().with_mapped_port((free_local_port, 5432)));
 
-    let conn = Connection::connect(
-        format!(
+    let mut conn = postgres::Client::connect(
+        &format!(
             "postgres://postgres:postgres@localhost:{}/postgres",
             free_local_port
         ),
-        TlsMode::None,
+        postgres::NoTls,
     )
     .unwrap();
     let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
 
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+    assert_eq!(rows[0].get::<_, i32>("result"), 2);
 }
 
 /// Returns an available localhost port
