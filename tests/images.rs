@@ -1,4 +1,6 @@
 use bitcoincore_rpc::RpcApi;
+use bson::{self, doc, Document};
+use mongodb::{self, Client};
 use postgres::{Connection, TlsMode};
 use redis::Commands;
 use rusoto_core::{HttpClient, Region};
@@ -9,6 +11,7 @@ use rusoto_dynamodb::{
 };
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
+
 use testcontainers::*;
 
 #[test]
@@ -147,6 +150,30 @@ fn redis_fetch_an_integer() {
     let _: () = con.set("my_key", 42).unwrap();
     let result: i64 = con.get("my_key").unwrap();
     assert_eq!(42, result);
+}
+
+#[test]
+fn mongo_fetch_document() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::mongo::Mongo::default());
+    let host_port = node.get_host_port(27017).unwrap();
+    let url = format!("mongodb://localhost:{}/", host_port);
+
+    let client: Client = Client::with_uri_str(url.as_ref()).unwrap();
+    let db = client.database("some_db");
+    let coll = db.collection("some-coll");
+
+    let insert_one_result = coll.insert_one(doc! { "x": 42 }, None).unwrap();
+    assert!(!insert_one_result
+        .inserted_id
+        .as_object_id()
+        .unwrap()
+        .to_hex()
+        .is_empty());
+
+    let find_one_result: Document = coll.find_one(doc! { "x": 42 }, None).unwrap().unwrap();
+    assert_eq!(42, find_one_result.get_i32("x").unwrap())
 }
 
 #[test]
