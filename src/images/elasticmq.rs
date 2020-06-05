@@ -1,3 +1,4 @@
+use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
@@ -20,6 +21,7 @@ impl IntoIterator for ElasticMQArgs {
 pub struct ElasticMQ {
     tag: String,
     arguments: ElasticMQArgs,
+    ports: Option<Vec<Port>>,
 }
 
 impl Default for ElasticMQ {
@@ -27,6 +29,7 @@ impl Default for ElasticMQ {
         ElasticMQ {
             tag: DEFAULT_TAG.to_string(),
             arguments: ElasticMQArgs {},
+            ports: None,
         }
     }
 }
@@ -60,6 +63,10 @@ impl Image for ElasticMQ {
         HashMap::new()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         ElasticMQ { arguments, ..self }
     }
@@ -71,5 +78,12 @@ impl ElasticMQ {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
     }
 }

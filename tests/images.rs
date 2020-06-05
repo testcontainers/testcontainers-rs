@@ -255,3 +255,35 @@ fn postgres_one_plus_one() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
 }
+
+#[test]
+fn postgres_one_plus_one_with_custom_mapped_port() {
+    let _ = pretty_env_logger::try_init();
+    let free_local_port = free_local_port().unwrap();
+
+    let docker = clients::Cli::default();
+    let _node =
+        docker.run(images::postgres::Postgres::default().with_mapped_port((free_local_port, 5432)));
+
+    let conn = Connection::connect(
+        format!(
+            "postgres://postgres:postgres@localhost:{}/postgres",
+            free_local_port
+        ),
+        TlsMode::None,
+    )
+    .unwrap();
+    let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+}
+
+/// Returns an available localhost port
+pub fn free_local_port() -> Option<u16> {
+    let socket = std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0);
+    std::net::TcpListener::bind(socket)
+        .and_then(|listener| listener.local_addr())
+        .and_then(|addr| Ok(addr.port()))
+        .ok()
+}

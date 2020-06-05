@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use spectral::prelude::*;
 
+use testcontainers::core::Port;
 use testcontainers::*;
 
 #[derive(Default)]
@@ -36,6 +37,10 @@ impl Image for HelloWorld {
 
     fn env_vars(&self) -> Self::EnvVars {
         HashMap::new()
+    }
+
+    fn ports(&self) -> Option<Vec<Port>> {
+        None
     }
 
     fn with_args(self, _arguments: <Self as Image>::Args) -> Self {

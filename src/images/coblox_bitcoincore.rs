@@ -1,3 +1,4 @@
+use crate::core::Port;
 use crate::core::{Container, Docker, Image, WaitForMessage};
 use hex::encode;
 use hmac::{Hmac, Mac};
@@ -9,6 +10,7 @@ use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 pub struct BitcoinCore {
     tag: String,
     arguments: BitcoinCoreImageArgs,
+    ports: Option<Vec<Port>>,
 }
 
 impl BitcoinCore {
@@ -205,6 +207,10 @@ impl Image for BitcoinCore {
         HashMap::new()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         BitcoinCore { arguments, ..self }
     }
@@ -215,6 +221,7 @@ impl Default for BitcoinCore {
         BitcoinCore {
             tag: "0.17.0".into(),
             arguments: BitcoinCoreImageArgs::default(),
+            ports: None,
         }
     }
 }
@@ -225,6 +232,13 @@ impl BitcoinCore {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
     }
 }
 
