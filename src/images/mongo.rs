@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 
-const CONTAINER_IDENTIFIER: &'static str = "mongo";
-const DEFAULT_TAG: &'static str = "4.0.17";
+const CONTAINER_IDENTIFIER: &str = "mongo";
+const DEFAULT_TAG: &str = "4.0.17";
 
 #[derive(Debug, Default, Clone)]
 pub struct MongoArgs;

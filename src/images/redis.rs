@@ -2,8 +2,8 @@ use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &'static str = "redis";
-const DEFAULT_TAG: &'static str = "5.0";
+const CONTAINER_IDENTIFIER: &str = "redis";
+const DEFAULT_TAG: &str = "5.0";
 
 #[derive(Debug, Default, Clone)]
 pub struct RedisArgs;

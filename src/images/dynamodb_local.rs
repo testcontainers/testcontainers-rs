@@ -2,10 +2,10 @@ use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 
-const ADDITIONAL_SLEEP_PERIOD: &'static str = "DYNAMODB_ADDITIONAL_SLEEP_PERIOD";
-const CONTAINER_IDENTIFIER: &'static str = "amazon/dynamodb-local";
+const ADDITIONAL_SLEEP_PERIOD: &str = "DYNAMODB_ADDITIONAL_SLEEP_PERIOD";
+const CONTAINER_IDENTIFIER: &str = "amazon/dynamodb-local";
 const DEFAULT_WAIT: u64 = 2000;
-const DEFAULT_TAG: &'static str = "latest";
+const DEFAULT_TAG: &str = "latest";
 
 #[derive(Debug, Default, Clone)]
 pub struct DynamoDbArgs;

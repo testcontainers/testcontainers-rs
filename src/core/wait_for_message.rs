@@ -25,11 +25,9 @@ where
     fn wait_for_message(self, message: &str) -> Result<(), WaitError> {
         let logs = BufReader::new(self);
 
-        let mut iter = logs.lines().into_iter();
-
         let mut number_of_compared_lines = 0;
 
-        while let Some(line) = iter.next() {
+        for line in logs.lines() {
             let line = line?;
             number_of_compared_lines += 1;
 
