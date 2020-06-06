@@ -2,8 +2,8 @@ use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &'static str = "softwaremill/elasticmq";
-const DEFAULT_TAG: &'static str = "0.14.6";
+const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
+const DEFAULT_TAG: &str = "0.14.6";
 
 #[derive(Debug, Default, Clone)]
 pub struct ElasticMQArgs;

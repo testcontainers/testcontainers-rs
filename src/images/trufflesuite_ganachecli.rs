@@ -45,13 +45,13 @@ impl IntoIterator for GanacheCliArgs {
 
         if !self.mnemonic.is_empty() {
             args.push("-m".to_string());
-            args.push(format!("{}", self.mnemonic));
+            args.push(self.mnemonic.to_string());
         }
 
         args.push("-a".to_string());
-        args.push(format!("{}", self.number_of_accounts));
+        args.push(self.number_of_accounts.to_string());
         args.push("-i".to_string());
-        args.push(format!("{}", self.network_id));
+        args.push(self.network_id.to_string());
 
         args.into_iter()
     }

@@ -2,8 +2,8 @@ use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &'static str = "parity/parity";
-const DEFAULT_TAG: &'static str = "v2.5.0";
+const CONTAINER_IDENTIFIER: &str = "parity/parity";
+const DEFAULT_TAG: &str = "v2.5.0";
 
 #[derive(Debug)]
 pub struct ParityEthereum {

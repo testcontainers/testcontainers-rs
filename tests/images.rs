@@ -147,7 +147,7 @@ fn redis_fetch_an_integer() {
     let client = redis::Client::open(url.as_ref()).unwrap();
     let mut con = client.get_connection().unwrap();
 
-    let _: () = con.set("my_key", 42).unwrap();
+    con.set::<_, _, ()>("my_key", 42).unwrap();
     let result: i64 = con.get("my_key").unwrap();
     assert_eq!(42, result);
 }

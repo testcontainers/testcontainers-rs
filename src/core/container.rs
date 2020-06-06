@@ -143,9 +143,10 @@ where
             .and_then(|var| var.parse().ok())
             .unwrap_or(false);
 
-        match keep_container {
-            true => self.stop(),
-            false => self.rm(),
+        if keep_container {
+            self.stop()
+        } else {
+            self.rm()
         }
     }
 }
