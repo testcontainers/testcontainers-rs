@@ -82,6 +82,10 @@ impl Cli {
             command.arg("-v").arg(format!("{}:{}", orig, dest));
         }
 
+        if let Some(entrypoint) = image.entrypoint() {
+            command.arg("--entrypoint").arg(entrypoint);
+        }
+
         if let Some(ports) = image.ports() {
             for port in &ports {
                 command

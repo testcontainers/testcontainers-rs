@@ -88,6 +88,14 @@ where
 
     /// Re-configures the current instance of this image with the given arguments.
     fn with_args(self, arguments: Self::Args) -> Self;
+
+    fn with_entrypoint(self, _entryppoint: &str) -> Self {
+        self
+    }
+
+    fn entrypoint(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
