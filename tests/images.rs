@@ -226,6 +226,41 @@ fn generic_image() {
     assert_eq!(first_column, 2);
 }
 
+#[test]
+fn generic_image_with_custom_entrypoint() {
+    let docker = clients::Cli::default();
+
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+        .with_wait_for(images::generic::WaitFor::message_on_stdout(
+            "server is ready",
+        ));
+
+    let node = docker.run(generic);
+    let port = node.get_host_port(80).unwrap();
+    assert_eq!(
+        "foo",
+        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+            .unwrap()
+            .text()
+            .unwrap()
+    );
+
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+        .with_wait_for(images::generic::WaitFor::message_on_stdout(
+            "server is ready",
+        ))
+        .with_entrypoint("/bar");
+    let node = docker.run(generic);
+    let port = node.get_host_port(80).unwrap();
+    assert_eq!(
+        "bar",
+        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+            .unwrap()
+            .text()
+            .unwrap()
+    );
+}
+
 fn build_sqs_client(host_port: u16) -> SqsClient {
     let dispatcher = HttpClient::new().expect("could not create http client");
     let credentials_provider =

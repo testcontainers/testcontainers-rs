@@ -130,7 +130,10 @@ impl Image for GenericImage {
     }
 
     fn with_entrypoint(self, entrypoint: &str) -> Self {
-        Self { entrypoint: Some(entrypoint.to_owned()), ..self }
+        Self {
+            entrypoint: Some(entrypoint.to_owned()),
+            ..self
+        }
     }
 
     fn entrypoint(&self) -> Option<String> {
