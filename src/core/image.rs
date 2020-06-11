@@ -83,16 +83,18 @@ where
 
     /// Returs the ports mapping requested for the image.
     /// If not explicit port mappings is defined, all image ports will be automatically
-    /// exposed and mapped on randon host ports.
+    /// exposed and mapped on random host ports.
     fn ports(&self) -> Option<Vec<Port>>;
 
     /// Re-configures the current instance of this image with the given arguments.
     fn with_args(self, arguments: Self::Args) -> Self;
 
+    /// Re-configures the current instance of this image with the given entrypoint.
     fn with_entrypoint(self, _entryppoint: &str) -> Self {
         self
     }
 
+    /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
         None
     }
