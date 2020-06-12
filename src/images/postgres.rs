@@ -1,5 +1,5 @@
 use crate::core::Port;
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{Container, Docker, Image, Void, WaitForMessage};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -52,6 +52,7 @@ impl Image for Postgres {
     type Args = PostgresArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = Void;
 
     fn descriptor(&self) -> String {
         "postgres:11-alpine".to_string()

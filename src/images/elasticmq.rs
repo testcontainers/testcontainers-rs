@@ -1,5 +1,5 @@
 use crate::core::Port;
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{Container, Docker, Image, Void, WaitForMessage};
 use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
@@ -38,6 +38,7 @@ impl Image for ElasticMQ {
     type Args = ElasticMQArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = Void;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

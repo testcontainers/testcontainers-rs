@@ -1,5 +1,5 @@
 use crate::core::Port;
-use crate::core::{Container, Docker, Image, WaitForMessage};
+use crate::core::{Container, Docker, Image, Void, WaitForMessage};
 use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
@@ -167,6 +167,7 @@ impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = Void;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)

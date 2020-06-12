@@ -100,6 +100,7 @@ impl Image for GenericImage {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = str;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
@@ -129,9 +130,9 @@ impl Image for GenericImage {
         Self { arguments, ..self }
     }
 
-    fn with_entrypoint(self, entrypoint: &str) -> Self {
+    fn with_entrypoint(self, entrypoint: &Self::EntryPoint) -> Self {
         Self {
-            entrypoint: Some(entrypoint.to_owned()),
+            entrypoint: Some(entrypoint.to_string()),
             ..self
         }
     }

@@ -1,5 +1,5 @@
 use crate::core::Port;
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{Container, Docker, Image, Void, WaitForMessage};
 use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 
 const ADDITIONAL_SLEEP_PERIOD: &str = "DYNAMODB_ADDITIONAL_SLEEP_PERIOD";
@@ -40,6 +40,7 @@ impl Image for DynamoDb {
     type Args = DynamoDbArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = Void;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

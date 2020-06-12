@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::core::Port;
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{Container, Docker, Image, Void, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &str = "mongo";
 const DEFAULT_TAG: &str = "4.0.17";
@@ -39,6 +39,7 @@ impl Image for Mongo {
     type Args = MongoArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = Void;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

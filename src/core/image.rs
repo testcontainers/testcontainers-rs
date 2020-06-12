@@ -14,6 +14,7 @@ where
     Self::Args: Default + IntoIterator<Item = String>,
     Self::EnvVars: Default + IntoIterator<Item = (String, String)>,
     Self::Volumes: Default + IntoIterator<Item = (String, String)>,
+    Self::EntryPoint: ToString,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -50,6 +51,9 @@ where
     /// the volumes of your image, consider that the whole purpose is to facilitate integration
     /// testing. Only expose those that actually make sense for this case.
     type Volumes;
+
+    /// A type representing the entrypoint for an Image.
+    type EntryPoint: ?Sized;
 
     /// The descriptor of the docker image.
     ///
@@ -90,7 +94,7 @@ where
     fn with_args(self, arguments: Self::Args) -> Self;
 
     /// Re-configures the current instance of this image with the given entrypoint.
-    fn with_entrypoint(self, _entryppoint: &str) -> Self {
+    fn with_entrypoint(self, _entryppoint: &Self::EntryPoint) -> Self {
         self
     }
 
@@ -113,5 +117,16 @@ impl Into<Port> for (u16, u16) {
             local: self.0,
             internal: self.1,
         }
+    }
+}
+
+/// Represents type with no value, useful for images that disallow entrypoint changes.
+///
+#[derive(Debug)]
+pub enum Void {}
+
+impl ToString for Void {
+    fn to_string(&self) -> String {
+        unreachable!()
     }
 }
