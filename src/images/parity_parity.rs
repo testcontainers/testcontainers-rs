@@ -1,5 +1,5 @@
 use crate::core::Port;
-use crate::{Container, Docker, Image, Void, WaitForMessage};
+use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "parity/parity";
@@ -44,7 +44,7 @@ impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
-    type EntryPoint = Void;
+    type EntryPoint = void::Void;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

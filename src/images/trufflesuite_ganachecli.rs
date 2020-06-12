@@ -1,5 +1,5 @@
 use crate::core::Port;
-use crate::{Container, Docker, Image, Void, WaitForMessage};
+use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -61,7 +61,7 @@ impl Image for GanacheCli {
     type Args = GanacheCliArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
-    type EntryPoint = Void;
+    type EntryPoint = void::Void;
 
     fn descriptor(&self) -> String {
         format!("trufflesuite/ganache-cli:{}", self.tag)

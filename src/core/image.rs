@@ -119,14 +119,3 @@ impl Into<Port> for (u16, u16) {
         }
     }
 }
-
-/// Represents type with no value, useful for images that disallow entrypoint changes.
-///
-#[derive(Debug)]
-pub enum Void {}
-
-impl ToString for Void {
-    fn to_string(&self) -> String {
-        unreachable!()
-    }
-}

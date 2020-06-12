@@ -14,7 +14,7 @@ impl Image for HelloWorld {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
-    type EntryPoint = Void;
+    type EntryPoint = void::Void;
 
     fn descriptor(&self) -> String {
         String::from("hello-world")
