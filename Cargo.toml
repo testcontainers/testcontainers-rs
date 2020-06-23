@@ -12,7 +12,7 @@ version = "0.9.1"
 [dependencies]
 derivative = "2"
 hex = "0.4"
-hmac = "0.7"
+hmac = "0.8"
 log = "0.4"
 rand = "0.7"
 serde = { version = "1", features = ["derive"] }
