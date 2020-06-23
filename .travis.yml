@@ -4,7 +4,7 @@ matrix:
     - rust: 1.32.0 # test for the MSRV when included as a library
       cache: cargo
       script: cargo build
-    - rust: 1.40.0 # our tests need this to compile certain dependencies
+    - rust: 1.43.0 # our tests need this to compile certain dependencies
       sudo: required
       cache: cargo
       services:
