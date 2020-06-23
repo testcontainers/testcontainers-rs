@@ -30,6 +30,6 @@ rusoto_credential = "0.44"
 rusoto_dynamodb = "0.44"
 rusoto_sqs = "0.44"
 spectral = "0.6"
-reqwest = "0.9"
+reqwest = "0.10"
 json = "0.12"
 tokio = { version = "0.2", features = ["macros"] }
