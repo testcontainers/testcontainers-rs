@@ -92,8 +92,8 @@ fn trufflesuite_ganachecli_listaccounts() {
     assert_eq!(response["result"], "42");
 }
 
-#[test]
-fn dynamodb_local_create_table() {
+#[tokio::test]
+async fn dynamodb_local_create_table() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::dynamodb_local::DynamoDb::default());
@@ -117,7 +117,7 @@ fn dynamodb_local_create_table() {
     };
 
     let dynamodb = build_dynamodb_client(host_port);
-    let result = dynamodb.create_table(create_tables_input).sync();
+    let result = dynamodb.create_table(create_tables_input).await;
     assert_that(&result).is_ok();
 }
 
@@ -175,15 +175,15 @@ fn mongo_fetch_document() {
     assert_eq!(42, find_one_result.get_i32("x").unwrap())
 }
 
-#[test]
-fn sqs_list_queues() {
+#[tokio::test]
+async fn sqs_list_queues() {
     let docker = clients::Cli::default();
     let node = docker.run(images::elasticmq::ElasticMQ::default());
     let host_port = node.get_host_port(9324).unwrap();
     let client = build_sqs_client(host_port);
 
     let request = ListQueuesRequest::default();
-    let result = client.list_queues(request).sync().unwrap();
+    let result = client.list_queues(request).await.unwrap();
     assert!(result.queue_urls.is_none());
 }
 
