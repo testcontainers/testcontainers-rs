@@ -115,13 +115,17 @@ where
         log::debug!("Container {} is now ready!", self.id);
     }
 
-    fn stop(&self) {
+    pub fn stop(&self) {
         log::debug!("Stopping docker container {}", self.id);
 
         self.docker_client.stop(&self.id)
     }
 
-    fn rm(&self) {
+    pub fn start(&self) {
+        self.docker_client.start(&self.id);
+    }
+
+    pub fn rm(&self) {
         log::debug!("Deleting docker container {}", self.id);
 
         self.docker_client.rm(&self.id)
