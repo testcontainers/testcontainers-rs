@@ -3,7 +3,9 @@ use std::io::{self, BufRead, BufReader, Read};
 /// Defines error cases when waiting for a message in a stream.
 #[derive(Debug)]
 pub enum WaitError {
-    EndOfStream,
+    /// Indicates the stream ended before finding the log line you were looking for.
+    /// Contains all the lines that were read for debugging purposes.
+    EndOfStream(Vec<String>),
     IO(io::Error),
 }
 
@@ -24,29 +26,26 @@ where
 {
     fn wait_for_message(self, message: &str) -> Result<(), WaitError> {
         let logs = BufReader::new(self);
-
-        let mut number_of_compared_lines = 0;
+        let mut lines = vec![];
 
         for line in logs.lines() {
             let line = line?;
-            number_of_compared_lines += 1;
 
             if line.contains(message) {
-                log::info!(
-                    "Found message after comparing {} lines",
-                    number_of_compared_lines
-                );
+                log::info!("Found message after comparing {} lines", lines.len());
 
                 return Ok(());
             }
+
+            lines.push(line);
         }
 
         log::error!(
             "Failed to find message in stream after comparing {} lines.",
-            number_of_compared_lines
+            lines.len()
         );
 
-        Err(WaitError::EndOfStream)
+        Err(WaitError::EndOfStream(lines))
     }
 }
 
