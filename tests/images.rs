@@ -42,7 +42,7 @@ fn parity_parity_net_version() {
     let node = docker.run(images::parity_parity::ParityEthereum::default());
     let host_port = node.get_host_port(8545).unwrap();
 
-    let mut response = reqwest::Client::new()
+    let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
         .body(
             json::object! {
@@ -70,7 +70,7 @@ fn trufflesuite_ganachecli_listaccounts() {
     let node = docker.run(images::trufflesuite_ganachecli::GanacheCli::default());
     let host_port = node.get_host_port(8545).unwrap();
 
-    let mut response = reqwest::Client::new()
+    let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
         .body(
             json::object! {
