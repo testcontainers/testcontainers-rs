@@ -38,7 +38,7 @@ impl Image for Redis {
     type Args = RedisArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
-    type EntryPoint = void::Void;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

@@ -306,7 +306,7 @@ mod tests {
         type Args = Vec<String>;
         type EnvVars = HashMap<String, String>;
         type Volumes = HashMap<String, String>;
-        type EntryPoint = void::Void;
+        type EntryPoint = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")
