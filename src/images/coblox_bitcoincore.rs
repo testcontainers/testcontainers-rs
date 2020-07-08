@@ -167,6 +167,7 @@ impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)

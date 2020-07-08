@@ -82,6 +82,10 @@ impl Cli {
             command.arg("-v").arg(format!("{}:{}", orig, dest));
         }
 
+        if let Some(entrypoint) = image.entrypoint() {
+            command.arg("--entrypoint").arg(entrypoint);
+        }
+
         if let Some(ports) = image.ports() {
             for port in &ports {
                 command
@@ -302,6 +306,7 @@ mod tests {
         type Args = Vec<String>;
         type EnvVars = HashMap<String, String>;
         type Volumes = HashMap<String, String>;
+        type EntryPoint = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")

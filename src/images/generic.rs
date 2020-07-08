@@ -48,6 +48,7 @@ pub struct GenericImage {
     env_vars: HashMap<String, String>,
     ports: Option<Vec<Port>>,
     wait_for: WaitFor,
+    entrypoint: Option<String>,
 }
 
 impl Default for GenericImage {
@@ -59,6 +60,7 @@ impl Default for GenericImage {
             env_vars: HashMap::new(),
             wait_for: WaitFor::Nothing,
             ports: None,
+            entrypoint: None,
         }
     }
 }
@@ -98,6 +100,7 @@ impl Image for GenericImage {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = str;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
@@ -125,6 +128,17 @@ impl Image for GenericImage {
 
     fn with_args(self, arguments: Self::Args) -> Self {
         Self { arguments, ..self }
+    }
+
+    fn with_entrypoint(self, entrypoint: &Self::EntryPoint) -> Self {
+        Self {
+            entrypoint: Some(entrypoint.to_string()),
+            ..self
+        }
+    }
+
+    fn entrypoint(&self) -> Option<String> {
+        self.entrypoint.clone()
     }
 }
 

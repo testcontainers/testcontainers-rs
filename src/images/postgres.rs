@@ -52,6 +52,7 @@ impl Image for Postgres {
     type Args = PostgresArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         "postgres:11-alpine".to_string()
