@@ -1,0 +1,8 @@
+pull_request_rules:
+  - name: Block regular PRs from merging into master
+    conditions:
+      - base=master
+      - head~=^(?!release.*).*$
+    actions:
+      close:
+        message: This repository is using GitFlow. New features should be merged into `dev` instead of master. Please open a new pull request that targets `dev` instead.
