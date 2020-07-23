@@ -27,7 +27,7 @@ redis = "0.16"
 mongodb = "1.0.0"
 rusoto_core = "0.44"
 rusoto_credential = "0.44"
-rusoto_dynamodb = "0.44"
+rusoto_dynamodb = "0.45"
 rusoto_sqs = "0.44"
 spectral = "0.6"
 reqwest = { version = "0.10", features = ["blocking"] }
