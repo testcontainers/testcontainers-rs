@@ -173,12 +173,25 @@ impl Docker for Cli {
     }
 
     fn stop(&self, id: &str) {
-        Command::new("docker")
+        let _ = Command::new("docker")
             .arg("stop")
             .arg(id)
             .stdout(Stdio::piped())
             .spawn()
-            .expect("Failed to execute docker command");
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to stop docker container");
+    }
+
+    fn start(&self, id: &str) {
+        Command::new("docker")
+            .arg("start")
+            .arg(id)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to start docker container");
     }
 }
 

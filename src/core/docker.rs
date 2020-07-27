@@ -11,6 +11,7 @@ where
     fn ports(&self, id: &str) -> Ports;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
+    fn start(&self, id: &str);
 }
 
 /// The exposed ports of a running container.
