@@ -92,6 +92,7 @@ pub struct BitcoinCoreImageArgs {
     pub rpc_auth: RpcAuth,
     pub accept_non_std_txn: Option<bool>,
     pub rest: bool,
+    pub fallback_fee: Option<f64>,
 }
 
 impl Default for BitcoinCoreImageArgs {
@@ -106,6 +107,7 @@ impl Default for BitcoinCoreImageArgs {
             rpc_allowip: "0.0.0.0/0".to_string(),
             accept_non_std_txn: Some(false),
             rest: true,
+            fallback_fee: Some(0.0002),
         }
     }
 }
@@ -155,6 +157,10 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
         if self.rest {
             args.push("-rest".to_string())
+        }
+
+        if let Some(fallback_fee) = self.fallback_fee {
+            args.push(format!("-fallbackfee={}", fallback_fee));
         }
 
         args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
@@ -220,7 +226,7 @@ impl Image for BitcoinCore {
 impl Default for BitcoinCore {
     fn default() -> Self {
         BitcoinCore {
-            tag: "0.17.0".into(),
+            tag: "0.20.0".into(),
             arguments: BitcoinCoreImageArgs::default(),
             ports: None,
         }
