@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2020-08-20
+
+### Added
+
+-   Mongo image.
+-   `run_with_options` method that allows running a docker container with custom options instead of the currently
+    hardcoded ones.
+-   Support for the `fallbackfee` argument for the `bitcoin-core` image.
+-   Ability to customize the `entrypoint` used by the image.
+-   Ability to start a container once stopped. 
+ 
 ### Changed
 
 -   MSRV bumped to 1.36 from 1.32.
--   Change postgres image authentication POSTGRES_HOST_AUTH_METHOD rather than username and password
+-   Change postgres image authentication POSTGRES_HOST_AUTH_METHOD rather than username and password.
+-   Bumped bitcoin-core default tag to 0.20.0.
 
 ## [0.9.1] - 2020-03-24
 
