@@ -1,8 +1,9 @@
+use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &'static str = "softwaremill/elasticmq";
-const DEFAULT_TAG: &'static str = "0.14.6";
+const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
+const DEFAULT_TAG: &str = "0.14.6";
 
 #[derive(Debug, Default, Clone)]
 pub struct ElasticMQArgs;
@@ -20,6 +21,7 @@ impl IntoIterator for ElasticMQArgs {
 pub struct ElasticMQ {
     tag: String,
     arguments: ElasticMQArgs,
+    ports: Option<Vec<Port>>,
 }
 
 impl Default for ElasticMQ {
@@ -27,6 +29,7 @@ impl Default for ElasticMQ {
         ElasticMQ {
             tag: DEFAULT_TAG.to_string(),
             arguments: ElasticMQArgs {},
+            ports: None,
         }
     }
 }
@@ -35,6 +38,7 @@ impl Image for ElasticMQ {
     type Args = ElasticMQArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -60,6 +64,10 @@ impl Image for ElasticMQ {
         HashMap::new()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         ElasticMQ { arguments, ..self }
     }
@@ -71,5 +79,12 @@ impl ElasticMQ {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
     }
 }

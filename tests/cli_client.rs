@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use spectral::prelude::*;
 
+use testcontainers::core::Port;
 use testcontainers::*;
 
 #[derive(Default)]
@@ -13,6 +14,7 @@ impl Image for HelloWorld {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         String::from("hello-world")
@@ -36,6 +38,10 @@ impl Image for HelloWorld {
 
     fn env_vars(&self) -> Self::EnvVars {
         HashMap::new()
+    }
+
+    fn ports(&self) -> Option<Vec<Port>> {
+        None
     }
 
     fn with_args(self, _arguments: <Self as Image>::Args) -> Self {

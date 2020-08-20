@@ -1,6 +1,7 @@
+use crate::core::Port;
 use crate::core::{Container, Docker, Image, WaitForMessage};
 use hex::encode;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
@@ -9,6 +10,7 @@ use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 pub struct BitcoinCore {
     tag: String,
     arguments: BitcoinCoreImageArgs,
+    ports: Option<Vec<Port>>,
 }
 
 impl BitcoinCore {
@@ -67,9 +69,9 @@ impl RpcAuth {
 
     fn encode_password(&self) -> String {
         let mut mac = Hmac::<Sha256>::new_varkey(self.salt.as_bytes()).unwrap();
-        mac.input(self.password.as_bytes().as_ref());
+        mac.update(self.password.as_bytes().as_ref());
 
-        let result = mac.result().code();
+        let result = mac.finalize().into_bytes();
 
         encode(result)
     }
@@ -90,6 +92,7 @@ pub struct BitcoinCoreImageArgs {
     pub rpc_auth: RpcAuth,
     pub accept_non_std_txn: Option<bool>,
     pub rest: bool,
+    pub fallback_fee: Option<f64>,
 }
 
 impl Default for BitcoinCoreImageArgs {
@@ -104,6 +107,7 @@ impl Default for BitcoinCoreImageArgs {
             rpc_allowip: "0.0.0.0/0".to_string(),
             accept_non_std_txn: Some(false),
             rest: true,
+            fallback_fee: Some(0.0002),
         }
     }
 }
@@ -155,6 +159,10 @@ impl IntoIterator for BitcoinCoreImageArgs {
             args.push("-rest".to_string())
         }
 
+        if let Some(fallback_fee) = self.fallback_fee {
+            args.push(format!("-fallbackfee={}", fallback_fee));
+        }
+
         args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
 
         args.into_iter()
@@ -165,6 +173,7 @@ impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)
@@ -205,6 +214,10 @@ impl Image for BitcoinCore {
         HashMap::new()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         BitcoinCore { arguments, ..self }
     }
@@ -213,8 +226,9 @@ impl Image for BitcoinCore {
 impl Default for BitcoinCore {
     fn default() -> Self {
         BitcoinCore {
-            tag: "0.17.0".into(),
+            tag: "0.20.0".into(),
             arguments: BitcoinCoreImageArgs::default(),
+            ports: None,
         }
     }
 }
@@ -225,6 +239,13 @@ impl BitcoinCore {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
     }
 }
 

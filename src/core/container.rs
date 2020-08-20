@@ -115,13 +115,17 @@ where
         log::debug!("Container {} is now ready!", self.id);
     }
 
-    fn stop(&self) {
+    pub fn stop(&self) {
         log::debug!("Stopping docker container {}", self.id);
 
         self.docker_client.stop(&self.id)
     }
 
-    fn rm(&self) {
+    pub fn start(&self) {
+        self.docker_client.start(&self.id);
+    }
+
+    pub fn rm(&self) {
         log::debug!("Deleting docker container {}", self.id);
 
         self.docker_client.rm(&self.id)
@@ -143,9 +147,10 @@ where
             .and_then(|var| var.parse().ok())
             .unwrap_or(false);
 
-        match keep_container {
-            true => self.stop(),
-            false => self.rm(),
+        if keep_container {
+            self.stop()
+        } else {
+            self.rm()
         }
     }
 }

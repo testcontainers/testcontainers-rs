@@ -1,5 +1,5 @@
 use bitcoincore_rpc::RpcApi;
-use postgres::{Connection, TlsMode};
+use mongodb::{bson, Client};
 use redis::Commands;
 use rusoto_core::{HttpClient, Region};
 use rusoto_credential::StaticProvider;
@@ -9,6 +9,7 @@ use rusoto_dynamodb::{
 };
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
+
 use testcontainers::*;
 
 #[test]
@@ -41,7 +42,7 @@ fn parity_parity_net_version() {
     let node = docker.run(images::parity_parity::ParityEthereum::default());
     let host_port = node.get_host_port(8545).unwrap();
 
-    let mut response = reqwest::Client::new()
+    let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
         .body(
             json::object! {
@@ -69,7 +70,7 @@ fn trufflesuite_ganachecli_listaccounts() {
     let node = docker.run(images::trufflesuite_ganachecli::GanacheCli::default());
     let host_port = node.get_host_port(8545).unwrap();
 
-    let mut response = reqwest::Client::new()
+    let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
         .body(
             json::object! {
@@ -90,8 +91,8 @@ fn trufflesuite_ganachecli_listaccounts() {
     assert_eq!(response["result"], "42");
 }
 
-#[test]
-fn dynamodb_local_create_table() {
+#[tokio::test]
+async fn dynamodb_local_create_table() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::dynamodb_local::DynamoDb::default());
@@ -115,7 +116,7 @@ fn dynamodb_local_create_table() {
     };
 
     let dynamodb = build_dynamodb_client(host_port);
-    let result = dynamodb.create_table(create_tables_input).sync();
+    let result = dynamodb.create_table(create_tables_input).await;
     assert_that(&result).is_ok();
 }
 
@@ -144,20 +145,48 @@ fn redis_fetch_an_integer() {
     let client = redis::Client::open(url.as_ref()).unwrap();
     let mut con = client.get_connection().unwrap();
 
-    let _: () = con.set("my_key", 42).unwrap();
+    con.set::<_, _, ()>("my_key", 42).unwrap();
     let result: i64 = con.get("my_key").unwrap();
     assert_eq!(42, result);
 }
 
-#[test]
-fn sqs_list_queues() {
+#[tokio::test]
+async fn mongo_fetch_document() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::mongo::Mongo::default());
+    let host_port = node.get_host_port(27017).unwrap();
+    let url = format!("mongodb://localhost:{}/", host_port);
+
+    let client: Client = Client::with_uri_str(url.as_ref()).await.unwrap();
+    let db = client.database("some_db");
+    let coll = db.collection("some-coll");
+
+    let insert_one_result = coll.insert_one(bson::doc! { "x": 42 }, None).await.unwrap();
+    assert!(!insert_one_result
+        .inserted_id
+        .as_object_id()
+        .unwrap()
+        .to_hex()
+        .is_empty());
+
+    let find_one_result: bson::Document = coll
+        .find_one(bson::doc! { "x": 42 }, None)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(42, find_one_result.get_i32("x").unwrap())
+}
+
+#[tokio::test]
+async fn sqs_list_queues() {
     let docker = clients::Cli::default();
     let node = docker.run(images::elasticmq::ElasticMQ::default());
     let host_port = node.get_host_port(9324).unwrap();
     let client = build_sqs_client(host_port);
 
     let request = ListQueuesRequest::default();
-    let result = client.list_queues(request).sync().unwrap();
+    let result = client.list_queues(request).await.unwrap();
     assert!(result.queue_urls.is_none());
 }
 
@@ -180,21 +209,54 @@ fn generic_image() {
 
     let node = docker.run(generic_postgres);
 
-    let conn = Connection::connect(
-        format!(
-            "postgres://{}:{}@localhost:{}/{}",
-            user,
-            password,
-            node.get_host_port(5432).unwrap(),
-            db
-        ),
-        TlsMode::None,
-    )
-    .unwrap();
-    let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
+    let connection_string = &format!(
+        "postgres://{}:{}@localhost:{}/{}",
+        user,
+        password,
+        node.get_host_port(5432).unwrap(),
+        db
+    );
+    let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
+    let rows = conn.query("SELECT 1 + 1", &[]).unwrap();
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+
+    let first_row = &rows[0];
+    let first_column: i32 = first_row.get(0);
+    assert_eq!(first_column, 2);
+}
+
+#[test]
+fn generic_image_with_custom_entrypoint() {
+    let docker = clients::Cli::default();
+    let msg = images::generic::WaitFor::message_on_stdout("server is ready");
+
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+        .with_wait_for(msg.clone());
+
+    let node = docker.run(generic);
+    let port = node.get_host_port(80).unwrap();
+    assert_eq!(
+        "foo",
+        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+            .unwrap()
+            .text()
+            .unwrap()
+    );
+
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+        .with_wait_for(msg)
+        .with_entrypoint("/bar");
+
+    let node = docker.run(generic);
+    let port = node.get_host_port(80).unwrap();
+    assert_eq!(
+        "bar",
+        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+            .unwrap()
+            .text()
+            .unwrap()
+    );
 }
 
 fn build_sqs_client(host_port: u16) -> SqsClient {
@@ -211,20 +273,52 @@ fn build_sqs_client(host_port: u16) -> SqsClient {
 
 #[test]
 fn postgres_one_plus_one() {
-    let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::postgres::Postgres::default());
+    let postgres_image = images::postgres::Postgres::default();
+    let node = docker.run(postgres_image);
 
-    let conn = Connection::connect(
-        format!(
+    let connection_string = &format!(
+        "postgres://postgres:postgres@localhost:{}/postgres",
+        node.get_host_port(5432).unwrap()
+    );
+    let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
+
+    let rows = conn.query("SELECT 1 + 1", &[]).unwrap();
+    assert_eq!(rows.len(), 1);
+
+    let first_row = &rows[0];
+    let first_column: i32 = first_row.get(0);
+    assert_eq!(first_column, 2);
+}
+
+#[test]
+fn postgres_one_plus_one_with_custom_mapped_port() {
+    let _ = pretty_env_logger::try_init();
+    let free_local_port = free_local_port().unwrap();
+
+    let docker = clients::Cli::default();
+    let _node =
+        docker.run(images::postgres::Postgres::default().with_mapped_port((free_local_port, 5432)));
+
+    let mut conn = postgres::Client::connect(
+        &format!(
             "postgres://postgres:postgres@localhost:{}/postgres",
-            node.get_host_port(5432).unwrap()
+            free_local_port
         ),
-        TlsMode::None,
+        postgres::NoTls,
     )
     .unwrap();
     let rows = conn.query("SELECT 1+1 AS result;", &[]).unwrap();
 
     assert_eq!(rows.len(), 1);
-    assert_eq!(rows.get(0).get::<_, i32>("result"), 2);
+    assert_eq!(rows[0].get::<_, i32>("result"), 2);
+}
+
+/// Returns an available localhost port
+pub fn free_local_port() -> Option<u16> {
+    let socket = std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0);
+    std::net::TcpListener::bind(socket)
+        .and_then(|listener| listener.local_addr())
+        .and_then(|addr| Ok(addr.port()))
+        .ok()
 }

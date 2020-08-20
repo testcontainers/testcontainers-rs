@@ -1,8 +1,9 @@
+use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &'static str = "redis";
-const DEFAULT_TAG: &'static str = "5.0";
+const CONTAINER_IDENTIFIER: &str = "redis";
+const DEFAULT_TAG: &str = "5.0";
 
 #[derive(Debug, Default, Clone)]
 pub struct RedisArgs;
@@ -20,6 +21,7 @@ impl IntoIterator for RedisArgs {
 pub struct Redis {
     tag: String,
     arguments: RedisArgs,
+    ports: Option<Vec<Port>>,
 }
 
 impl Default for Redis {
@@ -27,6 +29,7 @@ impl Default for Redis {
         Redis {
             tag: DEFAULT_TAG.to_string(),
             arguments: RedisArgs {},
+            ports: None,
         }
     }
 }
@@ -35,6 +38,7 @@ impl Image for Redis {
     type Args = RedisArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
@@ -60,6 +64,10 @@ impl Image for Redis {
         HashMap::new()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         Redis { arguments, ..self }
     }
@@ -71,5 +79,12 @@ impl Redis {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
     }
 }

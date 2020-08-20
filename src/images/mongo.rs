@@ -1,16 +1,15 @@
+use std::collections::HashMap;
+
 use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
-use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 
-const ADDITIONAL_SLEEP_PERIOD: &str = "DYNAMODB_ADDITIONAL_SLEEP_PERIOD";
-const CONTAINER_IDENTIFIER: &str = "amazon/dynamodb-local";
-const DEFAULT_WAIT: u64 = 2000;
-const DEFAULT_TAG: &str = "latest";
+const CONTAINER_IDENTIFIER: &str = "mongo";
+const DEFAULT_TAG: &str = "4.0.17";
 
 #[derive(Debug, Default, Clone)]
-pub struct DynamoDbArgs;
+pub struct MongoArgs;
 
-impl IntoIterator for DynamoDbArgs {
+impl IntoIterator for MongoArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
 
@@ -20,24 +19,24 @@ impl IntoIterator for DynamoDbArgs {
 }
 
 #[derive(Debug)]
-pub struct DynamoDb {
+pub struct Mongo {
     tag: String,
-    arguments: DynamoDbArgs,
+    arguments: MongoArgs,
     ports: Option<Vec<Port>>,
 }
 
-impl Default for DynamoDb {
+impl Default for Mongo {
     fn default() -> Self {
-        DynamoDb {
+        Mongo {
             tag: DEFAULT_TAG.to_string(),
-            arguments: DynamoDbArgs {},
+            arguments: MongoArgs {},
             ports: None,
         }
     }
 }
 
-impl Image for DynamoDb {
-    type Args = DynamoDbArgs;
+impl Image for Mongo {
+    type Args = MongoArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
@@ -50,33 +49,19 @@ impl Image for DynamoDb {
         container
             .logs()
             .stdout
-            .wait_for_message("Initializing DynamoDB Local with the following configuration")
+            .wait_for_message("waiting for connections on port")
             .unwrap();
-
-        let additional_sleep_period = var(ADDITIONAL_SLEEP_PERIOD)
-            .map(|value| value.parse().unwrap_or(DEFAULT_WAIT))
-            .unwrap_or(DEFAULT_WAIT);
-
-        let sleep_period = Duration::from_millis(additional_sleep_period);
-
-        log::trace!(
-            "Waiting for an additional {:?} for container {}.",
-            sleep_period,
-            container.id()
-        );
-
-        sleep(sleep_period)
     }
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
     }
 
-    fn volumes(&self) -> Self::Volumes {
+    fn env_vars(&self) -> Self::EnvVars {
         HashMap::new()
     }
 
-    fn env_vars(&self) -> Self::EnvVars {
+    fn volumes(&self) -> Self::Volumes {
         HashMap::new()
     }
 
@@ -85,13 +70,13 @@ impl Image for DynamoDb {
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        DynamoDb { arguments, ..self }
+        Mongo { arguments, ..self }
     }
 }
 
-impl DynamoDb {
+impl Mongo {
     pub fn with_tag(self, tag_str: &str) -> Self {
-        DynamoDb {
+        Mongo {
             tag: tag_str.to_string(),
             ..self
         }

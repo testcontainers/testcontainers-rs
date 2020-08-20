@@ -1,3 +1,4 @@
+use crate::core::Port;
 use crate::{Container, Docker, Image, WaitError, WaitForMessage};
 use std::collections::HashMap;
 
@@ -45,7 +46,9 @@ pub struct GenericImage {
     arguments: Vec<String>,
     volumes: HashMap<String, String>,
     env_vars: HashMap<String, String>,
+    ports: Option<Vec<Port>>,
     wait_for: WaitFor,
+    entrypoint: Option<String>,
 }
 
 impl Default for GenericImage {
@@ -56,6 +59,8 @@ impl Default for GenericImage {
             volumes: HashMap::new(),
             env_vars: HashMap::new(),
             wait_for: WaitFor::Nothing,
+            ports: None,
+            entrypoint: None,
         }
     }
 }
@@ -64,10 +69,7 @@ impl GenericImage {
     pub fn new<S: Into<String>>(descriptor: S) -> GenericImage {
         Self {
             descriptor: descriptor.into(),
-            arguments: vec![],
-            volumes: HashMap::new(),
-            env_vars: HashMap::new(),
-            wait_for: WaitFor::Nothing,
+            ..Default::default()
         }
     }
 
@@ -81,6 +83,13 @@ impl GenericImage {
         self
     }
 
+    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+        self.ports = Some(ports);
+        self
+    }
+
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
         self.wait_for = wait_for;
         self
@@ -91,6 +100,7 @@ impl Image for GenericImage {
     type Args = Vec<String>;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
+    type EntryPoint = str;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
@@ -112,8 +122,23 @@ impl Image for GenericImage {
         self.env_vars.clone()
     }
 
+    fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     fn with_args(self, arguments: Self::Args) -> Self {
         Self { arguments, ..self }
+    }
+
+    fn with_entrypoint(self, entrypoint: &Self::EntryPoint) -> Self {
+        Self {
+            entrypoint: Some(entrypoint.to_string()),
+            ..self
+        }
+    }
+
+    fn entrypoint(&self) -> Option<String> {
+        self.entrypoint.clone()
     }
 }
 
@@ -131,5 +156,29 @@ mod tests {
         assert_eq!(2, env_vars.len());
         assert_eq!("one-value", env_vars.get("one-key").unwrap());
         assert_eq!("two-value", env_vars.get("two-key").unwrap());
+    }
+
+    #[test]
+    fn should_return_ports() {
+        let mut image = GenericImage::new("hello");
+        assert!(image.ports().is_none());
+
+        image = image
+            .with_mapped_port((123, 456))
+            .with_mapped_port((555, 888));
+
+        assert_eq!(
+            vec![
+                Port {
+                    local: 123,
+                    internal: 456
+                },
+                Port {
+                    local: 555,
+                    internal: 888
+                },
+            ],
+            image.ports().unwrap()
+        );
     }
 }

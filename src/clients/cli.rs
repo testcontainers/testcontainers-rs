@@ -82,9 +82,22 @@ impl Cli {
             command.arg("-v").arg(format!("{}:{}", orig, dest));
         }
 
+        if let Some(entrypoint) = image.entrypoint() {
+            command.arg("--entrypoint").arg(entrypoint);
+        }
+
+        if let Some(ports) = image.ports() {
+            for port in &ports {
+                command
+                    .arg("-p")
+                    .arg(format!("{}:{}", port.local, port.internal));
+            }
+        } else {
+            command.arg("-P"); // expose all ports
+        }
+
         command
             .arg("-d") // Always run detached
-            .arg("-P") // Always expose all ports
             .arg(image.descriptor())
             .args(image.args())
             .stdout(Stdio::piped())
@@ -160,12 +173,25 @@ impl Docker for Cli {
     }
 
     fn stop(&self, id: &str) {
-        Command::new("docker")
+        let _ = Command::new("docker")
             .arg("stop")
             .arg(id)
             .stdout(Stdio::piped())
             .spawn()
-            .expect("Failed to execute docker command");
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to stop docker container");
+    }
+
+    fn start(&self, id: &str) {
+        Command::new("docker")
+            .arg("start")
+            .arg(id)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to start docker container");
     }
 }
 
@@ -226,6 +252,8 @@ impl Ports {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::Port;
+    use crate::images::generic::GenericImage;
     use crate::{Container, Docker, Image};
 
     use super::*;
@@ -291,6 +319,7 @@ mod tests {
         type Args = Vec<String>;
         type EnvVars = HashMap<String, String>;
         type Volumes = HashMap<String, String>;
+        type EntryPoint = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")
@@ -308,6 +337,10 @@ mod tests {
 
         fn env_vars(&self) -> Self::EnvVars {
             self.env_vars.clone()
+        }
+
+        fn ports(&self) -> Option<Vec<Port>> {
+            None
         }
 
         fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
@@ -332,9 +365,42 @@ mod tests {
 
         println!("Executing command: {:?}", command);
 
+        assert!(format!("{:?}", command).contains(r#"-d"#));
+        assert!(format!("{:?}", command).contains(r#"-P"#));
         assert!(format!("{:?}", command).contains(r#""-v" "one-from:one-dest"#));
         assert!(format!("{:?}", command).contains(r#""-v" "two-from:two-dest"#));
         assert!(format!("{:?}", command).contains(r#""-e" "one-key=one-value""#));
         assert!(format!("{:?}", command).contains(r#""-e" "two-key=two-value""#));
+    }
+
+    #[test]
+    fn cli_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
+        let image = GenericImage::new("hello");
+
+        let mut docker = Command::new("docker");
+        let command = Cli::build_run_command(&image, &mut docker);
+
+        println!("Executing command: {:?}", command);
+
+        assert!(format!("{:?}", command).contains(r#"-d"#));
+        assert!(format!("{:?}", command).contains(r#"-P"#));
+        assert!(!format!("{:?}", command).contains(r#"-p"#));
+    }
+
+    #[test]
+    fn cli_run_command_should_expose_only_requested_ports() {
+        let image = GenericImage::new("hello")
+            .with_mapped_port((123, 456))
+            .with_mapped_port((555, 888));
+
+        let mut docker = Command::new("docker");
+        let command = Cli::build_run_command(&image, &mut docker);
+
+        println!("Executing command: {:?}", command);
+
+        assert!(format!("{:?}", command).contains(r#"-d"#));
+        assert!(!format!("{:?}", command).contains(r#"-P"#));
+        assert!(format!("{:?}", command).contains(r#""-p" "123:456""#));
+        assert!(format!("{:?}", command).contains(r#""-p" "555:888""#));
     }
 }
