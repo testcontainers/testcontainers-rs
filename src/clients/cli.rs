@@ -162,14 +162,15 @@ impl Docker for Cli {
     }
 
     fn rm(&self, id: &str) {
-        Command::new("docker")
+        let output = Command::new("docker")
             .arg("rm")
             .arg("-f")
             .arg("-v") // Also remove volumes
             .arg(id)
             .stdout(Stdio::piped())
-            .spawn()
+            .output()
             .expect("Failed to execute docker command");
+        assert!(output.status.success(), "Failed to remove docker container");
     }
 
     fn stop(&self, id: &str) {
