@@ -7,11 +7,45 @@ where
     Self: Sized,
 {
     fn run<I: Image>(&self, image: I) -> Container<'_, Self, I>;
+    fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Self, I>;
     fn logs(&self, id: &str) -> Logs;
     fn ports(&self, id: &str) -> Ports;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
+}
+
+/// Container run command arguments.
+/// `name` - run image instance with the given name (should be explicitly set to be seen by other containers created in the same docker network).
+/// `network` - run image instance on the given network.
+#[derive(Debug, Clone, Default)]
+pub struct RunArgs {
+    name: Option<String>,
+    network: Option<String>,
+}
+
+impl RunArgs {
+    pub fn with_name<T: ToString>(self, name: T) -> Self {
+        RunArgs {
+            name: Some(name.to_string()),
+            ..self
+        }
+    }
+
+    pub fn with_network<T: ToString>(self, network: T) -> Self {
+        RunArgs {
+            network: Some(network.to_string()),
+            ..self
+        }
+    }
+
+    pub(crate) fn network(&self) -> Option<String> {
+        self.network.clone()
+    }
+
+    pub(crate) fn name(&self) -> Option<String> {
+        self.name.clone()
+    }
 }
 
 /// The exposed ports of a running container.
