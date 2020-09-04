@@ -15,6 +15,7 @@ where
     Self::EnvVars: Default + IntoIterator<Item = (String, String)>,
     Self::Volumes: Default + IntoIterator<Item = (String, String)>,
     Self::EntryPoint: ToString,
+    Self::Network: ToString,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -54,6 +55,9 @@ where
 
     /// A type representing the entrypoint for an Image.
     type EntryPoint: ?Sized;
+
+    /// A type representing the network for an Image.
+    type Network: ?Sized;
 
     /// The descriptor of the docker image.
     ///
@@ -100,6 +104,16 @@ where
 
     /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
+        None
+    }
+
+    /// Run this instance of thi image on the given network.
+    fn with_network(self, _network: &Self::Network) -> Self {
+        self
+    }
+
+    /// Returns the network this instance was created with.
+    fn network(&self) -> Option<String> {
         None
     }
 }

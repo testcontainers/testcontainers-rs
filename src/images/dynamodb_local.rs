@@ -41,6 +41,7 @@ impl Image for DynamoDb {
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
+    type Network = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

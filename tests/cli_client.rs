@@ -15,6 +15,7 @@ impl Image for HelloWorld {
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
+    type Network = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         String::from("hello-world")

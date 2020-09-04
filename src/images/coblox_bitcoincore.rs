@@ -174,6 +174,7 @@ impl Image for BitcoinCore {
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
+    type Network = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)

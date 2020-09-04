@@ -74,6 +74,10 @@ impl Cli {
     fn build_run_command<'a, I: Image>(image: &I, command: &'a mut Command) -> &'a mut Command {
         command.arg("run");
 
+        if let Some(network) = image.network() {
+            command.arg(format!("--network={}", network));
+        }
+
         for (key, value) in image.env_vars() {
             command.arg("-e").arg(format!("{}={}", key, value));
         }
@@ -320,6 +324,7 @@ mod tests {
         type EnvVars = HashMap<String, String>;
         type Volumes = HashMap<String, String>;
         type EntryPoint = std::convert::Infallible;
+        type Network = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")
@@ -402,5 +407,18 @@ mod tests {
         assert!(!format!("{:?}", command).contains(r#"-P"#));
         assert!(format!("{:?}", command).contains(r#""-p" "123:456""#));
         assert!(format!("{:?}", command).contains(r#""-p" "555:888""#));
+    }
+
+    #[test]
+    fn cli_run_command_should_include_network() {
+        let image = GenericImage::new("hello");
+        let image = image.with_network("awesome-net");
+
+        let mut docker = Command::new("docker");
+        let command = Cli::build_run_command(&image, &mut docker);
+
+        println!("Executing command: {:?}", command);
+
+        assert!(format!("{:?}", command).contains(r#"--network=awesome-net"#));
     }
 }
