@@ -1,4 +1,4 @@
-use crate::{Container, Image};
+use crate::{Container, Image, Network, NetworkConfig};
 use std::{collections::HashMap, io::Read};
 
 /// Defines the minimum API required for interacting with the Docker daemon.
@@ -7,9 +7,12 @@ where
     Self: Sized,
 {
     fn run<I: Image>(&self, image: I) -> Container<'_, Self, I>;
+    fn create_network(&self, network: &NetworkConfig) -> Network<'_, Self>;
     fn logs(&self, id: &str) -> Logs;
     fn ports(&self, id: &str) -> Ports;
+    fn networks(&self, image_id: &str) -> Networks;
     fn rm(&self, id: &str);
+    fn rm_network(&self, name: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
 }
@@ -44,4 +47,16 @@ pub struct Logs {
     pub stdout: Box<dyn Read>,
     #[derivative(Debug = "ignore")]
     pub stderr: Box<dyn Read>,
+}
+
+/// The networks of a running container.
+#[derive(Debug, PartialEq, Default)]
+pub struct Networks(pub HashMap<String, NetworkInfo>);
+
+#[derive(Debug, PartialEq)]
+pub struct NetworkInfo {
+    pub id: String,
+    pub endpoint_id: String,
+    pub gateway: String,
+    pub ip_address: String,
 }

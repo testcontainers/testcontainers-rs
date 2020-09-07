@@ -1,4 +1,4 @@
-use crate::core::{self, Container, Docker, Image, Logs};
+use crate::core::{self, Container, Docker, Image, Logs, Network, NetworkConfig};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Instant;
@@ -106,6 +106,17 @@ impl Cli {
             .args(image.args())
             .stdout(Stdio::piped())
     }
+
+    fn build_create_network_command<'a>(
+        config: &NetworkConfig,
+        command: &'a mut Command,
+    ) -> &'a mut Command {
+        command.arg("network");
+        command.arg("create");
+        command.arg(&config.name);
+
+        command.stdout(Stdio::piped())
+    }
 }
 
 impl Docker for Cli {
@@ -126,6 +137,23 @@ impl Docker for Cli {
         self.register_container_started(container_id.clone());
 
         Container::new(container_id, self, image)
+    }
+
+    fn create_network(&self, config: &NetworkConfig) -> Network<'_, Cli> {
+        let mut docker = Command::new("docker");
+
+        let command = Cli::build_create_network_command(config, &mut docker);
+
+        log::debug!("Executing command: {:?}", command);
+
+        let child = command.spawn().expect("Failed to execute docker command");
+
+        let stdout = child.stdout.unwrap();
+        let reader = BufReader::new(stdout);
+
+        let network_id = reader.lines().next().unwrap().unwrap();
+
+        Network::new(network_id, config.name.clone(), self)
     }
 
     fn logs(&self, id: &str) -> Logs {
@@ -165,6 +193,25 @@ impl Docker for Cli {
         info.network_settings.ports.into_ports()
     }
 
+    fn networks(&self, image_id: &str) -> crate::core::Networks {
+        let child = Command::new("docker")
+            .arg("inspect")
+            .arg(image_id)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command");
+
+        let stdout = child.stdout.unwrap();
+
+        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
+
+        let info = infos.remove(0);
+
+        log::trace!("Fetched container info: {:#?}", info);
+
+        info.network_settings.networks.into_networks()
+    }
+
     fn rm(&self, id: &str) {
         Command::new("docker")
             .arg("rm")
@@ -174,6 +221,18 @@ impl Docker for Cli {
             .stdout(Stdio::piped())
             .spawn()
             .expect("Failed to execute docker command");
+    }
+
+    fn rm_network(&self, name: &str) {
+        Command::new("docker")
+            .arg("network")
+            .arg("rm")
+            .arg(name)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failet to remove docker network");
     }
 
     fn stop(&self, id: &str) {
@@ -203,6 +262,8 @@ impl Docker for Cli {
 struct NetworkSettings {
     #[serde(rename = "Ports")]
     ports: Ports,
+    #[serde(rename = "Networks")]
+    networks: Networks,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -219,6 +280,41 @@ struct ContainerInfo {
     id: String,
     #[serde(rename = "NetworkSettings")]
     network_settings: NetworkSettings,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct Networks(HashMap<String, NetworkInfo>);
+
+#[derive(serde::Deserialize, Debug)]
+struct NetworkInfo {
+    #[serde(rename = "NetworkID")]
+    id: String,
+    #[serde(rename = "EndpointID")]
+    endpoint_id: String,
+    #[serde(rename = "Gateway")]
+    gateway: String,
+    #[serde(rename = "IPAddress")]
+    ip_address: String,
+}
+
+impl Networks {
+    pub fn into_networks(self) -> core::Networks {
+        let mut networks =
+            std::collections::HashMap::<String, core::NetworkInfo>::with_capacity(self.0.len());
+
+        for (net_name, net_info) in self.0 {
+            let core_net = core::NetworkInfo {
+                id: net_info.id,
+                endpoint_id: net_info.endpoint_id,
+                gateway: net_info.gateway,
+                ip_address: net_info.ip_address,
+            };
+
+            networks.insert(net_name, core_net);
+        }
+
+        core::Networks { 0: networks }
+    }
 }
 
 #[derive(serde::Deserialize, Debug)]

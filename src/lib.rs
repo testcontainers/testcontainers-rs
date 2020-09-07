@@ -41,6 +41,7 @@ pub use crate::core::Docker;
 pub use crate::core::Image;
 pub use crate::core::WaitError;
 pub use crate::core::WaitForMessage;
+pub use crate::core::{Network, NetworkConfig, NetworkInfo, Networks};
 
 /// All available Docker clients.
 pub mod clients;
