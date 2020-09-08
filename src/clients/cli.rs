@@ -167,10 +167,8 @@ impl Docker for Cli {
             .arg("-f")
             .arg("-v") // Also remove volumes
             .arg(id)
-            .stdout(Stdio::piped())
             .output()
             .expect("Failed to execute docker command");
-        log::error!("{:?}", output);
         assert!(output.status.success(), "Failed to remove docker container");
     }
 
