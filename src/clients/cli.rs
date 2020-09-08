@@ -224,7 +224,9 @@ impl Docker for Cli {
             .arg(id)
             .stdout(Stdio::piped())
             .spawn()
-            .expect("Failed to execute docker command");
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failer to remove docker container");
     }
 
     fn rm_network(&self, name: &str) {
