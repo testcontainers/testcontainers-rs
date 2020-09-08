@@ -391,6 +391,23 @@ mod tests {
           "HostPort": "33077"
         }
       ]
+    },
+    "Networks": {
+        "host": {
+            "IPAMConfig": null,
+            "Links": null,
+            "Aliases": null,
+            "NetworkID": "7161bb05bc5fddca90dc5bfe3caeeb97b53ab450c2782c2b3b6a3838c93509c5",
+            "EndpointID": "",
+            "Gateway": "",
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "MacAddress": "",
+            "DriverOpts": null
+        }
     }
   }
 }"#,
@@ -407,6 +424,46 @@ mod tests {
             .add_mapping(8333, 33077);
 
         assert_eq!(parsed_ports, expected_ports)
+    }
+
+    #[test]
+    fn can_deserialize_docker_inspect_response_into_networks() {
+        let info = serde_json::from_str::<ContainerInfo>(
+            r#"{
+  "Id": "fd2e896b883052dae31202b065a06dc5374a214ae348b7a8f8da3734f690d010",
+  "NetworkSettings": {
+    "Ports": {},
+    "Networks": {
+        "host": {
+            "IPAMConfig": null,
+            "Links": null,
+            "Aliases": null,
+            "NetworkID": "7161bb05bc5fddca90dc5bfe3caeeb97b53ab450c2782c2b3b6a3838c93509c5",
+            "EndpointID": "",
+            "Gateway": "",
+            "IPAddress": "",
+            "IPPrefixLen": 0,
+            "IPv6Gateway": "",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "MacAddress": "",
+            "DriverOpts": null
+        }
+    }
+  }
+}"#,
+        )
+        .unwrap();
+
+        let parsed_networks = info.network_settings.networks.into_networks();
+
+        assert_eq!(parsed_networks.0.len(), 1);
+        let network = parsed_networks.0.iter().next().unwrap();
+        assert_eq!(network.0, "host");
+        assert_eq!(
+            network.1.id,
+            "7161bb05bc5fddca90dc5bfe3caeeb97b53ab450c2782c2b3b6a3838c93509c5"
+        );
     }
 
     #[derive(Default)]
