@@ -16,6 +16,7 @@ impl Image for HelloWorld {
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
     type Network = std::convert::Infallible;
+    type Name = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         String::from("hello-world")

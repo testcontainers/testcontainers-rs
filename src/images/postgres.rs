@@ -55,6 +55,7 @@ impl Image for Postgres {
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
     type Network = std::convert::Infallible;
+    type Name = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("postgres:{}-alpine", self.version)

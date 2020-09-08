@@ -50,6 +50,7 @@ pub struct GenericImage {
     wait_for: WaitFor,
     entrypoint: Option<String>,
     network: Option<String>,
+    name: Option<String>,
 }
 
 impl Default for GenericImage {
@@ -63,6 +64,7 @@ impl Default for GenericImage {
             ports: None,
             entrypoint: None,
             network: None,
+            name: None,
         }
     }
 }
@@ -104,6 +106,7 @@ impl Image for GenericImage {
     type Volumes = HashMap<String, String>;
     type EntryPoint = str;
     type Network = str;
+    type Name = str;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
@@ -153,6 +156,17 @@ impl Image for GenericImage {
 
     fn network(&self) -> Option<String> {
         self.network.clone()
+    }
+
+    fn with_name(self, name: &Self::Name) -> Self {
+        Self {
+            name: Some(name.to_string()),
+            ..self
+        }
+    }
+
+    fn name(&self) -> Option<String> {
+        self.name.clone()
     }
 }
 

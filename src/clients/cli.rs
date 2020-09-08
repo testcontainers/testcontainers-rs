@@ -78,6 +78,10 @@ impl Cli {
             command.arg(format!("--network={}", network));
         }
 
+        if let Some(name) = image.name() {
+            command.arg(format!("--name={}", name));
+        }
+
         for (key, value) in image.env_vars() {
             command.arg("-e").arg(format!("{}={}", key, value));
         }
@@ -478,6 +482,7 @@ mod tests {
         type Volumes = HashMap<String, String>;
         type EntryPoint = std::convert::Infallible;
         type Network = std::convert::Infallible;
+        type Name = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")
@@ -573,5 +578,18 @@ mod tests {
         println!("Executing command: {:?}", command);
 
         assert!(format!("{:?}", command).contains(r#"--network=awesome-net"#));
+    }
+
+    #[test]
+    fn cli_run_command_should_include_name() {
+        let image = GenericImage::new("hello");
+        let image = image.with_name("hello_container");
+
+        let mut docker = Command::new("docker");
+        let command = Cli::build_run_command(&image, &mut docker);
+
+        println!("Executing command: {:?}", command);
+
+        assert!(format!("{:?}", command).contains(r#"--name=hello_container"#));
     }
 }
