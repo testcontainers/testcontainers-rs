@@ -71,3 +71,9 @@ where
 pub struct NetworkConfig {
     pub name: String,
 }
+
+impl NetworkConfig {
+    pub fn new(name: String) -> Self {
+        NetworkConfig { name }
+    }
+}
