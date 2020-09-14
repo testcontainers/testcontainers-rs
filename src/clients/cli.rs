@@ -162,14 +162,14 @@ impl Docker for Cli {
     }
 
     fn rm(&self, id: &str) {
-        Command::new("docker")
+        let output = Command::new("docker")
             .arg("rm")
             .arg("-f")
             .arg("-v") // Also remove volumes
             .arg(id)
-            .stdout(Stdio::piped())
-            .spawn()
+            .output()
             .expect("Failed to execute docker command");
+        assert!(output.status.success(), "Failed to remove docker container");
     }
 
     fn stop(&self, id: &str) {
@@ -402,5 +402,13 @@ mod tests {
         assert!(!format!("{:?}", command).contains(r#"-P"#));
         assert!(format!("{:?}", command).contains(r#""-p" "123:456""#));
         assert!(format!("{:?}", command).contains(r#""-p" "555:888""#));
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to remove docker container")]
+    fn cli_rm_command_should_panic_on_invalid_container() {
+        let docker = Cli::default();
+        docker.rm("!INVALID_NAME_DUE_TO_SYMBOLS!");
+        unreachable!()
     }
 }
