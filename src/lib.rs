@@ -39,6 +39,7 @@
 pub use crate::core::Container;
 pub use crate::core::Docker;
 pub use crate::core::Image;
+pub use crate::core::RunArgs;
 pub use crate::core::WaitError;
 pub use crate::core::WaitForMessage;
 pub use crate::core::{Network, NetworkConfig, NetworkInfo, Networks};

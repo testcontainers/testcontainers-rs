@@ -146,28 +146,6 @@ impl Image for GenericImage {
     fn entrypoint(&self) -> Option<String> {
         self.entrypoint.clone()
     }
-
-    fn with_network(self, network: &Self::Network) -> Self {
-        Self {
-            network: Some(network.to_string()),
-            ..self
-        }
-    }
-
-    fn network(&self) -> Option<String> {
-        self.network.clone()
-    }
-
-    fn with_name(self, name: &Self::Name) -> Self {
-        Self {
-            name: Some(name.to_string()),
-            ..self
-        }
-    }
-
-    fn name(&self) -> Option<String> {
-        self.name.clone()
-    }
 }
 
 #[cfg(test)]

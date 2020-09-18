@@ -15,8 +15,6 @@ where
     Self::EnvVars: Default + IntoIterator<Item = (String, String)>,
     Self::Volumes: Default + IntoIterator<Item = (String, String)>,
     Self::EntryPoint: ToString,
-    Self::Network: ToString,
-    Self::Name: ToString,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -108,27 +106,6 @@ where
 
     /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
-        None
-    }
-
-    /// Run this instance of this image on the given network.
-    fn with_network(self, _network: &Self::Network) -> Self {
-        self
-    }
-
-    /// Returns the network this instance was created with.
-    fn network(&self) -> Option<String> {
-        None
-    }
-
-    /// Run this instance of this image with the given name.
-    /// It needs to be seen by other containers created in the same docker network.
-    fn with_name(self, _name: &Self::Name) -> Self {
-        self
-    }
-
-    /// Returns the name of this instance.
-    fn name(&self) -> Option<String> {
         None
     }
 }

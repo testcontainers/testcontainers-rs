@@ -1,4 +1,4 @@
-use crate::core::{self, Container, Docker, Image, Logs, Network, NetworkConfig};
+use crate::core::{self, Container, Docker, Image, Logs, Network, NetworkConfig, RunArgs};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Instant;
@@ -71,15 +71,23 @@ impl Cli {
         }
     }
 
-    fn build_run_command<'a, I: Image>(image: &I, command: &'a mut Command) -> &'a mut Command {
+    fn build_run_command<'a, I: Image>(
+        image: &I,
+        command: &'a mut Command,
+        run_args: &RunArgs,
+    ) -> &'a mut Command {
         command.arg("run");
 
-        if let Some(network) = image.network() {
+        if let Some(network) = run_args.network() {
             command.arg(format!("--network={}", network));
         }
 
-        if let Some(name) = image.name() {
+        if let Some(name) = run_args.name() {
             command.arg(format!("--name={}", name));
+        }
+
+        for (key, value) in run_args.custom() {
+            command.arg(format!("--{}={}", key, value));
         }
 
         for (key, value) in image.env_vars() {
@@ -125,9 +133,14 @@ impl Cli {
 
 impl Docker for Cli {
     fn run<I: Image>(&self, image: I) -> Container<'_, Cli, I> {
+        let empty_args = RunArgs::default();
+        self.run_args(image, empty_args)
+    }
+
+    fn run_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Cli, I> {
         let mut docker = Command::new("docker");
 
-        let command = Cli::build_run_command(&image, &mut docker);
+        let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         log::debug!("Executing command: {:?}", command);
 
@@ -226,7 +239,7 @@ impl Docker for Cli {
             .spawn()
             .expect("Failed to execute docker command")
             .wait()
-            .expect("Failer to remove docker container");
+            .expect("Failed to remove docker container");
     }
 
     fn rm_network(&self, name: &str) {
@@ -238,7 +251,7 @@ impl Docker for Cli {
             .spawn()
             .expect("Failed to execute docker command")
             .wait()
-            .expect("Failet to remove docker network");
+            .expect("Failed to remove docker network");
     }
 
     fn stop(&self, id: &str) {
@@ -526,7 +539,8 @@ mod tests {
         let image = HelloWorld { volumes, env_vars };
 
         let mut docker = Command::new("docker");
-        let command = Cli::build_run_command(&image, &mut docker);
+        let run_args = RunArgs::default();
+        let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         println!("Executing command: {:?}", command);
 
@@ -543,7 +557,8 @@ mod tests {
         let image = GenericImage::new("hello");
 
         let mut docker = Command::new("docker");
-        let command = Cli::build_run_command(&image, &mut docker);
+        let run_args = RunArgs::default();
+        let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         println!("Executing command: {:?}", command);
 
@@ -559,7 +574,8 @@ mod tests {
             .with_mapped_port((555, 888));
 
         let mut docker = Command::new("docker");
-        let command = Cli::build_run_command(&image, &mut docker);
+        let run_args = RunArgs::default();
+        let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         println!("Executing command: {:?}", command);
 
@@ -572,10 +588,10 @@ mod tests {
     #[test]
     fn cli_run_command_should_include_network() {
         let image = GenericImage::new("hello");
-        let image = image.with_network("awesome-net");
 
         let mut docker = Command::new("docker");
-        let command = Cli::build_run_command(&image, &mut docker);
+        let run_args = RunArgs::default().with_network("awesome-net");
+        let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         println!("Executing command: {:?}", command);
 
@@ -585,10 +601,10 @@ mod tests {
     #[test]
     fn cli_run_command_should_include_name() {
         let image = GenericImage::new("hello");
-        let image = image.with_name("hello_container");
 
         let mut docker = Command::new("docker");
-        let command = Cli::build_run_command(&image, &mut docker);
+        let run_args = RunArgs::default().with_name("hello_container");
+        let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         println!("Executing command: {:?}", command);
 

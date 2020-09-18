@@ -7,6 +7,7 @@ where
     Self: Sized,
 {
     fn run<I: Image>(&self, image: I) -> Container<'_, Self, I>;
+    fn run_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Self, I>;
     fn create_network(&self, network: &NetworkConfig) -> Network<'_, Self>;
     fn logs(&self, id: &str) -> Logs;
     fn ports(&self, id: &str) -> Ports;
@@ -15,6 +16,48 @@ where
     fn rm_network(&self, name: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
+}
+
+/// Container run command arguments.
+/// `name` - run image instance with the given name (should be explicitly set to be seen by other containers created in the same docker network).
+/// `network` - run image instance on the given network.
+#[derive(Debug, Clone, Default)]
+pub struct RunArgs {
+    name: Option<String>,
+    network: Option<String>,
+    custom: HashMap<String, String>,
+}
+
+impl RunArgs {
+    pub fn with_name<T: ToString>(self, name: T) -> Self {
+        RunArgs {
+            name: Some(name.to_string()),
+            ..self
+        }
+    }
+
+    pub fn with_network<T: ToString>(self, network: T) -> Self {
+        RunArgs {
+            network: Some(network.to_string()),
+            ..self
+        }
+    }
+
+    pub fn add_arg<T: ToString>(&mut self, key: T, value: T) {
+        self.custom.insert(key.to_string(), value.to_string());
+    }
+
+    pub(crate) fn network(&self) -> Option<String> {
+        self.network.clone()
+    }
+
+    pub(crate) fn name(&self) -> Option<String> {
+        self.name.clone()
+    }
+
+    pub(crate) fn custom(&self) -> impl Iterator<Item = (&String, &String)> {
+        self.custom.iter()
+    }
 }
 
 /// The exposed ports of a running container.
