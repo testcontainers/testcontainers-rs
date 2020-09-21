@@ -56,7 +56,6 @@ impl RpcAuth {
     fn generate_salt() -> String {
         let mut buffer = [0u8; 16];
         thread_rng().fill(&mut buffer[..]);
-
         encode(buffer)
     }
 
@@ -93,6 +92,7 @@ pub struct BitcoinCoreImageArgs {
     pub accept_non_std_txn: Option<bool>,
     pub rest: bool,
     pub fallback_fee: Option<f64>,
+    pub address_type: String,
 }
 
 impl Default for BitcoinCoreImageArgs {
@@ -108,6 +108,7 @@ impl Default for BitcoinCoreImageArgs {
             accept_non_std_txn: Some(false),
             rest: true,
             fallback_fee: Some(0.0002),
+            address_type: "bech32".to_string(),
         }
     }
 }
@@ -164,6 +165,10 @@ impl IntoIterator for BitcoinCoreImageArgs {
         }
 
         args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
+
+        if !self.address_type.is_empty() {
+            args.push(format!("-addresstype={}", self.address_type))
+        }
 
         args.into_iter()
     }
