@@ -18,8 +18,6 @@ has previously been created. A network that already existed will not be removed.
 ### Added
 
 -   Mongo image.
--   `run_with_options` method that allows running a docker container with custom options instead of the currently
-    hardcoded ones.
 -   Support for the `fallbackfee` argument for the `bitcoin-core` image.
 -   Ability to customize the `entrypoint` used by the image.
 -   Ability to start a container once stopped. 
