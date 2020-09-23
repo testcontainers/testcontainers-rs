@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
--   `Docker#run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
+-   `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
 network will be created if it doesn't exist yet. Once the client is dropped, the network will be removed again if it
 has previously been created. A network that already existed will not be removed.
 
