@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+-   `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
+network will be created if it doesn't exist yet. Once the client is dropped, the network will be removed again if it
+has previously been created. A network that already existed will not be removed.
+
 ## [0.10.0] - 2020-08-20
 
 ### Added
 
 -   Mongo image.
--   `run_with_options` method that allows running a docker container with custom options instead of the currently
-    hardcoded ones.
 -   Support for the `fallbackfee` argument for the `bitcoin-core` image.
 -   Ability to customize the `entrypoint` used by the image.
 -   Ability to start a container once stopped. 
