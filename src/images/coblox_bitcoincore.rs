@@ -4,6 +4,7 @@ use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
+use std::fmt;
 use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 
 #[derive(Debug)]
@@ -24,6 +25,23 @@ pub enum Network {
     Mainnet,
     Testnet,
     Regtest,
+}
+
+#[derive(Debug, Clone)]
+pub enum AddressType {
+    Legacy,
+    P2shSegwit,
+    Bech32,
+}
+
+impl fmt::Display for AddressType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            AddressType::Legacy => "legacy",
+            AddressType::P2shSegwit => "p2sh-segwit",
+            AddressType::Bech32 => "bech32",
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -92,7 +110,7 @@ pub struct BitcoinCoreImageArgs {
     pub accept_non_std_txn: Option<bool>,
     pub rest: bool,
     pub fallback_fee: Option<f64>,
-    pub address_type: String,
+    pub address_type: AddressType,
 }
 
 impl Default for BitcoinCoreImageArgs {
@@ -108,7 +126,7 @@ impl Default for BitcoinCoreImageArgs {
             accept_non_std_txn: Some(false),
             rest: true,
             fallback_fee: Some(0.0002),
-            address_type: "bech32".to_string(),
+            address_type: AddressType::Bech32,
         }
     }
 }
@@ -166,9 +184,7 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
         args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
 
-        if !self.address_type.is_empty() {
-            args.push(format!("-addresstype={}", self.address_type))
-        }
+        args.push(format!("-addresstype={}", self.address_type));
 
         args.into_iter()
     }
