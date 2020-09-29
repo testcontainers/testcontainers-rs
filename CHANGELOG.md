@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -   `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
 network will be created if it doesn't exist yet. Once the client is dropped, the network will be removed again if it
 has previously been created. A network that already existed will not be removed.
+-   Address-type argument to `coblox/bitcoin-core` Image.
+We are setting `bech32` as a default here.
+This is different from the default of `bitcoind`.
+
+### Fixed
+
+-   Block the thread until containers have been successfully removed.
+Previously, this was done in a fire-and-forget way and hence led to containers not being cleanup properly in certain situations.
+
+### Changed
+
+-   MSRV is now 1.41.0
 
 ## [0.10.0] - 2020-08-20
 
