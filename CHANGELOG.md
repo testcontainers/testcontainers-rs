@@ -7,13 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2020-09-30
+
+### Added
+
+-   `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
+network will be created if it doesn't exist yet. Once the client is dropped, the network will be removed again if it
+has previously been created. A network that already existed will not be removed.
+-   Address-type argument to `coblox/bitcoin-core` Image.
+We are setting `bech32` as a default here.
+This is different from the default of `bitcoind`.
+
+### Fixed
+
+-   Block the thread until containers have been successfully removed.
+Previously, this was done in a fire-and-forget way and hence led to containers not being removed in certain situations.
+
+### Changed
+
+-   MSRV is now 1.41.0
+
 ## [0.10.0] - 2020-08-20
 
 ### Added
 
 -   Mongo image.
--   `run_with_options` method that allows running a docker container with custom options instead of the currently
-    hardcoded ones.
 -   Support for the `fallbackfee` argument for the `bitcoin-core` image.
 -   Ability to customize the `entrypoint` used by the image.
 -   Ability to start a container once stopped. 
@@ -41,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -   Provide a default password for the postgres image.
 There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
-[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...HEAD
+[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...HEAD
 
-[0.9.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
+[0.11.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.10.0...0.11.0
+
+[0.10.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...0.10.0
+
+[0.9.1]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
