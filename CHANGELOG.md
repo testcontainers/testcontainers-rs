@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2020-09-30
+
 ### Added
 
 -   `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
@@ -19,7 +21,7 @@ This is different from the default of `bitcoind`.
 ### Fixed
 
 -   Block the thread until containers have been successfully removed.
-Previously, this was done in a fire-and-forget way and hence led to containers not being cleanup properly in certain situations.
+Previously, this was done in a fire-and-forget way and hence led to containers not being removed in certain situations.
 
 ### Changed
 
@@ -57,6 +59,10 @@ Previously, this was done in a fire-and-forget way and hence led to containers n
 -   Provide a default password for the postgres image.
 There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
-[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...HEAD
+[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...HEAD
 
-[0.9.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
+[0.11.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.10.0...0.11.0
+
+[0.10.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...0.10.0
+
+[0.9.1]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
