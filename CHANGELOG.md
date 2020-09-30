@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A new client implementation that talks to the Docker daemon via **HTTP**.
+  This implementation is available as `testcontainers::clients::Http` and provides an **async** interface.
 - Allow using `podman` CLI in addition to `docker`
 - The `TESTCONTAINERS` environment variable to control what happens to containers and networks at the end of a test.
   The default value is `remove` which deletes all containers and networks that were used in the test.
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to implement `ready_conditions` which returns a list of `WaitFor` instances.
 - Return value of `get_host_port` from `Option<u16>` to `u16`.
   If the port cannot be resolved, this function will now **panic**.
+- MSRV bumped to 1.45.
 
 ### Removed
 
