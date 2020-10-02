@@ -1,7 +1,11 @@
 use crate::core::{Container, Docker, Image, Logs, Ports, RunArgs};
+use futures::StreamExt;
 use shiplift::Docker as shiplift_docker;
-use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions};
+use shiplift::{
+    tty::TtyChunk, ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions,
+};
 use std::fmt;
+use std::io::Write;
 use tokio::runtime::Runtime;
 
 pub struct Shiplift {
@@ -101,14 +105,37 @@ impl Docker for Shiplift {
     }
 
     fn logs(&self, id: &str) -> Logs {
-        let _logs_stream = self
-            .client
-            .containers()
-            .get(&id)
-            .logs(&LogsOptions::builder().stdout(true).stderr(true).build());
+        // since we are doing spwan to fake a async method
+        let id_static: &'static str = Box::leak(Box::new(String::from(id)));
 
-        // XXX this doesn't work yet, need to sort out tokio
-        // integration
+        // use spwan to run it in the background
+        self.get_rt().spawn(async move {
+            let mut stdout_buf = std::io::Cursor::new(Vec::new());
+            let mut stderr_buf = std::io::Cursor::new(Vec::new());
+
+            let client = shiplift_docker::new();
+            let mut logs_stream = client
+                .containers()
+                .get(id_static)
+                .logs(&LogsOptions::builder().stdout(true).stderr(true).build());
+
+            // have a back ground threa durnning and pipe bytes into a Read buffer
+            while let Some(log_result) = logs_stream.next().await {
+                match log_result {
+                    Ok(chunk) => match chunk {
+                        TtyChunk::StdOut(bytes) => {
+                            stdout_buf.write_all(&bytes).unwrap();
+                        }
+                        TtyChunk::StdErr(bytes) => {
+                            stderr_buf.write_all(&bytes).unwrap();
+                        }
+                        TtyChunk::StdIn(_) => unreachable!(),
+                    },
+                    Err(e) => eprintln!("Error: {}", e),
+                }
+            }
+        });
+
         Logs {
             stdout: Box::new("placeholder".as_bytes()),
             stderr: Box::new("placeholder".as_bytes()),
