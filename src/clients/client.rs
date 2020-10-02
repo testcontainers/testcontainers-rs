@@ -1,6 +1,6 @@
 use crate::core::{Container, Docker, Image, Logs, Ports, RunArgs};
 use shiplift::Docker as shiplift_docker;
-use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions};
+use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions};
 use std::fmt;
 use tokio::runtime::Runtime;
 
@@ -101,7 +101,7 @@ impl Docker for Shiplift {
     }
 
     fn logs(&self, id: &str) -> Logs {
-        let mut logs_stream = self
+        let _logs_stream = self
             .client
             .containers()
             .get(&id)
@@ -119,24 +119,73 @@ impl Docker for Shiplift {
         let mut ports = Ports::default();
         let container_detatils = self
             .get_rt()
-            .block_on(self.client.containers().get(&id).inspect())
+            .block_on(self.client.containers().get(id).inspect())
             .unwrap();
 
-        if let Some(port_bindings) = container_detatils.host_config.port_bindings {}
+        //TODO should implement into_ports on external API port
+        if let Some(inspect_ports) = container_detatils.network_settings.ports {
+            for (internal, external) in inspect_ports {
+                // PortMapping here is actualy a HashMap
+                // NetworkSettings -> Port -> Vec<HashMap<String, String>>
+                // therefore pop -> first key using next even though it's a map
+                let external = match external
+                    .and_then(|mut m| m.pop())
+                    //XXX this is bad, need advice...
+                    .map(|m| m.values().next().unwrap().clone())
+                {
+                    Some(port) => port,
+                    None => {
+                        log::debug!("Port {} is not mapped to host machine, skipping.", internal);
+                        continue;
+                    }
+                };
+
+                let port = internal.split('/').next().unwrap();
+
+                let internal = parse_port(port);
+                let external = parse_port(&external);
+
+                ports.add_mapping(internal, external);
+            }
+        }
+
         ports
     }
 
-    fn rm(&self, id: &str) {}
+    fn rm(&self, id: &str) {
+        self.get_rt()
+            .block_on(
+                self.client.containers().get(id).remove(
+                    RmContainerOptions::builder()
+                        .volumes(true)
+                        .force(true)
+                        .build(),
+                ),
+            )
+            .unwrap();
+    }
 
-    fn stop(&self, id: &str) {}
+    fn stop(&self, id: &str) {
+        self.get_rt()
+            .block_on(self.client.containers().get(id).stop(Option::None))
+            .unwrap();
+    }
 
-    fn start(&self, id: &str) {}
+    fn start(&self, id: &str) {
+        self.get_rt()
+            .block_on(self.client.containers().get(id).stop(Option::None))
+            .unwrap();
+    }
+}
+
+fn parse_port(port: &str) -> u16 {
+    port.parse()
+        .unwrap_or_else(|e| panic!("Failed to parse {} as u16 because {}", port, e))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::core::Port;
-    use crate::images::generic::GenericImage;
     use crate::{Container, Docker, Image};
     use std::collections::HashMap;
 
