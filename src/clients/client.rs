@@ -6,6 +6,7 @@ use shiplift::{
 };
 use std::fmt;
 use std::io::Write;
+use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 
 pub struct Shiplift {
@@ -108,11 +109,14 @@ impl Docker for Shiplift {
         // since we are doing spwan to fake a async method
         let id_static: &'static str = Box::leak(Box::new(String::from(id)));
 
+        let stdout_buf = std::io::Cursor::new(Vec::new());
+        let stderr_buf = std::io::Cursor::new(Vec::new());
+
+        let stdout_arc = Arc::new(Mutex::new(stdout_buf));
+        let stderr_arc = Arc::new(Mutex::new(stderr_buf));
+
         // use spwan to run it in the background
         self.get_rt().spawn(async move {
-            let mut stdout_buf = std::io::Cursor::new(Vec::new());
-            let mut stderr_buf = std::io::Cursor::new(Vec::new());
-
             let client = shiplift_docker::new();
             let mut logs_stream = client
                 .containers()
@@ -124,10 +128,10 @@ impl Docker for Shiplift {
                 match log_result {
                     Ok(chunk) => match chunk {
                         TtyChunk::StdOut(bytes) => {
-                            stdout_buf.write_all(&bytes).unwrap();
+                            stdout_arc.lock().unwrap().write_all(&bytes).unwrap();
                         }
                         TtyChunk::StdErr(bytes) => {
-                            stderr_buf.write_all(&bytes).unwrap();
+                            stderr_arc.lock().unwrap().write_all(&bytes).unwrap();
                         }
                         TtyChunk::StdIn(_) => unreachable!(),
                     },
