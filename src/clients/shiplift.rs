@@ -1,16 +1,15 @@
-use crate::core::{Container, Docker, Image, Logs, Ports, RunArgs};
+use crate::core::{ContainerAsync, DockerAsync, Image, Logs, Ports, RunArgs};
+use async_trait::async_trait;
 use futures::StreamExt;
-use shiplift::Docker as shiplift_docker;
+use shiplift::Docker;
 use shiplift::{
     tty::TtyChunk, ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions,
 };
+
 use std::fmt;
-use std::io::Write;
-use std::sync::{Arc, Mutex};
-use tokio::runtime::Runtime;
 
 pub struct Shiplift {
-    client: shiplift_docker,
+    client: Docker,
 }
 
 impl fmt::Debug for Shiplift {
@@ -22,30 +21,29 @@ impl fmt::Debug for Shiplift {
 impl Shiplift {
     pub fn new() -> Self {
         return Shiplift {
-            client: shiplift_docker::new(),
+            client: Docker::new(),
         };
-    }
-
-    pub fn get_rt(&self) -> Runtime {
-        return Runtime::new().unwrap();
     }
 }
 
-impl Docker for Shiplift {
-    fn run<I: Image>(&self, image: I) -> Container<'_, Shiplift, I> {
+#[async_trait]
+impl DockerAsync for Shiplift {
+    async fn run<I: Image + Send>(&self, image: I) -> ContainerAsync<'_, Shiplift, I> {
         let empty_args = RunArgs::default();
-        self.run_with_args(image, empty_args)
+        self.run_with_args(image, empty_args).await
     }
 
-    fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Shiplift, I> {
+    async fn run_with_args<I: Image + Send>(
+        &self,
+        image: I,
+        run_args: RunArgs,
+    ) -> ContainerAsync<'_, Shiplift, I> {
         // Create network
         if let Some(network) = run_args.network() {
-            self.get_rt()
-                .block_on(
-                    self.client
-                        .networks()
-                        .create(&NetworkCreateOptions::builder(network.as_str()).build()),
-                )
+            self.client
+                .networks()
+                .create(&NetworkCreateOptions::builder(network.as_str()).build())
+                .await
                 .unwrap();
         }
 
@@ -95,50 +93,39 @@ impl Docker for Shiplift {
 
         // create the container with options
         let create_result = self
-            .get_rt()
-            .block_on(self.client.containers().create(&options_builder.build()))
-            .unwrap();
-        let container = self.client.containers().get(&create_result.id);
-
-        // start the container
-        self.get_rt().block_on(container.start()).unwrap();
-        Container::new(create_result.id, self, image)
+            .client
+            .containers()
+            .create(&options_builder.build())
+            .await;
+        let id = create_result.unwrap().id;
+        self.client.containers().get(&id).start().await.unwrap();
+        ContainerAsync::new(id, self, image)
     }
 
-    fn logs(&self, id: &str) -> Logs {
-        // since we are doing spwan to fake a async method
-        let id_static: &'static str = Box::leak(Box::new(String::from(id)));
+    async fn logs(&self, id: &str) -> Logs {
+        let client = Docker::new();
+        let logs_stream = client
+            .containers()
+            .get(id)
+            .logs(&LogsOptions::builder().stdout(true).stderr(true).build());
 
-        let stdout_buf = std::io::Cursor::new(Vec::new());
-        let stderr_buf = std::io::Cursor::new(Vec::new());
-
-        let stdout_arc = Arc::new(Mutex::new(stdout_buf));
-        let stderr_arc = Arc::new(Mutex::new(stderr_buf));
-
-        // use spwan to run it in the background
-        self.get_rt().spawn(async move {
-            let client = shiplift_docker::new();
-            let mut logs_stream = client
-                .containers()
-                .get(id_static)
-                .logs(&LogsOptions::builder().stdout(true).stderr(true).build());
-
-            // have a back ground threa durnning and pipe bytes into a Read buffer
-            while let Some(log_result) = logs_stream.next().await {
-                match log_result {
-                    Ok(chunk) => match chunk {
-                        TtyChunk::StdOut(bytes) => {
-                            stdout_arc.lock().unwrap().write_all(&bytes).unwrap();
-                        }
-                        TtyChunk::StdErr(bytes) => {
-                            stderr_arc.lock().unwrap().write_all(&bytes).unwrap();
-                        }
-                        TtyChunk::StdIn(_) => unreachable!(),
-                    },
-                    Err(e) => eprintln!("Error: {}", e),
-                }
+        // have a back ground threa durnning and pipe bytes into a Read buffer
+        /*
+        while let Some(log_result) = logs_stream.next().await {
+            match log_result {
+                Ok(chunk) => match chunk {
+                    TtyChunk::StdOut(bytes) => {
+                        stdout_arc.lock().unwrap().write_all(&bytes).unwrap();
+                    }
+                    TtyChunk::StdErr(bytes) => {
+                        stderr_arc.lock().unwrap().write_all(&bytes).unwrap();
+                    }
+                    TtyChunk::StdIn(_) => unreachable!(),
+                },
+                Err(e) => eprintln!("Error: {}", e),
             }
-        });
+        }
+        */
 
         Logs {
             stdout: Box::new("placeholder".as_bytes()),
@@ -146,12 +133,9 @@ impl Docker for Shiplift {
         }
     }
 
-    fn ports(&self, id: &str) -> Ports {
+    async fn ports(&self, id: &str) -> Ports {
         let mut ports = Ports::default();
-        let container_detatils = self
-            .get_rt()
-            .block_on(self.client.containers().get(id).inspect())
-            .unwrap();
+        let container_detatils = self.client.containers().get(id).inspect().await.unwrap();
 
         //TODO should implement into_ports on external API port
         if let Some(inspect_ports) = container_detatils.network_settings.ports {
@@ -183,29 +167,31 @@ impl Docker for Shiplift {
         ports
     }
 
-    fn rm(&self, id: &str) {
-        self.get_rt()
-            .block_on(
-                self.client.containers().get(id).remove(
-                    RmContainerOptions::builder()
-                        .volumes(true)
-                        .force(true)
-                        .build(),
-                ),
+    async fn rm(&self, id: &str) {
+        self.client
+            .containers()
+            .get(id)
+            .remove(
+                RmContainerOptions::builder()
+                    .volumes(true)
+                    .force(true)
+                    .build(),
             )
+            .await
             .unwrap();
     }
 
-    fn stop(&self, id: &str) {
-        self.get_rt()
-            .block_on(self.client.containers().get(id).stop(Option::None))
+    async fn stop(&self, id: &str) {
+        self.client
+            .containers()
+            .get(id)
+            .stop(Option::None)
+            .await
             .unwrap();
     }
 
-    fn start(&self, id: &str) {
-        self.get_rt()
-            .block_on(self.client.containers().get(id).stop(Option::None))
-            .unwrap();
+    async fn start(&self, id: &str) {
+        self.client.containers().get(id).start().await.unwrap();
     }
 }
 
@@ -265,7 +251,9 @@ mod tests {
     fn shiplift_can_run_container() {
         let image = HelloWorld::default();
         let shiplift = Shiplift::new();
-        shiplift.run(image);
+
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(shiplift.run(image).await);
     }
 
     #[test]

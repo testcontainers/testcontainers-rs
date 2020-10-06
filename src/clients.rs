@@ -1,5 +1,5 @@
 pub use self::cli::Cli;
-pub use self::client::Shiplift;
+pub use self::shiplift::Shiplift;
 
 mod cli;
-mod client;
+mod shiplift;

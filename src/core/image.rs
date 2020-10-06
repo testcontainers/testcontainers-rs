@@ -1,4 +1,4 @@
-use crate::core::{Container, Docker};
+use crate::core::{Container, ContainerAsync, Docker, DockerAsync};
 
 /// Represents a docker image.
 ///
@@ -75,6 +75,8 @@ where
     /// Most implementations will very likely want to make use of this to wait for a particular
     /// message to be emitted.
     fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>);
+    /// Async version of the same method
+    fn wait_until_ready_async<D: DockerAsync>(&self, container: &ContainerAsync<'_, D, Self>) {}
 
     /// Returns the arguments this instance was created with.
     fn args(&self) -> Self::Args;

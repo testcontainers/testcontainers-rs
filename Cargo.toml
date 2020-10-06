@@ -22,6 +22,7 @@ shiplift =  {git = "https://github.com/softprops/shiplift" }
 tokio = { version = "0.2", features = ["macros"] }
 futures = "0.3.5"
 bytes = "0.5"
+async-trait = "0.1.41"
 
 [dev-dependencies]
 bitcoincore-rpc = "0.11"
