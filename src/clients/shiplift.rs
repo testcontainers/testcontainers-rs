@@ -253,7 +253,9 @@ mod tests {
         let shiplift = Shiplift::new();
 
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(shiplift.run(image).await);
+        rt.block_on(async {
+            shiplift.run(image).await
+        });
     }
 
     #[test]
