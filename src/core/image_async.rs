@@ -1,4 +1,5 @@
-use crate::core::{Container, Docker};
+use crate::core::{ContainerAsync, DockerAsync, Port};
+use async_trait::async_trait;
 
 /// Represents a docker image.
 ///
@@ -8,13 +9,15 @@ use crate::core::{Container, Docker};
 ///
 /// [`Image`]: trait.Image.html
 /// [docker_run]: trait.Docker.html#tymethod.run
-pub trait Image
+#[async_trait]
+pub trait ImageAsync
 where
     Self: Sized + Default,
     Self::Args: Default + IntoIterator<Item = String>,
     Self::EnvVars: Default + IntoIterator<Item = (String, String)>,
     Self::Volumes: Default + IntoIterator<Item = (String, String)>,
     Self::EntryPoint: ToString,
+    Self: Send,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -74,7 +77,7 @@ where
     ///
     /// Most implementations will very likely want to make use of this to wait for a particular
     /// message to be emitted.
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>);
+    async fn wait_until_ready<D: DockerAsync>(&self, container: &ContainerAsync<'_, D, Self>);
 
     /// Returns the arguments this instance was created with.
     fn args(&self) -> Self::Args;
@@ -101,21 +104,5 @@ where
     /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
         None
-    }
-}
-
-/// Represents a port mapping between a local port and the internal port of a container.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Port {
-    pub local: u16,
-    pub internal: u16,
-}
-
-impl Into<Port> for (u16, u16) {
-    fn into(self) -> Port {
-        Port {
-            local: self.0,
-            internal: self.1,
-        }
     }
 }

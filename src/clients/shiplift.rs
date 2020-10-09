@@ -1,4 +1,4 @@
-use crate::core::{ContainerAsync, DockerAsync, Image, Logs, Ports, RunArgs};
+use crate::core::{ContainerAsync, DockerAsync, ImageAsync, Logs, Ports, RunArgs};
 use async_trait::async_trait;
 use futures::StreamExt;
 use shiplift::Docker;
@@ -28,12 +28,12 @@ impl Shiplift {
 
 #[async_trait]
 impl DockerAsync for Shiplift {
-    async fn run<I: Image + Send>(&self, image: I) -> ContainerAsync<'_, Shiplift, I> {
+    async fn run<I: ImageAsync + Sync>(&self, image: I) -> ContainerAsync<'_, Shiplift, I> {
         let empty_args = RunArgs::default();
         self.run_with_args(image, empty_args).await
     }
 
-    async fn run_with_args<I: Image + Send>(
+    async fn run_with_args<I: ImageAsync + Send + Sync>(
         &self,
         image: I,
         run_args: RunArgs,
@@ -99,7 +99,8 @@ impl DockerAsync for Shiplift {
             .await;
         let id = create_result.unwrap().id;
         self.client.containers().get(&id).start().await.unwrap();
-        ContainerAsync::new(id, self, image)
+
+        ContainerAsync::new(id, self, image).await
     }
 
     async fn logs(&self, id: &str) -> Logs {
@@ -203,7 +204,7 @@ fn parse_port(port: &str) -> u16 {
 #[cfg(test)]
 mod tests {
     use crate::core::Port;
-    use crate::{Container, Docker, Image};
+    use crate::{core::ContainerAsync, core::DockerAsync, core::ImageAsync};
     use std::collections::HashMap;
 
     use super::*;
@@ -214,7 +215,8 @@ mod tests {
         env_vars: HashMap<String, String>,
     }
 
-    impl Image for HelloWorld {
+    #[async_trait]
+    impl ImageAsync for HelloWorld {
         type Args = Vec<String>;
         type EnvVars = HashMap<String, String>;
         type Volumes = HashMap<String, String>;
@@ -224,9 +226,10 @@ mod tests {
             String::from("hello-world")
         }
 
-        fn wait_until_ready<D: Docker>(&self, _container: &Container<'_, D, Self>) {}
+        async fn wait_until_ready<D: DockerAsync>(&self, _container: &ContainerAsync<'_, D, Self>) {
+        }
 
-        fn args(&self) -> <Self as Image>::Args {
+        fn args(&self) -> <Self as ImageAsync>::Args {
             vec![]
         }
 
@@ -242,7 +245,7 @@ mod tests {
             None
         }
 
-        fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
+        fn with_args(self, _arguments: <Self as ImageAsync>::Args) -> Self {
             self
         }
     }
@@ -253,9 +256,7 @@ mod tests {
         let shiplift = Shiplift::new();
 
         let mut rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
-            shiplift.run(image).await
-        });
+        rt.block_on(async { shiplift.run(image).await });
     }
 
     #[test]
