@@ -37,4 +37,5 @@ rusoto_sqs = "0.45"
 spectral = "0.6"
 reqwest = { version = "0.10", features = ["blocking"] }
 json = "0.12"
+tokio-test = "0.2.1"
 

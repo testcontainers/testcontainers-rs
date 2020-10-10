@@ -226,7 +226,10 @@ mod tests {
             String::from("hello-world")
         }
 
-        async fn wait_until_ready<D: DockerAsync>(&self, _container: &ContainerAsync<'_, D, Self>) {
+        async fn wait_until_ready<D: DockerAsync + Sync>(
+            &self,
+            _container: &ContainerAsync<'_, D, Self>,
+        ) {
         }
 
         fn args(&self) -> <Self as ImageAsync>::Args {
@@ -255,18 +258,6 @@ mod tests {
         let image = HelloWorld::default();
         let shiplift = Shiplift::new();
 
-        let mut rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async { shiplift.run(image).await });
-    }
-
-    #[test]
-    fn shiplift_run_command_should_include_name() {
-        let image = HelloWorld::default();
-        let run_args = RunArgs::default().with_name("hello_container");
-
-        let shiplift = Shiplift::new();
-        shiplift.run_with_args(image, run_args);
-
-        //TODO add assert maybe receive the container and then inspect the id
+        tokio_test::block_on(shiplift.run(image));
     }
 }

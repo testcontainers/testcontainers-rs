@@ -23,7 +23,7 @@ use crate::core::{DockerAsync, ImageAsync};
 #[derive(Debug)]
 pub struct ContainerAsync<'d, D, I>
 where
-    D: DockerAsync,
+    D: DockerAsync + Sync,
     I: ImageAsync + Send,
 {
     id: String,
@@ -33,7 +33,7 @@ where
 
 impl<'d, D, I> ContainerAsync<'d, D, I>
 where
-    D: DockerAsync,
+    D: DockerAsync + Sync,
     I: ImageAsync + Send,
 {
     /// Constructs a new container given an id, a docker client and the image.

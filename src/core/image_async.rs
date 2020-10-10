@@ -77,7 +77,10 @@ where
     ///
     /// Most implementations will very likely want to make use of this to wait for a particular
     /// message to be emitted.
-    async fn wait_until_ready<D: DockerAsync>(&self, container: &ContainerAsync<'_, D, Self>);
+    async fn wait_until_ready<D: DockerAsync + Sync>(
+        &self,
+        container: &ContainerAsync<'_, D, Self>,
+    );
 
     /// Returns the arguments this instance was created with.
     fn args(&self) -> Self::Args;

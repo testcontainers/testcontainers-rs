@@ -5,6 +5,7 @@ use async_trait::async_trait;
 pub trait DockerAsync
 where
     Self: Sized,
+    Self: Sync,
 {
     async fn run<I: ImageAsync + Sync>(&self, image: I) -> ContainerAsync<'_, Self, I>;
     async fn run_with_args<I: ImageAsync + Send + Sync>(
