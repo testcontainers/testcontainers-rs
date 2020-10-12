@@ -5,6 +5,7 @@ pub use self::docker_async::DockerAsync;
 pub use self::image::{Image, Port};
 pub use self::image_async::ImageAsync;
 pub use self::wait_for_message::{WaitError, WaitForMessage};
+pub use self::wait_for_message_async::{WaitErrorAsync, WaitForMessageAsync};
 
 mod container;
 mod container_async;
@@ -13,3 +14,4 @@ mod docker_async;
 mod image;
 mod image_async;
 mod wait_for_message;
+mod wait_for_message_async;

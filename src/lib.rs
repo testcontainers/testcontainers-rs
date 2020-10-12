@@ -37,8 +37,11 @@
 //! [`Container`]: struct.Container.html
 
 pub use crate::core::Container;
+pub use crate::core::ContainerAsync;
 pub use crate::core::Docker;
+pub use crate::core::DockerAsync;
 pub use crate::core::Image;
+pub use crate::core::ImageAsync;
 pub use crate::core::RunArgs;
 pub use crate::core::WaitError;
 pub use crate::core::WaitForMessage;

@@ -51,10 +51,19 @@ where
         container
     }
 
+    /// Returns the id of this container.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Gives access to the log streams of this container.
+    pub async fn logs(&'static self) -> <D as DockerAsync>::LogStream {
+        self.docker_client.logs(&self.id).await
+    }
+
     async fn block_until_ready(&self) {
         log::debug!("Waiting for container {} to be ready", self.id);
 
-        // if this an async function, need .await
         self.image.wait_until_ready(self).await;
 
         log::debug!("Container {} is now ready!", self.id);

@@ -1,11 +1,10 @@
-use crate::core::{ContainerAsync, DockerAsync, ImageAsync, Logs, Ports, RunArgs};
+use crate::core::{ContainerAsync, DockerAsync, ImageAsync, Ports, RunArgs};
 use async_trait::async_trait;
-use futures::StreamExt;
+use futures::Stream;
 use shiplift::Docker;
 use shiplift::{
     tty::TtyChunk, ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions,
 };
-
 use std::fmt;
 
 pub struct Shiplift {
@@ -28,6 +27,15 @@ impl Shiplift {
 
 #[async_trait]
 impl DockerAsync for Shiplift {
+    /// Log streams of running container (Stream<Item=TtyChunk>).
+    /// Instead of wrapping around the interface, just expose the underlying
+    /// shiplift API because it's usually used by wait_for_message
+    /// providing reference implementation in addition to that should be
+    /// enough for most use cases
+    /// AsyncRead is not as established as std::io::read and due to the
+    /// special TtyChunk handling in shiplift, it takes some decoding too
+    type LogStream = Box<dyn Stream<Item = Result<TtyChunk, shiplift::Error>> + Unpin>;
+
     async fn run<I: ImageAsync + Sync>(&self, image: I) -> ContainerAsync<'_, Shiplift, I> {
         let empty_args = RunArgs::default();
         self.run_with_args(image, empty_args).await
@@ -103,35 +111,14 @@ impl DockerAsync for Shiplift {
         ContainerAsync::new(id, self, image).await
     }
 
-    async fn logs(&self, id: &str) -> Logs {
-        let client = Docker::new();
-        let logs_stream = client
+    async fn logs(&'static self, id: &'static str) -> Self::LogStream {
+        let logs_stream_stdout = self
+            .client
             .containers()
             .get(id)
             .logs(&LogsOptions::builder().stdout(true).stderr(true).build());
 
-        // have a back ground threa durnning and pipe bytes into a Read buffer
-        /*
-        while let Some(log_result) = logs_stream.next().await {
-            match log_result {
-                Ok(chunk) => match chunk {
-                    TtyChunk::StdOut(bytes) => {
-                        stdout_arc.lock().unwrap().write_all(&bytes).unwrap();
-                    }
-                    TtyChunk::StdErr(bytes) => {
-                        stderr_arc.lock().unwrap().write_all(&bytes).unwrap();
-                    }
-                    TtyChunk::StdIn(_) => unreachable!(),
-                },
-                Err(e) => eprintln!("Error: {}", e),
-            }
-        }
-        */
-
-        Logs {
-            stdout: Box::new("placeholder".as_bytes()),
-            stderr: Box::new("placeholder".as_bytes()),
-        }
+        Box::new(logs_stream_stdout)
     }
 
     async fn ports(&self, id: &str) -> Ports {
