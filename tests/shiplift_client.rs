@@ -25,9 +25,9 @@ impl ImageAsync for HelloWorld {
 
     async fn wait_until_ready<D: DockerAsync + Sync>(
         &self,
-        container: &ContainerAsync<'static, D, Self>,
+        container: &ContainerAsync<'_, D, Self>,
     ) {
-        let logstream_stdout = container.logs().await.stdout;
+        let mut logstream_stdout = container.logs().await.stdout;
         logstream_stdout
             .wait_for_message_async("Hello from Docker!")
             .await
@@ -70,7 +70,8 @@ fn should_wait_for_at_least_one_second_before_fetching_logs_shiplift() {
 
         let before_logs = Instant::now();
 
-        docker.logs(container.id());
+        // this probably doesn't work anymore in async
+        docker.logs(container.id()).await;
 
         let after_logs = Instant::now();
 
