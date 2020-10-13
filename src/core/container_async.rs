@@ -1,4 +1,4 @@
-use crate::core::{DockerAsync, ImageAsync};
+use crate::core::{DockerAsync, ImageAsync, LogsAsync};
 
 /// Represents a running docker container using async trait.
 ///
@@ -57,8 +57,11 @@ where
     }
 
     /// Gives access to the log streams of this container.
-    pub async fn logs(&'static self) -> <D as DockerAsync>::LogStream {
-        self.docker_client.logs(&self.id).await
+    pub async fn logs<'a>(&'a self) -> LogsAsync<'a> {
+        let id_clone: String = String::from(&self.id);
+        self.docker_client
+            .logs(Box::leak(id_clone.into_boxed_str()))
+            .await
     }
 
     async fn block_until_ready(&self) {

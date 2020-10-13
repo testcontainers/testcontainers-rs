@@ -1,7 +1,7 @@
 pub use self::container::Container;
 pub use self::container_async::ContainerAsync;
 pub use self::docker::{Docker, Logs, Ports, RunArgs};
-pub use self::docker_async::DockerAsync;
+pub use self::docker_async::{DockerAsync, LogsAsync};
 pub use self::image::{Image, Port};
 pub use self::image_async::ImageAsync;
 pub use self::wait_for_message::{WaitError, WaitForMessage};

@@ -1,10 +1,8 @@
-use crate::core::{ContainerAsync, DockerAsync, ImageAsync, Ports, RunArgs};
+use crate::core::{ContainerAsync, DockerAsync, ImageAsync, LogsAsync, Ports, RunArgs};
 use async_trait::async_trait;
-use futures::Stream;
+use futures::stream::StreamExt;
 use shiplift::Docker;
-use shiplift::{
-    tty::TtyChunk, ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions,
-};
+use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions};
 use std::fmt;
 
 pub struct Shiplift {
@@ -27,15 +25,6 @@ impl Shiplift {
 
 #[async_trait]
 impl DockerAsync for Shiplift {
-    /// Log streams of running container (Stream<Item=TtyChunk>).
-    /// Instead of wrapping around the interface, just expose the underlying
-    /// shiplift API because it's usually used by wait_for_message
-    /// providing reference implementation in addition to that should be
-    /// enough for most use cases
-    /// AsyncRead is not as established as std::io::read and due to the
-    /// special TtyChunk handling in shiplift, it takes some decoding too
-    type LogStream = Box<dyn Stream<Item = Result<TtyChunk, shiplift::Error>> + Unpin>;
-
     async fn run<I: ImageAsync + Sync>(&self, image: I) -> ContainerAsync<'_, Shiplift, I> {
         let empty_args = RunArgs::default();
         self.run_with_args(image, empty_args).await
@@ -111,14 +100,27 @@ impl DockerAsync for Shiplift {
         ContainerAsync::new(id, self, image).await
     }
 
-    async fn logs(&'static self, id: &'static str) -> Self::LogStream {
+    // static str here might not be the best option
+    async fn logs<'a>(&'a self, id: &'a str) -> LogsAsync<'a> {
+        // XXX Need advice to handle these two unwrap
         let logs_stream_stdout = self
             .client
             .containers()
             .get(id)
-            .logs(&LogsOptions::builder().stdout(true).stderr(true).build());
+            .logs(&LogsOptions::builder().stdout(true).stderr(false).build())
+            .map(|chunk| chunk.unwrap().into());
 
-        Box::new(logs_stream_stdout)
+        let logs_stream_stderr = self
+            .client
+            .containers()
+            .get(id)
+            .logs(&LogsOptions::builder().stdout(false).stderr(true).build())
+            .map(|chunk| chunk.unwrap().into());
+
+        LogsAsync {
+            stdout: Box::new(logs_stream_stdout),
+            stderr: Box::new(logs_stream_stderr),
+        }
     }
 
     async fn ports(&self, id: &str) -> Ports {

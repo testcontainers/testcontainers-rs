@@ -25,10 +25,10 @@ impl ImageAsync for HelloWorld {
 
     async fn wait_until_ready<D: DockerAsync + Sync>(
         &self,
-        container: &ContainerAsync<'_, D, Self>,
+        container: &ContainerAsync<'static, D, Self>,
     ) {
-        let log_stream = container.logs().await;
-        log_stream
+        let logstream_stdout = container.logs().await.stdout;
+        logstream_stdout
             .wait_for_message_async("Hello from Docker!")
             .await
             .unwrap();
