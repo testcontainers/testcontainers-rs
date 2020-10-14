@@ -242,11 +242,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn shiplift_can_run_container() {
+    #[tokio::test]
+    async fn shiplift_can_run_container() {
         let image = HelloWorld::default();
         let shiplift = Shiplift::new();
-
-        tokio_test::block_on(shiplift.run(image));
+        shiplift.run(image).await;
     }
 }
