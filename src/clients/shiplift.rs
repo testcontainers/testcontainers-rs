@@ -242,7 +242,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(threaded_scheduler)]
     async fn shiplift_can_run_container() {
         let image = HelloWorld::default();
         let shiplift = Shiplift::new();

@@ -18,6 +18,7 @@ where
     Self::Volumes: Default + IntoIterator<Item = (String, String)>,
     Self::EntryPoint: ToString,
     Self: Send,
+    Self: Sync,
 {
     /// A type representing the arguments for an Image.
     ///

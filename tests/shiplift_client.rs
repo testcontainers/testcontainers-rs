@@ -55,27 +55,24 @@ impl ImageAsync for HelloWorld {
     }
 }
 
-#[test]
-fn should_wait_for_at_least_one_second_before_fetching_logs_shiplift() {
-    tokio_test::block_on(async {
-        let _ = pretty_env_logger::try_init();
+#[tokio::test(threaded_scheduler)]
+async fn should_wait_for_at_least_one_second_before_fetching_logs_shiplift() {
+    let _ = pretty_env_logger::try_init();
 
-        let docker = clients::Shiplift::new();
+    let docker = clients::Shiplift::new();
 
-        let before_run = Instant::now();
+    let before_run = Instant::now();
 
-        let container = docker.run(HelloWorld).await;
+    let container = docker.run(HelloWorld).await;
 
-        let after_run = Instant::now();
+    let after_run = Instant::now();
 
-        let before_logs = Instant::now();
+    let before_logs = Instant::now();
 
-        // this probably doesn't work anymore in async
-        docker.logs(container.id()).await;
+    docker.logs(container.id()).await;
 
-        let after_logs = Instant::now();
+    let after_logs = Instant::now();
 
-        assert_that(&(after_run - before_run)).is_greater_than(Duration::from_secs(1));
-        assert_that(&(after_logs - before_logs)).is_less_than(Duration::from_secs(1));
-    })
+    assert_that(&(after_run - before_run)).is_greater_than(Duration::from_secs(1));
+    assert_that(&(after_logs - before_logs)).is_less_than(Duration::from_secs(1));
 }

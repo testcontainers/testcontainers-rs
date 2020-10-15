@@ -21,11 +21,11 @@ use std::env::var;
 /// ```
 ///
 /// [drop_impl]: struct.Container.html#impl-Drop
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContainerAsync<'d, D, I>
 where
-    D: DockerAsync + Sync,
-    I: ImageAsync + Send,
+    D: DockerAsync,
+    I: ImageAsync,
 {
     id: String,
     docker_client: &'d D,
@@ -34,8 +34,8 @@ where
 
 impl<'d, D, I> ContainerAsync<'d, D, I>
 where
-    D: DockerAsync + Sync,
-    I: ImageAsync + Send,
+    D: DockerAsync,
+    I: ImageAsync,
 {
     /// Constructs a new container given an id, a docker client and the image.
     /// ContainerAsync::new().await
@@ -89,9 +89,7 @@ where
         self.docker_client.rm(&self.id).await
     }
 
-    #[allow(dead_code)]
     async fn drop_async(&self) {
-        println!("start dropping");
         let keep_container = var("KEEP_CONTAINERS")
             .ok()
             .and_then(|var| var.parse().ok())
@@ -102,11 +100,8 @@ where
         } else {
             self.rm().await
         }
-        println!("finished dropping");
     }
 }
-
-// use futures::executor::block_on;
 
 /// The destructor implementation for a Container.
 ///
@@ -114,11 +109,11 @@ where
 /// This behaviour can be controlled through the `KEEP_CONTAINERS` environment variable. Setting it to `true` will only stop containers instead of removing them. Any other or no value will remove the container.
 impl<'d, D, I> Drop for ContainerAsync<'d, D, I>
 where
-    D: DockerAsync + Sync,
-    I: ImageAsync + Send,
+    D: DockerAsync,
+    I: ImageAsync,
 {
     fn drop(&mut self) {
-        // block_on(self.drop_async())
-        println!("doesn't work yet");
+        use futures::executor::block_on;
+        block_on(self.drop_async())
     }
 }
