@@ -358,3 +358,25 @@ fn zookeeper_check_directories_existence() {
     assert_eq!(check_created_path, Some(()));
     assert_eq!(check_another_path, None)
 }
+
+#[test]
+fn orientdb_exists_database() {
+    let docker = clients::Cli::default();
+    let orientdb_image = images::orientdb::OrientDB::default();
+    let node = docker.run(orientdb_image);
+
+    let client =
+        orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424).unwrap()))
+            .unwrap();
+
+    let exists = client
+        .exist_database(
+            "orientdb_exists_database",
+            "root",
+            "root",
+            orientdb_client::DatabaseType::Memory,
+        )
+        .unwrap();
+
+    assert!(!exists);
+}
