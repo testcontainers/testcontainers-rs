@@ -21,7 +21,7 @@ sha2 = "0.9"
 
 [dev-dependencies]
 bitcoincore-rpc = "0.12"
-postgres = "0.17"
+postgres = "0.18"
 pretty_env_logger = "0.4"
 redis = "0.17"
 mongodb = "1.0.0"
