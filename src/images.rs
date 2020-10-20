@@ -2,6 +2,7 @@ pub mod coblox_bitcoincore;
 pub mod dynamodb_local;
 pub mod elasticmq;
 pub mod generic;
+pub mod generic_async;
 pub mod mongo;
 pub mod parity_parity;
 pub mod postgres;

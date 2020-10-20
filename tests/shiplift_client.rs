@@ -7,6 +7,7 @@ use spectral::prelude::*;
 use async_trait::async_trait;
 use testcontainers::core::Port;
 use testcontainers::core::WaitForMessageAsync;
+use testcontainers::images::generic_async::GenericImageAsync;
 use testcontainers::*;
 
 #[derive(Default)]
@@ -125,4 +126,27 @@ async fn shiplift_run_command_should_expose_all_ports_if_no_explicit_mapping_req
         .unwrap();
 
     assert_that!(container_details.host_config.publish_all_ports).is_equal_to(true);
+}
+
+#[tokio::test(threaded_scheduler)]
+async fn shiplift_run_command_should_expose_only_requested_ports() {
+    let image = GenericImageAsync::new("hello-world")
+        .with_mapped_port((123, 456))
+        .with_mapped_port((555, 888));
+
+    let docker = clients::Shiplift::new();
+    let container = docker.run(image).await;
+
+    // inspect volume and env
+    let container_details = docker
+        .client
+        .containers()
+        .get(container.id())
+        .inspect()
+        .await
+        .unwrap();
+
+    let port_bindings = container_details.host_config.port_bindings.unwrap();
+    assert_that!(&port_bindings).contains_key(&"456/tcp".into());
+    assert_that!(&port_bindings).contains_key(&"888/tcp".into());
 }
