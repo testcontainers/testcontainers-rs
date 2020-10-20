@@ -6,7 +6,10 @@ use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerO
 use std::fmt;
 
 pub struct Shiplift {
-    client: Docker,
+    // XXX should this be private? Need advice
+    // exposed maninly for testing now. but could be useful to
+    // expose the Docker client to test author
+    pub client: Docker,
 }
 
 impl fmt::Debug for Shiplift {
@@ -51,7 +54,7 @@ impl DockerAsync for Shiplift {
             options_builder.name(name.as_str());
         }
 
-        // environment variables
+        // handle environment variables
         let envs: Vec<String> = image
             .env_vars()
             .into_iter()
@@ -95,6 +98,7 @@ impl DockerAsync for Shiplift {
             .create(&options_builder.build())
             .await;
         let id = create_result.unwrap().id;
+
         self.client.containers().get(&id).start().await.unwrap();
 
         ContainerAsync::new(id, self, image).await
@@ -242,6 +246,8 @@ mod tests {
         }
     }
 
+    // A simple test to make sure basic functionality works
+    // complete functional test suite in tests/shiplift_client.rs
     #[tokio::test(threaded_scheduler)]
     async fn shiplift_can_run_container() {
         let image = HelloWorld::default();
