@@ -6,10 +6,7 @@ use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerO
 use std::fmt;
 
 pub struct Shiplift {
-    // XXX should this be private? Need advice
-    // exposed maninly for testing now. but could be useful to
-    // expose the Docker client to test author
-    pub client: Docker,
+    client: Docker,
 }
 
 impl fmt::Debug for Shiplift {
@@ -196,11 +193,13 @@ fn parse_port(port: &str) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::Port;
-    use crate::{core::ContainerAsync, core::DockerAsync, core::ImageAsync};
-    use std::collections::HashMap;
-
     use super::*;
+    use crate::core::Port;
+    use crate::images::generic_async::GenericImageAsync;
+    use crate::{core::ContainerAsync, core::DockerAsync, core::ImageAsync};
+    use shiplift::rep::ContainerDetails;
+    use spectral::prelude::*;
+    use std::collections::HashMap;
 
     #[derive(Default)]
     struct HelloWorld {
@@ -253,5 +252,75 @@ mod tests {
         let image = HelloWorld::default();
         let shiplift = Shiplift::new();
         shiplift.run(image).await;
+    }
+
+    async fn inspect(client: &shiplift::Docker, id: &str) -> ContainerDetails {
+        client.containers().get(id).inspect().await.unwrap()
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn shiplift_run_command_should_include_env_and_volumes() {
+        let mut volumes = HashMap::new();
+        volumes.insert("/tmp".to_owned(), "/hostmp".to_owned());
+
+        let mut env_vars = HashMap::new();
+        env_vars.insert("one-key".to_owned(), "one-value".to_owned());
+        env_vars.insert("two-key".to_owned(), "two-value".to_owned());
+
+        let image = HelloWorld { volumes, env_vars };
+        let run_args = RunArgs::default();
+
+        let docker = Shiplift::new();
+        let container = docker.run_with_args(image, run_args).await;
+
+        // inspect volume and env
+        let container_details = inspect(&docker.client, container.id()).await;
+
+        let envs = container_details.config.env.unwrap();
+        assert_that!(&envs).contains(&"one-key=one-value".into());
+        assert_that!(&envs).contains(&"two-key=two-value".into());
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn shiplift_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
+        let image = HelloWorld::default();
+        let docker = Shiplift::new();
+        let container = docker.run(image).await;
+
+        // inspect volume and env
+        let container_details = inspect(&docker.client, container.id()).await;
+        assert_that!(container_details.host_config.publish_all_ports).is_equal_to(true);
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn shiplift_run_command_should_expose_only_requested_ports() {
+        let image = GenericImageAsync::new("hello-world")
+            .with_mapped_port((123, 456))
+            .with_mapped_port((555, 888));
+
+        let docker = Shiplift::new();
+        let container = docker.run(image).await;
+
+        let container_details = inspect(&docker.client, container.id()).await;
+
+        let port_bindings = container_details.host_config.port_bindings.unwrap();
+        assert_that!(&port_bindings).contains_key(&"456/tcp".into());
+        assert_that!(&port_bindings).contains_key(&"888/tcp".into());
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn shiplift_run_command_should_include_network() {
+        let image = GenericImageAsync::new("hello-world");
+        let docker = Shiplift::new();
+
+        let run_args = RunArgs::default().with_network("awesome-net");
+        let container = docker.run_with_args(image, run_args).await;
+
+        let container_details = inspect(&docker.client, container.id()).await;
+        let networks = container_details.network_settings.networks;
+        assert!(
+            networks.contains_key("awesome-net".into()),
+            format!("Networks is {:?}", networks)
+        );
     }
 }
