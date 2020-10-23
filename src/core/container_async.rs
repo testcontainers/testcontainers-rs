@@ -1,4 +1,5 @@
 use crate::core::{DockerAsync, ImageAsync, LogsAsync};
+use futures::executor::block_on;
 use std::env::var;
 
 /// Represents a running docker container using async trait.
@@ -113,7 +114,6 @@ where
     I: ImageAsync,
 {
     fn drop(&mut self) {
-        use futures::executor::block_on;
         block_on(self.drop_async())
     }
 }

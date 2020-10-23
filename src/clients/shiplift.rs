@@ -1,12 +1,17 @@
 use crate::core::{ContainerAsync, DockerAsync, ImageAsync, LogsAsync, Ports, RunArgs};
 use async_trait::async_trait;
+use futures::executor::block_on;
 use futures::stream::StreamExt;
 use shiplift::Docker;
-use shiplift::{ContainerOptions, LogsOptions, NetworkCreateOptions, RmContainerOptions};
+use shiplift::{
+    ContainerOptions, LogsOptions, NetworkCreateOptions, NetworkListOptions, RmContainerOptions,
+};
 use std::fmt;
+use std::sync::RwLock;
 
 pub struct Shiplift {
     client: Docker,
+    created_networks: RwLock<Vec<String>>,
 }
 
 impl fmt::Debug for Shiplift {
@@ -19,7 +24,42 @@ impl Shiplift {
     pub fn new() -> Self {
         return Shiplift {
             client: Docker::new(),
+            created_networks: RwLock::new(Vec::new()),
         };
+    }
+
+    async fn create_network_if_not_exists(&self, network: &String) -> bool {
+        if !network_exists(&self.client, network).await {
+            self.client
+                .networks()
+                .create(&NetworkCreateOptions::builder(network.as_str()).build())
+                .await
+                .unwrap();
+
+            return true;
+        }
+
+        false
+    }
+}
+
+async fn network_exists(client: &Docker, network: &str) -> bool {
+    // There's no public builder for NetworkListOptions yet
+    // might need to add one in shiplift
+    // this is doing unnecessary stuff
+    let network_list_optons = NetworkListOptions::default();
+    let networks = client.networks().list(&network_list_optons).await.unwrap();
+    println!("{:?}", networks);
+
+    networks.iter().any(|i| i.name == network)
+}
+
+impl Drop for Shiplift {
+    fn drop(&mut self) {
+        let guard = self.created_networks.read().expect("failed to lock RwLock");
+        for network in guard.iter() {
+            block_on(async { self.client.networks().get(network).delete().await.unwrap() });
+        }
     }
 }
 
@@ -35,16 +75,19 @@ impl DockerAsync for Shiplift {
         image: I,
         run_args: RunArgs,
     ) -> ContainerAsync<'_, Shiplift, I> {
-        // Create network
-        if let Some(network) = run_args.network() {
-            self.client
-                .networks()
-                .create(&NetworkCreateOptions::builder(network.as_str()).build())
-                .await
-                .unwrap();
-        }
-
         let mut options_builder = ContainerOptions::builder(image.descriptor().as_str());
+
+        // Create network and add it to container creation
+        if let Some(network) = run_args.network() {
+            options_builder.network_mode(network.as_str());
+            if self.create_network_if_not_exists(&network).await {
+                let mut guard = self
+                    .created_networks
+                    .write()
+                    .expect("'failed to lock RwLock'");
+                guard.push(network);
+            }
+        }
 
         // name of the container
         if let Some(name) = run_args.name() {
@@ -313,14 +356,56 @@ mod tests {
         let image = GenericImageAsync::new("hello-world");
         let docker = Shiplift::new();
 
-        let run_args = RunArgs::default().with_network("awesome-net");
+        let run_args = RunArgs::default().with_network("awesome-net-1");
         let container = docker.run_with_args(image, run_args).await;
 
         let container_details = inspect(&docker.client, container.id()).await;
         let networks = container_details.network_settings.networks;
         assert!(
-            networks.contains_key("awesome-net".into()),
+            networks.contains_key("awesome-net-1".into()),
             format!("Networks is {:?}", networks)
         );
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn shiplift_run_command_should_include_name() {
+        let image = GenericImageAsync::new("hello-world");
+        let docker = Shiplift::new();
+
+        let run_args = RunArgs::default().with_name("hello_container");
+        let container = docker.run_with_args(image, run_args).await;
+
+        let container_details = inspect(&docker.client, container.id()).await;
+        assert_that!(container_details.name).ends_with("hello_container");
+    }
+
+    #[tokio::test(threaded_scheduler)]
+    async fn shiplift_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
+        let client = shiplift::Docker::new();
+
+        {
+            let docker = Shiplift::new();
+            assert!(!network_exists(&client, "awesome-net-2").await);
+
+            // creating the first container creates the network
+            let _container1 = docker
+                .run_with_args(
+                    HelloWorld::default(),
+                    RunArgs::default().with_network("awesome-net-2"),
+                )
+                .await;
+            // creating a 2nd container doesn't fail because check if the network exists already
+            let _container2 = docker
+                .run_with_args(
+                    HelloWorld::default(),
+                    RunArgs::default().with_network("awesome-net-2"),
+                )
+                .await;
+
+            assert!(network_exists(&client, "awesome-net-2").await);
+        }
+
+        // client has been dropped, should clean up networks
+        assert!(!network_exists(&client, "awesome-net-2").await)
     }
 }
