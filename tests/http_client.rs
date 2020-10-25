@@ -59,10 +59,10 @@ impl ImageAsync for HelloWorld {
 }
 
 #[tokio::test(threaded_scheduler)]
-async fn should_wait_for_at_least_one_second_before_fetching_logs_shiplift() {
+async fn should_wait_for_at_least_one_second_before_fetching_logs_http() {
     let _ = pretty_env_logger::try_init();
 
-    let docker = clients::Shiplift::new();
+    let docker = clients::Http::new();
 
     let before_run = Instant::now();
 

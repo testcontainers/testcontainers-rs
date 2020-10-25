@@ -9,20 +9,20 @@ use shiplift::{
 use std::fmt;
 use std::sync::RwLock;
 
-pub struct Shiplift {
+pub struct Http {
     client: Docker,
     created_networks: RwLock<Vec<String>>,
 }
 
-impl fmt::Debug for Shiplift {
+impl fmt::Debug for Http {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Shiplift").finish()
     }
 }
 
-impl Shiplift {
+impl Http {
     pub fn new() -> Self {
-        return Shiplift {
+        return Http {
             client: Docker::new(),
             created_networks: RwLock::new(Vec::new()),
         };
@@ -54,7 +54,7 @@ async fn network_exists(client: &Docker, network: &str) -> bool {
     networks.iter().any(|i| i.name == network)
 }
 
-impl Drop for Shiplift {
+impl Drop for Http {
     fn drop(&mut self) {
         let guard = self.created_networks.read().expect("failed to lock RwLock");
         for network in guard.iter() {
@@ -64,8 +64,8 @@ impl Drop for Shiplift {
 }
 
 #[async_trait]
-impl DockerAsync for Shiplift {
-    async fn run<I: ImageAsync + Sync>(&self, image: I) -> ContainerAsync<'_, Shiplift, I> {
+impl DockerAsync for Http {
+    async fn run<I: ImageAsync + Sync>(&self, image: I) -> ContainerAsync<'_, Http, I> {
         let empty_args = RunArgs::default();
         self.run_with_args(image, empty_args).await
     }
@@ -74,7 +74,7 @@ impl DockerAsync for Shiplift {
         &self,
         image: I,
         run_args: RunArgs,
-    ) -> ContainerAsync<'_, Shiplift, I> {
+    ) -> ContainerAsync<'_, Http, I> {
         let mut options_builder = ContainerOptions::builder(image.descriptor().as_str());
 
         // Create network and add it to container creation
@@ -289,11 +289,10 @@ mod tests {
     }
 
     // A simple test to make sure basic functionality works
-    // complete functional test suite in tests/shiplift_client.rs
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_can_run_container() {
+    async fn http_can_run_container() {
         let image = HelloWorld::default();
-        let shiplift = Shiplift::new();
+        let shiplift = Http::new();
         shiplift.run(image).await;
     }
 
@@ -302,7 +301,7 @@ mod tests {
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_run_command_should_include_env_and_volumes() {
+    async fn http_run_command_should_include_env_and_volumes() {
         let mut volumes = HashMap::new();
         volumes.insert("/tmp".to_owned(), "/hostmp".to_owned());
 
@@ -313,7 +312,7 @@ mod tests {
         let image = HelloWorld { volumes, env_vars };
         let run_args = RunArgs::default();
 
-        let docker = Shiplift::new();
+        let docker = Http::new();
         let container = docker.run_with_args(image, run_args).await;
 
         // inspect volume and env
@@ -325,9 +324,9 @@ mod tests {
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
+    async fn http_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
         let image = HelloWorld::default();
-        let docker = Shiplift::new();
+        let docker = Http::new();
         let container = docker.run(image).await;
 
         // inspect volume and env
@@ -336,12 +335,12 @@ mod tests {
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_run_command_should_expose_only_requested_ports() {
+    async fn http_run_command_should_expose_only_requested_ports() {
         let image = GenericImageAsync::new("hello-world")
             .with_mapped_port((123, 456))
             .with_mapped_port((555, 888));
 
-        let docker = Shiplift::new();
+        let docker = Http::new();
         let container = docker.run(image).await;
 
         let container_details = inspect(&docker.client, container.id()).await;
@@ -352,9 +351,9 @@ mod tests {
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_run_command_should_include_network() {
+    async fn http_run_command_should_include_network() {
         let image = GenericImageAsync::new("hello-world");
-        let docker = Shiplift::new();
+        let docker = Http::new();
 
         let run_args = RunArgs::default().with_network("awesome-net-1");
         let container = docker.run_with_args(image, run_args).await;
@@ -368,9 +367,9 @@ mod tests {
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_run_command_should_include_name() {
+    async fn http_run_command_should_include_name() {
         let image = GenericImageAsync::new("hello-world");
-        let docker = Shiplift::new();
+        let docker = Http::new();
 
         let run_args = RunArgs::default().with_name("hello_container");
         let container = docker.run_with_args(image, run_args).await;
@@ -380,11 +379,11 @@ mod tests {
     }
 
     #[tokio::test(threaded_scheduler)]
-    async fn shiplift_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
+    async fn http_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
         let client = shiplift::Docker::new();
 
         {
-            let docker = Shiplift::new();
+            let docker = Http::new();
             assert!(!network_exists(&client, "awesome-net-2").await);
 
             // creating the first container creates the network
