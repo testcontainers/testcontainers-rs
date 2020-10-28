@@ -304,8 +304,8 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let free_local_port = free_local_port().unwrap();
 
     let docker = clients::Cli::default();
-    let _node =
-        docker.run(images::postgres::Postgres::default().with_mapped_port((free_local_port, 5432)));
+    let run_args = RunArgs::default().with_mapped_port((free_local_port, 5432));
+    let _node = docker.run_with_args(images::postgres::Postgres::default(), run_args);
 
     let mut conn = postgres::Client::connect(
         &format!(

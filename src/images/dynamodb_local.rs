@@ -1,4 +1,3 @@
-use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 
@@ -23,7 +22,6 @@ impl IntoIterator for DynamoDbArgs {
 pub struct DynamoDb {
     tag: String,
     arguments: DynamoDbArgs,
-    ports: Option<Vec<Port>>,
 }
 
 impl Default for DynamoDb {
@@ -31,7 +29,6 @@ impl Default for DynamoDb {
         DynamoDb {
             tag: DEFAULT_TAG.to_string(),
             arguments: DynamoDbArgs {},
-            ports: None,
         }
     }
 }
@@ -80,10 +77,6 @@ impl Image for DynamoDb {
         HashMap::new()
     }
 
-    fn ports(&self) -> Option<Vec<Port>> {
-        self.ports.clone()
-    }
-
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         DynamoDb { arguments, ..self }
     }
@@ -95,12 +88,5 @@ impl DynamoDb {
             tag: tag_str.to_string(),
             ..self
         }
-    }
-
-    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
-        let mut ports = self.ports.unwrap_or_default();
-        ports.push(port.into());
-        self.ports = Some(ports);
-        self
     }
 }

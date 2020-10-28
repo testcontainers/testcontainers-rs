@@ -1,4 +1,3 @@
-use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
@@ -6,7 +5,6 @@ use std::collections::HashMap;
 pub struct Postgres {
     arguments: PostgresArgs,
     env_vars: HashMap<String, String>,
-    ports: Option<Vec<Port>>,
     version: u8,
 }
 
@@ -31,7 +29,6 @@ impl Default for Postgres {
         Self {
             arguments: PostgresArgs::default(),
             env_vars,
-            ports: None,
             version: 11,
         }
     }
@@ -39,13 +36,6 @@ impl Default for Postgres {
 impl Postgres {
     pub fn with_env_vars(self, env_vars: HashMap<String, String>) -> Self {
         Self { env_vars, ..self }
-    }
-
-    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
-        let mut ports = self.ports.unwrap_or_default();
-        ports.push(port.into());
-        self.ports = Some(ports);
-        self
     }
 }
 
@@ -77,10 +67,6 @@ impl Image for Postgres {
 
     fn env_vars(&self) -> Self::EnvVars {
         self.env_vars.clone()
-    }
-
-    fn ports(&self) -> Option<Vec<Port>> {
-        self.ports.clone()
     }
 
     fn with_args(self, arguments: Self::Args) -> Self {
