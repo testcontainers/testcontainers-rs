@@ -35,3 +35,4 @@ json = "0.12"
 tokio = { version = "0.2", features = ["macros"] }
 env_logger = "0.8"
 zookeeper = "0.5"
+orientdb-client = "0.5.1"
