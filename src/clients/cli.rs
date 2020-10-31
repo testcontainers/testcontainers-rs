@@ -171,21 +171,7 @@ impl Docker for Cli {
     }
 
     fn ports(&self, id: &str) -> crate::core::Ports {
-        let child = Command::new("docker")
-            .arg("inspect")
-            .arg(id)
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Failed to execute docker command");
-
-        let stdout = child.stdout.unwrap();
-
-        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
-
-        let info = infos.remove(0);
-
-        log::trace!("Fetched container info: {:#?}", info);
-
+        let info = Cli::network_settings(id);
         info.network_settings.ports.into_ports()
     }
 
@@ -533,5 +519,22 @@ mod tests {
 
         // client has been dropped, should clean up networks
         assert!(!network_exists("awesome-net"))
+    }
+}
+
+impl Cli {
+    fn network_settings(id: &str) -> ContainerInfo {
+        let child = Command::new("docker")
+            .arg("inspect")
+            .arg(id)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command");
+
+        let stdout = child.stdout.unwrap();
+        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
+        let info = infos.remove(0);
+        log::trace!("Fetched container info: {:#?}", info);
+        info
     }
 }

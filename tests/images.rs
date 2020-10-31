@@ -17,6 +17,7 @@ use spectral::prelude::*;
 use std::time::Duration;
 use zookeeper::{Acl, CreateMode, ZooKeeper};
 
+use std::process::Command;
 use testcontainers::*;
 
 #[test]
@@ -379,4 +380,69 @@ fn orientdb_exists_database() {
         .unwrap();
 
     assert!(!exists);
+}
+
+#[test]
+fn kafka_publish_and_read_message() {
+    let free_zookeeper_port = free_local_port().unwrap();
+    let docker = clients::Cli::default();
+    let network = "kafka_network";
+    let zk_image = images::zookeeper::Zookeeper::default();
+    let zk_node = docker.run_with_args(
+        zk_image,
+        RunArgs::default()
+            .with_mapped_port((free_zookeeper_port, 2181))
+            .with_network(network),
+    );
+    let zk_host_port = zk_node.get_host_port(2181).unwrap();
+    let zk_host_address = "host.docker.internal";
+    let zk_urls = format!("{}:{}", zk_host_address, zk_host_port);
+    let kafka_image = images::kafka::Kafka::default()
+        .with_env_var("KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE", "true")
+        .with_env_var("ALLOW_ANONYMOUS_LOGIN", "yes")
+        .with_env_var("ALLOW_PLAINTEXT_LISTENER", "yes")
+        .with_env_var("KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE", "true")
+        .with_env_var("KAFKA_CFG_ZOOKEEPER_CONNECT", &*zk_urls);
+
+    let free_kafka_port = free_local_port().unwrap();
+    let kafka_node = docker.run_with_args(
+        kafka_image,
+        RunArgs::default()
+            .with_mapped_port((free_kafka_port, 9092))
+            .with_network(network),
+    );
+
+    let message = "ThisIsATestMessage";
+    let producer_command = format!(
+        "echo {} | kafka-console-producer.sh --bootstrap-server localhost:9092 --topic myTestTopic",
+        message.clone()
+    );
+    Command::new("docker")
+        .args(&[
+            "exec",
+            "-i",
+            kafka_node.id(),
+            "bash",
+            "-c",
+            &*producer_command,
+        ])
+        .output()
+        .unwrap();
+
+    let consumer_command = "kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic myTestTopic --group daniel --from-beginning --max-messages 1";
+    let consumer = Command::new("docker")
+        .args(&[
+            "exec",
+            "-i",
+            kafka_node.id(),
+            "bash",
+            "-c",
+            &*consumer_command,
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        &*String::from_utf8(consumer.stdout).unwrap().trim_end(),
+        message.clone()
+    );
 }

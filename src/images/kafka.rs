@@ -2,12 +2,13 @@ use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &str = "zookeeper";
-const DEFAULT_TAG: &str = "3.6.2";
+const CONTAINER_IDENTIFIER: &str = "bitnami/kafka";
+const DEFAULT_TAG: &str = "2.6.0";
 
 #[derive(Debug, Default, Clone)]
-pub struct ZookeeperArgs;
-impl IntoIterator for ZookeeperArgs {
+pub struct KafkaArgs;
+
+impl IntoIterator for KafkaArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
 
@@ -17,23 +18,26 @@ impl IntoIterator for ZookeeperArgs {
 }
 
 #[derive(Debug)]
-pub struct Zookeeper {
+pub struct Kafka {
     tag: String,
+    arguments: KafkaArgs,
     ports: Option<Vec<Port>>,
-    arguments: ZookeeperArgs,
+    env_vars: HashMap<String, String>,
 }
 
-impl Default for Zookeeper {
+impl Default for Kafka {
     fn default() -> Self {
-        Zookeeper {
+        Kafka {
             tag: DEFAULT_TAG.to_string(),
+            arguments: KafkaArgs {},
             ports: None,
-            arguments: ZookeeperArgs {},
+            env_vars: HashMap::default(),
         }
     }
 }
-impl Image for Zookeeper {
-    type Args = ZookeeperArgs;
+
+impl Image for Kafka {
+    type Args = KafkaArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
@@ -42,11 +46,7 @@ impl Image for Zookeeper {
     }
 
     fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Started AdminServer")
-            .unwrap();
+        container.logs().stdout.wait_for_message("started").unwrap();
     }
 
     fn args(&self) -> <Self as Image>::Args {
@@ -58,18 +58,28 @@ impl Image for Zookeeper {
     }
 
     fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
+        self.env_vars.clone()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Zookeeper { arguments, ..self }
+        Kafka { arguments, ..self }
     }
 }
-impl Zookeeper {
+
+impl Kafka {
+    pub fn ports(&self) -> Option<Vec<Port>> {
+        self.ports.clone()
+    }
+
     pub fn with_tag(self, tag_str: &str) -> Self {
-        Zookeeper {
+        Kafka {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_env_var<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
+        self.env_vars.insert(key.into(), value.into());
+        self
     }
 }
