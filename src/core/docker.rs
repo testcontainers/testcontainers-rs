@@ -1,5 +1,5 @@
 use crate::{Container, Image};
-use std::{collections::HashMap, io::Read};
+use std::{collections::HashMap, fmt, io::Read};
 
 /// Defines the minimum API required for interacting with the Docker daemon.
 pub trait Docker
@@ -71,11 +71,13 @@ impl Ports {
 }
 
 /// Log streams of running container (stdout & stderr).
-#[derive(derivative::Derivative)]
-#[derivative(Debug)]
 pub struct Logs {
-    #[derivative(Debug = "ignore")]
     pub stdout: Box<dyn Read>,
-    #[derivative(Debug = "ignore")]
     pub stderr: Box<dyn Read>,
+}
+
+impl fmt::Debug for Logs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Logs").finish()
+    }
 }
