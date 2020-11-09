@@ -4,13 +4,16 @@ use std::env::var;
 
 /// Represents a running docker container using async trait.
 ///
-/// Containers have a [`custom destructor`][drop_impl] that removes them as soon as they go out of scope:
+/// Containers have a [`custom destructor`][drop_impl] that removes them as soon as they
+/// go out of scope. However, async drop is not available in rust yet. This implementation
+/// is using block_on. therefore required tokio::test(threaded_scheduler) in your test
+/// to use drop effectively. Otherwise your test might stall:
 ///
 /// ```rust
 /// use testcontainers::*;
-/// #[test]
-/// fn a_test() {
-///     let docker = clients::Shiplift::default();
+/// #[tokio::test(threaded_scheduler)]
+/// async fn a_test() {
+///     let docker = clients::Http::default();
 ///
 ///     {
 ///         let container = docker.run(MyImage::default());
@@ -21,7 +24,7 @@ use std::env::var;
 ///
 /// ```
 ///
-/// [drop_impl]: struct.Container.html#impl-Drop
+/// [drop_impl]: struct.ContainerAsync.html#impl-Drop
 #[derive(Debug, Clone)]
 pub struct ContainerAsync<'d, D, I>
 where
@@ -40,7 +43,6 @@ where
 {
     /// Constructs a new container given an id, a docker client and the image.
     /// ContainerAsync::new().await
-    /// XXX It's a bit weird to have the new method not immediately return
     pub async fn new(id: String, docker_client: &'d D, image: I) -> ContainerAsync<'d, D, I> {
         let container = ContainerAsync {
             id,
@@ -108,6 +110,7 @@ where
 ///
 /// As soon as the container goes out of scope, the destructor will either only stop or delete the docker container.
 /// This behaviour can be controlled through the `KEEP_CONTAINERS` environment variable. Setting it to `true` will only stop containers instead of removing them. Any other or no value will remove the container.
+/// Using block_on because async drop is not available
 impl<'d, D, I> Drop for ContainerAsync<'d, D, I>
 where
     D: DockerAsync,

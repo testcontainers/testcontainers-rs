@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use futures::Stream;
 use futures::StreamExt;
 
-// may not be needed
 /// Defines error cases when waiting for a message in a stream.
 #[derive(Debug)]
 pub enum WaitErrorAsync {

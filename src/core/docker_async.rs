@@ -22,14 +22,7 @@ where
     async fn start(&self, id: &str);
 }
 
-/// Log streams of running container (Stream<Item=TtyChunk>).
-/// Instead of wrapping around the interface, just expose the underlying
-/// shiplift API because it's usually used by wait_for_message
-/// providing reference implementation in addition to that should be
-/// enough for most use cases
-/// AsyncRead is not as established as std::io::read and due to the
-/// special TtyChunk handling in shiplift, it takes some decoding too
-// type LogStream = Box<dyn Stream<Item = Result<TtyChunk, shiplift::Error>> + Unpin>;
+/// Log streams of running container (Stream<Item = Vec<u8>>).
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub struct LogsAsync<'a> {

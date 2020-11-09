@@ -7,8 +7,8 @@ use async_trait::async_trait;
 /// should have a meaningful configuration! It should be possible to [`run`][docker_run] the default
 /// instance of an Image and get back a working container!
 ///
-/// [`Image`]: trait.Image.html
-/// [docker_run]: trait.Docker.html#tymethod.run
+/// [`Image`]: trait.ImageAync.html
+/// [docker_run]: trait.DockerAsync.html#tymethod.run
 #[async_trait]
 pub trait ImageAsync
 where
@@ -67,14 +67,15 @@ where
     /// suddenly changed.
     fn descriptor(&self) -> String;
 
-    /// Blocks the current thread until the started container is ready.
+    /// Async function to wait until the started container is ready.
     ///
     /// This method is the **🍞 and butter** of the whole testcontainers library. Containers are
     /// rarely instantly available as soon as they are started. Most of them take some time to boot
     /// up.
     ///
-    /// Implementations MUST block the current thread until the passed-in container is ready to be
-    /// interacted with. The container instance provides access to logs of the container.
+    /// Implementations MUST return a async function signalling the current thread that the
+    /// passed-in container is ready to be interacted with. The container instance provides
+    /// access to logs of the container.
     ///
     /// Most implementations will very likely want to make use of this to wait for a particular
     /// message to be emitted.

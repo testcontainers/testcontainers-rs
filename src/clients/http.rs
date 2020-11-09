@@ -146,7 +146,6 @@ impl DockerAsync for Http {
 
     // static str here might not be the best option
     async fn logs<'a>(&'a self, id: &'a str) -> LogsAsync<'a> {
-        // XXX Need advice to handle these two unwrap
         let logs_stream_stdout = self
             .client
             .containers()
@@ -171,7 +170,6 @@ impl DockerAsync for Http {
         let mut ports = Ports::default();
         let container_detatils = self.client.containers().get(id).inspect().await.unwrap();
 
-        //TODO should implement into_ports on external API port
         if let Some(inspect_ports) = container_detatils.network_settings.ports {
             for (internal, external) in inspect_ports {
                 // PortMapping here is actualy a HashMap
@@ -179,7 +177,6 @@ impl DockerAsync for Http {
                 // therefore pop -> first key using next even though it's a map
                 let external = match external
                     .and_then(|mut m| m.pop())
-                    //XXX this is bad, need advice...
                     .map(|m| m.values().next().unwrap().clone())
                 {
                     Some(port) => port,
