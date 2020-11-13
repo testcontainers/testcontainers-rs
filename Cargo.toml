@@ -11,7 +11,7 @@ version = "0.11.0"
 
 [dependencies]
 hex = "0.4"
-hmac = "0.9"
+hmac = "0.10"
 log = "0.4"
 rand = "0.7"
 serde = { version = "1", features = ["derive"] }
