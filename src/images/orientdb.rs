@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &str = "orientdb";
@@ -22,7 +21,6 @@ impl IntoIterator for OrientDBArgs {
 pub struct OrientDB {
     tag: String,
     arguments: OrientDBArgs,
-    ports: Option<Vec<Port>>,
     env_vars: HashMap<String, String>,
 }
 
@@ -34,7 +32,6 @@ impl Default for OrientDB {
         OrientDB {
             tag: DEFAULT_TAG.to_string(),
             arguments: OrientDBArgs {},
-            ports: None,
             env_vars,
         }
     }
@@ -70,10 +67,6 @@ impl Image for OrientDB {
         HashMap::new()
     }
 
-    fn ports(&self) -> Option<Vec<Port>> {
-        self.ports.clone()
-    }
-
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         OrientDB { arguments, ..self }
     }
@@ -89,13 +82,6 @@ impl OrientDB {
 
     pub fn with_env_var<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
         self.env_vars.insert(key.into(), value.into());
-        self
-    }
-
-    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
-        let mut ports = self.ports.unwrap_or_default();
-        ports.push(port.into());
-        self.ports = Some(ports);
         self
     }
 }

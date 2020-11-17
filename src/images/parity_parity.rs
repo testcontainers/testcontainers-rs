@@ -1,4 +1,3 @@
-use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
@@ -9,7 +8,6 @@ const DEFAULT_TAG: &str = "v2.5.0";
 pub struct ParityEthereum {
     arguments: ParityEthereumArgs,
     tag: String,
-    ports: Option<Vec<Port>>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -35,7 +33,6 @@ impl Default for ParityEthereum {
         ParityEthereum {
             arguments: ParityEthereumArgs {},
             tag: DEFAULT_TAG.to_string(),
-            ports: None,
         }
     }
 }
@@ -70,10 +67,6 @@ impl Image for ParityEthereum {
         HashMap::new()
     }
 
-    fn ports(&self) -> Option<Vec<Port>> {
-        self.ports.clone()
-    }
-
     fn with_args(self, arguments: Self::Args) -> Self {
         Self { arguments, ..self }
     }
@@ -85,12 +78,5 @@ impl ParityEthereum {
             tag: tag_str.to_string(),
             ..self
         }
-    }
-
-    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
-        let mut ports = self.ports.unwrap_or_default();
-        ports.push(port.into());
-        self.ports = Some(ports);
-        self
     }
 }

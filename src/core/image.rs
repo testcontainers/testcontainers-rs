@@ -85,11 +85,6 @@ where
     /// Returns the volumes this instance was created with.
     fn volumes(&self) -> Self::Volumes;
 
-    /// Returs the ports mapping requested for the image.
-    /// If not explicit port mappings is defined, all image ports will be automatically
-    /// exposed and mapped on random host ports.
-    fn ports(&self) -> Option<Vec<Port>>;
-
     /// Re-configures the current instance of this image with the given arguments.
     fn with_args(self, arguments: Self::Args) -> Self;
 

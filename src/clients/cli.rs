@@ -98,7 +98,7 @@ impl Cli {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
-        if let Some(ports) = image.ports() {
+        if let Some(ports) = run_args.ports() {
             for port in &ports {
                 command
                     .arg("-p")
@@ -327,7 +327,6 @@ impl Ports {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::Port;
     use crate::images::generic::GenericImage;
     use crate::{Container, Docker, Image};
 
@@ -414,10 +413,6 @@ mod tests {
             self.env_vars.clone()
         }
 
-        fn ports(&self) -> Option<Vec<Port>> {
-            None
-        }
-
         fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
             self
         }
@@ -466,12 +461,11 @@ mod tests {
 
     #[test]
     fn cli_run_command_should_expose_only_requested_ports() {
-        let image = GenericImage::new("hello")
+        let image = GenericImage::new("hello");
+        let mut docker = Command::new("docker");
+        let run_args = RunArgs::default()
             .with_mapped_port((123, 456))
             .with_mapped_port((555, 888));
-
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default();
         let command = Cli::build_run_command(&image, &mut docker, &run_args);
 
         println!("Executing command: {:?}", command);

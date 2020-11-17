@@ -1,4 +1,3 @@
-use crate::core::Port;
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
@@ -20,7 +19,6 @@ impl IntoIterator for ZookeeperArgs {
 pub struct Zookeeper {
     tag: String,
     arguments: ZookeeperArgs,
-    ports: Option<Vec<Port>>,
 }
 
 impl Default for Zookeeper {
@@ -28,7 +26,6 @@ impl Default for Zookeeper {
         Zookeeper {
             tag: DEFAULT_TAG.to_string(),
             arguments: ZookeeperArgs {},
-            ports: None,
         }
     }
 }
@@ -61,10 +58,6 @@ impl Image for Zookeeper {
         HashMap::new()
     }
 
-    fn ports(&self) -> Option<Vec<Port>> {
-        self.ports.clone()
-    }
-
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
         Zookeeper { arguments, ..self }
     }
@@ -75,12 +68,5 @@ impl Zookeeper {
             tag: tag_str.to_string(),
             ..self
         }
-    }
-
-    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
-        let mut ports = self.ports.unwrap_or_default();
-        ports.push(port.into());
-        self.ports = Some(ports);
-        self
     }
 }
