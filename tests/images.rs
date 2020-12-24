@@ -321,6 +321,22 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     assert_eq!(rows[0].get::<_, i32>("result"), 2);
 }
 
+#[test]
+fn postgres_custom_version() {
+    let docker = clients::Cli::default();
+    let postgres_image = images::postgres::Postgres::default().with_version(13);
+    let node = docker.run(postgres_image);
+
+    let connection_string = &format!(
+        "postgres://postgres:postgres@localhost:{}/postgres",
+        node.get_host_port(5432).unwrap()
+    );
+    let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
+
+    let rows = conn.query("SELECT gen_random_uuid()", &[]).unwrap();
+    assert_eq!(rows.len(), 1);
+}
+
 /// Returns an available localhost port
 pub fn free_local_port() -> Option<u16> {
     let socket = std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0);

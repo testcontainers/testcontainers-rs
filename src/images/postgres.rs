@@ -37,6 +37,10 @@ impl Postgres {
     pub fn with_env_vars(self, env_vars: HashMap<String, String>) -> Self {
         Self { env_vars, ..self }
     }
+
+    pub fn with_version(self, version: u8) -> Self {
+        Self { version, ..self }
+    }
 }
 
 impl Image for Postgres {
