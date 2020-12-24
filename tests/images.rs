@@ -333,8 +333,12 @@ fn postgres_custom_version() {
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
-    let rows = conn.query("SELECT gen_random_uuid()", &[]).unwrap();
+    let rows = conn.query("SELECT version()", &[]).unwrap();
     assert_eq!(rows.len(), 1);
+
+    let first_row = &rows[0];
+    let first_column: String = first_row.get(0);
+    assert!(first_column.contains("13"));
 }
 
 /// Returns an available localhost port
