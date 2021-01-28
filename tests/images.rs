@@ -1,3 +1,8 @@
+#![deny(unused_mut)]
+extern crate env_logger;
+extern crate log;
+extern crate zookeeper;
+
 use bitcoincore_rpc::RpcApi;
 use mongodb::{bson, Client};
 use redis::Commands;
@@ -9,6 +14,8 @@ use rusoto_dynamodb::{
 };
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
+use std::time::Duration;
+use zookeeper::{Acl, CreateMode, ZooKeeper};
 
 use testcontainers::*;
 
@@ -297,8 +304,8 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let free_local_port = free_local_port().unwrap();
 
     let docker = clients::Cli::default();
-    let _node =
-        docker.run(images::postgres::Postgres::default().with_mapped_port((free_local_port, 5432)));
+    let run_args = RunArgs::default().with_mapped_port((free_local_port, 5432));
+    let _node = docker.run_with_args(images::postgres::Postgres::default(), run_args);
 
     let mut conn = postgres::Client::connect(
         &format!(
@@ -314,6 +321,26 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     assert_eq!(rows[0].get::<_, i32>("result"), 2);
 }
 
+#[test]
+fn postgres_custom_version() {
+    let docker = clients::Cli::default();
+    let postgres_image = images::postgres::Postgres::default().with_version(13);
+    let node = docker.run(postgres_image);
+
+    let connection_string = &format!(
+        "postgres://postgres:postgres@localhost:{}/postgres",
+        node.get_host_port(5432).unwrap()
+    );
+    let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
+
+    let rows = conn.query("SELECT version()", &[]).unwrap();
+    assert_eq!(rows.len(), 1);
+
+    let first_row = &rows[0];
+    let first_column: String = first_row.get(0);
+    assert!(first_column.contains("13"));
+}
+
 /// Returns an available localhost port
 pub fn free_local_port() -> Option<u16> {
     let socket = std::net::SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, 0);
@@ -321,4 +348,55 @@ pub fn free_local_port() -> Option<u16> {
         .and_then(|listener| listener.local_addr())
         .map(|addr| addr.port())
         .ok()
+}
+
+#[test]
+fn zookeeper_check_directories_existence() {
+    let docker = clients::Cli::default();
+    let image = images::zookeeper::Zookeeper::default();
+    let node = docker.run(image);
+
+    let host_port = node.get_host_port(2181).unwrap();
+    let zk_urls = format!("localhost:{}", host_port);
+    let zk = ZooKeeper::connect(&*zk_urls, Duration::from_secs(15), |_| ()).unwrap();
+
+    let path = zk.create(
+        "/test",
+        vec![1, 2],
+        Acl::open_unsafe().clone(),
+        CreateMode::Ephemeral,
+    );
+    let check_created_path = path
+        .and_then(|_| zk.exists("/test", false))
+        .map(|_| Some(()))
+        .unwrap_or(None);
+    let check_another_path = zk
+        .exists("/test2", false)
+        .map(|op| op.map(|_| ()))
+        .unwrap_or(None);
+
+    assert_eq!(check_created_path, Some(()));
+    assert_eq!(check_another_path, None)
+}
+
+#[test]
+fn orientdb_exists_database() {
+    let docker = clients::Cli::default();
+    let orientdb_image = images::orientdb::OrientDB::default();
+    let node = docker.run(orientdb_image);
+
+    let client =
+        orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424).unwrap()))
+            .unwrap();
+
+    let exists = client
+        .exist_database(
+            "orientdb_exists_database",
+            "root",
+            "root",
+            orientdb_client::DatabaseType::Memory,
+        )
+        .unwrap();
+
+    assert!(!exists);
 }

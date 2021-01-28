@@ -1,13 +1,12 @@
 use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &str = "redis";
-const DEFAULT_TAG: &str = "5.0";
+const CONTAINER_IDENTIFIER: &str = "zookeeper";
+const DEFAULT_TAG: &str = "3.6.2";
 
 #[derive(Debug, Default, Clone)]
-pub struct RedisArgs;
-
-impl IntoIterator for RedisArgs {
+pub struct ZookeeperArgs;
+impl IntoIterator for ZookeeperArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
 
@@ -17,26 +16,24 @@ impl IntoIterator for RedisArgs {
 }
 
 #[derive(Debug)]
-pub struct Redis {
+pub struct Zookeeper {
     tag: String,
-    arguments: RedisArgs,
+    arguments: ZookeeperArgs,
 }
 
-impl Default for Redis {
+impl Default for Zookeeper {
     fn default() -> Self {
-        Redis {
+        Zookeeper {
             tag: DEFAULT_TAG.to_string(),
-            arguments: RedisArgs {},
+            arguments: ZookeeperArgs {},
         }
     }
 }
-
-impl Image for Redis {
-    type Args = RedisArgs;
+impl Image for Zookeeper {
+    type Args = ZookeeperArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
-
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
@@ -45,7 +42,7 @@ impl Image for Redis {
         container
             .logs()
             .stdout
-            .wait_for_message("Ready to accept connections")
+            .wait_for_message("Started AdminServer")
             .unwrap();
     }
 
@@ -62,13 +59,12 @@ impl Image for Redis {
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Redis { arguments, ..self }
+        Zookeeper { arguments, ..self }
     }
 }
-
-impl Redis {
+impl Zookeeper {
     pub fn with_tag(self, tag_str: &str) -> Self {
-        Redis {
+        Zookeeper {
             tag: tag_str.to_string(),
             ..self
         }

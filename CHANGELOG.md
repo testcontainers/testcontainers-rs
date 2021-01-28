@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2021-01-27
+
+### Added
+
+-   Allow custom version for postgres image
+-   Remove `derivative` dependency
+-   `OrientDB` image
+-   `Zookeeper` image
+
+### Changed
+
+-   Move port mapping logic to `RunArgs` instead of each Image.
+
 ## [0.11.0] - 2020-09-30
 
 ### Added
@@ -59,7 +72,9 @@ Previously, this was done in a fire-and-forget way and hence led to containers n
 -   Provide a default password for the postgres image.
 There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
-[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...HEAD
+[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.12.0...HEAD
+
+[0.12.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...0.12.0
 
 [0.11.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.10.0...0.11.0
 

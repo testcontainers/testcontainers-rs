@@ -1,13 +1,14 @@
-use crate::{Container, Docker, Image, WaitForMessage};
 use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &str = "redis";
-const DEFAULT_TAG: &str = "5.0";
+use crate::{Container, Docker, Image, WaitForMessage};
+
+const CONTAINER_IDENTIFIER: &str = "orientdb";
+const DEFAULT_TAG: &str = "3.1.3";
 
 #[derive(Debug, Default, Clone)]
-pub struct RedisArgs;
+pub struct OrientDBArgs;
 
-impl IntoIterator for RedisArgs {
+impl IntoIterator for OrientDBArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
 
@@ -17,22 +18,27 @@ impl IntoIterator for RedisArgs {
 }
 
 #[derive(Debug)]
-pub struct Redis {
+pub struct OrientDB {
     tag: String,
-    arguments: RedisArgs,
+    arguments: OrientDBArgs,
+    env_vars: HashMap<String, String>,
 }
 
-impl Default for Redis {
+impl Default for OrientDB {
     fn default() -> Self {
-        Redis {
+        let mut env_vars = HashMap::new();
+        env_vars.insert("ORIENTDB_ROOT_PASSWORD".to_owned(), "root".to_owned());
+
+        OrientDB {
             tag: DEFAULT_TAG.to_string(),
-            arguments: RedisArgs {},
+            arguments: OrientDBArgs {},
+            env_vars,
         }
     }
 }
 
-impl Image for Redis {
-    type Args = RedisArgs;
+impl Image for OrientDB {
+    type Args = OrientDBArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
@@ -44,8 +50,8 @@ impl Image for Redis {
     fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
         container
             .logs()
-            .stdout
-            .wait_for_message("Ready to accept connections")
+            .stderr
+            .wait_for_message("OrientDB Studio available at")
             .unwrap();
     }
 
@@ -53,24 +59,29 @@ impl Image for Redis {
         self.arguments.clone()
     }
 
+    fn env_vars(&self) -> Self::EnvVars {
+        self.env_vars.clone()
+    }
+
     fn volumes(&self) -> Self::Volumes {
         HashMap::new()
     }
 
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Redis { arguments, ..self }
+        OrientDB { arguments, ..self }
     }
 }
 
-impl Redis {
+impl OrientDB {
     pub fn with_tag(self, tag_str: &str) -> Self {
-        Redis {
+        OrientDB {
             tag: tag_str.to_string(),
             ..self
         }
+    }
+
+    pub fn with_env_var<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
+        self.env_vars.insert(key.into(), value.into());
+        self
     }
 }
