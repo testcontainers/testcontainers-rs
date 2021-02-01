@@ -14,8 +14,9 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 ## Git hooks
 
-While developing, please make sure that your code is formatted using `cargo-fmt`.
+While developing, please make sure that your code is formatted using `dprint fmt`.
 You can easily do that by using the pre-defined `git` hooks:
+
 ```bash
 git config core.hookspath .githooks
 ```

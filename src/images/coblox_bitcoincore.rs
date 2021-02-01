@@ -3,8 +3,7 @@ use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
-use std::fmt;
-use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
+use std::{collections::HashMap, env::var, fmt, thread::sleep, time::Duration};
 
 #[derive(Debug)]
 pub struct BitcoinCore {

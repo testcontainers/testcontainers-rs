@@ -1,36 +1,36 @@
 [package]
-authors = [ "CoBloX developers <team@coblox.tech>" ]
-categories = ["development-tools::testing"]
-description = "Testcontainers, a library for integration-testing against docker containers from within Rust."
-edition = "2018"
-keywords = ["docker", "testcontainers"]
-license = "MIT OR Apache-2.0"
 name = "testcontainers"
-repository = "https://github.com/testcontainers/testcontainers-rs"
 version = "0.12.0"
+authors = [ "CoBloX developers <team@coblox.tech>" ]
+categories = [ "development-tools::testing" ]
+edition = "2018"
+keywords = [ "docker", "testcontainers" ]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/testcontainers/testcontainers-rs"
+description = "Testcontainers, a library for integration-testing against docker containers from within Rust."
 
 [dependencies]
 hex = "0.4"
 hmac = "0.10"
 log = "0.4"
 rand = "0.8"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
 sha2 = "0.9"
 
 [dev-dependencies]
 bitcoincore-rpc = "0.12"
+json = "0.12"
+mongodb = "2.0.0-alpha"
+orientdb-client = "0.5"
 postgres = "0.19"
 pretty_env_logger = "0.4"
 redis = "0.19"
-mongodb = "2.0.0-alpha"
+reqwest = { version = "0.11", features = [ "blocking" ] }
 rusoto_core = "0.46"
 rusoto_credential = "0.46"
 rusoto_dynamodb = "0.46"
 rusoto_sqs = "0.46"
 spectral = "0.6"
-reqwest = { version = "0.11", features = ["blocking"] }
-json = "0.12"
-tokio = { version = "1", features = ["macros"] }
+tokio = { version = "1", features = [ "macros" ] }
 zookeeper = "0.5"
-orientdb-client = "0.5"
