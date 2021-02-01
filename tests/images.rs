@@ -1,8 +1,3 @@
-#![deny(unused_mut)]
-extern crate env_logger;
-extern crate log;
-extern crate zookeeper;
-
 use bitcoincore_rpc::RpcApi;
 use mongodb::{bson, Client};
 use redis::Commands;

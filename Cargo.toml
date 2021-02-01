@@ -20,18 +20,17 @@ sha2 = "0.9"
 
 [dev-dependencies]
 bitcoincore-rpc = "0.12"
-postgres = "0.18"
+postgres = "0.19"
 pretty_env_logger = "0.4"
 redis = "0.19"
-mongodb = "1.0.0"
-rusoto_core = "0.45"
-rusoto_credential = "0.45"
-rusoto_dynamodb = "0.45"
-rusoto_sqs = "0.45"
+mongodb = "2.0.0-alpha"
+rusoto_core = "0.46"
+rusoto_credential = "0.46"
+rusoto_dynamodb = "0.46"
+rusoto_sqs = "0.46"
 spectral = "0.6"
-reqwest = { version = "0.10", features = ["blocking"] }
+reqwest = { version = "0.11", features = ["blocking"] }
 json = "0.12"
-tokio = { version = "0.2", features = ["macros"] }
-env_logger = "0.8"
+tokio = { version = "1", features = ["macros"] }
 zookeeper = "0.5"
-orientdb-client = "0.5.1"
+orientdb-client = "0.5"
