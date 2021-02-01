@@ -1,7 +1,7 @@
 pub use self::{
     container::Container,
     docker::{Docker, Logs, Ports, RunArgs},
-    image::{Image, Port},
+    image::{Image, Port, WaitFor},
     wait_for_message::{WaitError, WaitForMessage},
 };
 

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to implement `ready_conditions` which returns a list of `WaitFor` instances.
+
+### Removed
+
+- `DYNAMODB_ADDITIONAL_SLEEP_PERIOD` variable from `dynamodb_local` image.
+  Previously, we had a fallback of 2 seconds if this variable was not defined.
+  We now wait for 2 seconds unconditionally after the specified message has been found.
+
 ## [0.12.0] - 2021-01-27
 
 ### Added

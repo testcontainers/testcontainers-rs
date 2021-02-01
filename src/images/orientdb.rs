@@ -1,6 +1,5 @@
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
-
-use crate::{Container, Docker, Image, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &str = "orientdb";
 const DEFAULT_TAG: &str = "3.1.3";
@@ -47,12 +46,8 @@ impl Image for OrientDB {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stderr
-            .wait_for_message("OrientDB Studio available at")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stderr("OrientDB Studio available at")]
     }
 
     fn args(&self) -> <Self as Image>::Args {

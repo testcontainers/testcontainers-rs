@@ -1,4 +1,4 @@
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
@@ -41,12 +41,8 @@ impl Image for ElasticMQ {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Started SQS rest server")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout("Started SQS rest server")]
     }
 
     fn args(&self) -> <Self as Image>::Args {

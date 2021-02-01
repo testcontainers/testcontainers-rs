@@ -326,7 +326,7 @@ impl Ports {
 
 #[cfg(test)]
 mod tests {
-    use crate::{images::generic::GenericImage, Container, Docker, Image};
+    use crate::{core::WaitFor, images::generic::GenericImage, Docker, Image};
 
     use super::*;
 
@@ -397,7 +397,9 @@ mod tests {
             String::from("hello-world")
         }
 
-        fn wait_until_ready<D: Docker>(&self, _container: &Container<'_, D, Self>) {}
+        fn ready_conditions(&self) -> Vec<WaitFor> {
+            vec![]
+        }
 
         fn args(&self) -> <Self as Image>::Args {
             vec![]

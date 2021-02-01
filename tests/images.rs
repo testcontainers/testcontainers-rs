@@ -12,7 +12,7 @@ use spectral::prelude::*;
 use std::time::Duration;
 use zookeeper::{Acl, CreateMode, ZooKeeper};
 
-use testcontainers::*;
+use testcontainers::{core::WaitFor, *};
 
 #[test]
 fn coblox_bitcoincore_getnewaddress() {
@@ -202,7 +202,7 @@ fn generic_image() {
     let password = "postgres-password-test";
 
     let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine")
-        .with_wait_for(images::generic::WaitFor::message_on_stderr(
+        .with_wait_for(WaitFor::message_on_stderr(
             "database system is ready to accept connections",
         ))
         .with_env_var("POSTGRES_DB", db)
@@ -231,7 +231,7 @@ fn generic_image() {
 #[test]
 fn generic_image_with_custom_entrypoint() {
     let docker = clients::Cli::default();
-    let msg = images::generic::WaitFor::message_on_stdout("server is ready");
+    let msg = WaitFor::message_on_stdout("server is ready");
 
     let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
         .with_wait_for(msg.clone());

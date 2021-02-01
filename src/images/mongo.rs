@@ -1,6 +1,5 @@
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
-
-use crate::{Container, Docker, Image, WaitForMessage};
 
 const CONTAINER_IDENTIFIER: &str = "mongo";
 const DEFAULT_TAG: &str = "4.0.17";
@@ -42,12 +41,10 @@ impl Image for Mongo {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("waiting for connections on port")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout(
+            "waiting for connections on port",
+        )]
     }
 
     fn args(&self) -> <Self as Image>::Args {

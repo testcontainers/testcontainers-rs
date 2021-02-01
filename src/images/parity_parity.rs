@@ -1,4 +1,4 @@
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "parity/parity";
@@ -47,12 +47,8 @@ impl Image for ParityEthereum {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stderr
-            .wait_for_message("Public node URL:")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stderr("Public node URL:")]
     }
 
     fn args(&self) -> Self::Args {

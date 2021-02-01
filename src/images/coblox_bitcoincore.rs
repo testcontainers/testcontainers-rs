@@ -1,9 +1,9 @@
-use crate::core::{Container, Docker, Image, WaitForMessage};
+use crate::core::{Image, WaitFor};
 use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
-use std::{collections::HashMap, env::var, fmt, thread::sleep, time::Duration};
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug)]
 pub struct BitcoinCore {
@@ -197,27 +197,11 @@ impl Image for BitcoinCore {
         format!("coblox/bitcoin-core:{}", self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Flushed wallet.dat")
-            .unwrap();
-
-        let additional_sleep_period =
-            var("BITCOIND_ADDITIONAL_SLEEP_PERIOD").map(|value| value.parse());
-
-        if let Ok(Ok(sleep_period)) = additional_sleep_period {
-            let sleep_period = Duration::from_millis(sleep_period);
-
-            log::trace!(
-                "Waiting for an additional {:?} for container {}.",
-                sleep_period,
-                container.id()
-            );
-
-            sleep(sleep_period)
-        }
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![
+            WaitFor::message_on_stdout("Flushed wallet.dat"),
+            WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
+        ]
     }
 
     fn args(&self) -> <Self as Image>::Args {

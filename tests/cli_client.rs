@@ -5,7 +5,7 @@ use std::{
 
 use spectral::prelude::*;
 
-use testcontainers::*;
+use testcontainers::{core::WaitFor, *};
 
 #[derive(Default)]
 struct HelloWorld;
@@ -20,12 +20,8 @@ impl Image for HelloWorld {
         String::from("hello-world")
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Hello from Docker!")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout("Hello from Docker!")]
     }
 
     fn args(&self) -> <Self as Image>::Args {
