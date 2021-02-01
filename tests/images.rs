@@ -346,6 +346,7 @@ pub fn free_local_port() -> Option<u16> {
 }
 
 #[test]
+#[ignore]
 fn zookeeper_check_directories_existence() {
     let _ = pretty_env_logger::try_init();
 
