@@ -157,11 +157,8 @@ impl WaitFor {
     }
 }
 
-impl Into<Port> for (u16, u16) {
-    fn into(self) -> Port {
-        Port {
-            local: self.0,
-            internal: self.1,
-        }
+impl From<(u16, u16)> for Port {
+    fn from((local, internal): (u16, u16)) -> Self {
+        Port { local, internal }
     }
 }
