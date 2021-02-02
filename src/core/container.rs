@@ -70,33 +70,23 @@ where
     /// Returns the mapped host port for an internal port of this docker container.
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
-    /// the already exposed ports. If a docker image does not expose a port, this method will not
-    /// be able to resolve it.
-    pub fn get_host_port(&self, internal_port: u16) -> Option<u16> {
-        let resolved_port = self
-            .docker_client
+    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the given port is not mapped.
+    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
+    /// is unlikely to be useful.
+    pub fn get_host_port(&self, internal_port: u16) -> u16 {
+        self.docker_client
             .ports(&self.id)
-            .map_to_host_port(internal_port);
-
-        match resolved_port {
-            Some(port) => {
-                log::debug!(
-                    "Resolved port {} to {} for container {}",
-                    internal_port,
-                    port,
-                    self.id
-                );
-            }
-            None => {
-                log::warn!(
-                    "Unable to resolve port {} for container {}",
-                    internal_port,
-                    self.id
-                );
-            }
-        }
-
-        resolved_port
+            .map_to_host_port(internal_port)
+            .unwrap_or_else(|| {
+                panic!(
+                    "container {} does not expose port {}",
+                    self.id, internal_port
+                )
+            })
     }
 
     /// Returns a reference to the [`Image`] of this container.

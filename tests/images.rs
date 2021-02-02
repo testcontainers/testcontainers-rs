@@ -21,7 +21,7 @@ fn coblox_bitcoincore_getnewaddress() {
     let node = docker.run(images::coblox_bitcoincore::BitcoinCore::default());
 
     let client = {
-        let host_port = node.get_host_port(18443).unwrap();
+        let host_port = node.get_host_port(18443);
 
         let url = format!("http://localhost:{}", host_port);
 
@@ -42,7 +42,7 @@ fn parity_parity_net_version() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::parity_parity::ParityEthereum::default());
-    let host_port = node.get_host_port(8545).unwrap();
+    let host_port = node.get_host_port(8545);
 
     let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
@@ -70,7 +70,7 @@ fn trufflesuite_ganachecli_listaccounts() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::trufflesuite_ganachecli::GanacheCli::default());
-    let host_port = node.get_host_port(8545).unwrap();
+    let host_port = node.get_host_port(8545);
 
     let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
@@ -98,7 +98,7 @@ async fn dynamodb_local_create_table() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::dynamodb_local::DynamoDb::default());
-    let host_port = node.get_host_port(8000).unwrap();
+    let host_port = node.get_host_port(8000);
 
     let create_tables_input = CreateTableInput {
         table_name: "books".to_string(),
@@ -141,7 +141,7 @@ fn redis_fetch_an_integer() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::redis::Redis::default());
-    let host_port = node.get_host_port(6379).unwrap();
+    let host_port = node.get_host_port(6379);
     let url = format!("redis://localhost:{}", host_port);
 
     let client = redis::Client::open(url.as_ref()).unwrap();
@@ -157,7 +157,7 @@ async fn mongo_fetch_document() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::mongo::Mongo::default());
-    let host_port = node.get_host_port(27017).unwrap();
+    let host_port = node.get_host_port(27017);
     let url = format!("mongodb://localhost:{}/", host_port);
 
     let client: Client = Client::with_uri_str(url.as_ref()).await.unwrap();
@@ -184,7 +184,7 @@ async fn mongo_fetch_document() {
 async fn sqs_list_queues() {
     let docker = clients::Cli::default();
     let node = docker.run(images::elasticmq::ElasticMQ::default());
-    let host_port = node.get_host_port(9324).unwrap();
+    let host_port = node.get_host_port(9324);
     let client = build_sqs_client(host_port);
 
     let request = ListQueuesRequest::default();
@@ -215,7 +215,7 @@ fn generic_image() {
         "postgres://{}:{}@localhost:{}/{}",
         user,
         password,
-        node.get_host_port(5432).unwrap(),
+        node.get_host_port(5432),
         db
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
@@ -237,7 +237,7 @@ fn generic_image_with_custom_entrypoint() {
         .with_wait_for(msg.clone());
 
     let node = docker.run(generic);
-    let port = node.get_host_port(80).unwrap();
+    let port = node.get_host_port(80);
     assert_eq!(
         "foo",
         reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
@@ -251,7 +251,7 @@ fn generic_image_with_custom_entrypoint() {
         .with_entrypoint("/bar");
 
     let node = docker.run(generic);
-    let port = node.get_host_port(80).unwrap();
+    let port = node.get_host_port(80);
     assert_eq!(
         "bar",
         reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
@@ -281,7 +281,7 @@ fn postgres_one_plus_one() {
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",
-        node.get_host_port(5432).unwrap()
+        node.get_host_port(5432)
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
@@ -324,7 +324,7 @@ fn postgres_custom_version() {
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",
-        node.get_host_port(5432).unwrap()
+        node.get_host_port(5432)
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
@@ -354,7 +354,7 @@ fn zookeeper_check_directories_existence() {
     let image = images::zookeeper::Zookeeper::default();
     let node = docker.run(image);
 
-    let host_port = node.get_host_port(2181).unwrap();
+    let host_port = node.get_host_port(2181);
     let zk_urls = format!("localhost:{}", host_port);
     let zk = ZooKeeper::connect(&*zk_urls, Duration::from_secs(15), |_| ()).unwrap();
 
@@ -377,8 +377,7 @@ fn orientdb_exists_database() {
     let node = docker.run(orientdb_image);
 
     let client =
-        orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424).unwrap()))
-            .unwrap();
+        orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424))).unwrap();
 
     let exists = client
         .exist_database(
