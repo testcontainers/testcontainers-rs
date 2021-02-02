@@ -1,7 +1,7 @@
-use crate::core::{self, Container, Docker, Image, Logs, RunArgs};
+use crate::core::{self, env, env::GetEnvValue, Container, Docker, Image, Logs, RunArgs};
 use std::{
     collections::HashMap,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     process::{Command, Stdio},
     sync::RwLock,
     thread::sleep,
@@ -26,6 +26,7 @@ pub struct Cli {
     container_startup_timestamps: RwLock<HashMap<String, Instant>>,
     created_networks: RwLock<Vec<String>>,
     binary: OsString,
+    command: env::Command,
 }
 
 impl Default for Cli {
@@ -37,22 +38,24 @@ impl Default for Cli {
 impl Cli {
     /// Create a new client, using the `docker` binary.
     pub fn docker() -> Self {
-        Self::new("docker")
+        Self::new::<env::Os, _>("docker")
     }
 
     /// Create a new client, using the `podman` binary.
     pub fn podman() -> Self {
-        Self::new("podman")
+        Self::new::<env::Os, _>("podman")
     }
 
-    fn new<S>(binary: S) -> Self
+    fn new<E, S>(binary: S) -> Self
     where
         S: Into<OsString>,
+        E: GetEnvValue,
     {
         Self {
             container_startup_timestamps: Default::default(),
             created_networks: Default::default(),
             binary: binary.into(),
+            command: env::command::<E>().unwrap_or_default(),
         }
     }
 
@@ -170,6 +173,24 @@ impl Cli {
 
         output.lines().any(|network| network == name)
     }
+
+    fn delete_networks<I, S>(&self, networks: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut docker = self.command();
+        docker.args(&["network", "rm"]);
+        docker.args(networks);
+
+        let output = docker.output().expect("failed to delete docker networks");
+
+        assert!(
+            output.status.success(),
+            "failed to delete docker networks: {}",
+            String::from_utf8(output.stderr).unwrap()
+        )
+    }
 }
 
 impl Docker for Cli {
@@ -205,7 +226,7 @@ impl Docker for Cli {
             .to_string();
         self.register_container_started(container_id.clone());
 
-        Container::new(container_id, self, image)
+        Container::new(container_id, self, image, self.command)
     }
 
     fn logs(&self, id: &str) -> Logs {
@@ -285,23 +306,24 @@ impl Docker for Cli {
 
 impl Drop for Cli {
     fn drop(&mut self) {
-        let guard = self.created_networks.read().expect("failed to lock RwLock");
+        let networks = self.created_networks.read().expect("failed to lock RwLock");
+        let created_networks = networks.len() > 0;
 
-        if guard.len() > 0 {
-            let mut docker = self.command();
-            docker.args(&["network", "rm"]);
-
-            for network in guard.iter() {
-                docker.arg(network);
+        match self.command {
+            env::Command::Remove if created_networks => {
+                self.delete_networks(networks.iter());
             }
+            env::Command::Remove => {
+                // nothing to do
+            }
+            env::Command::Keep => {
+                let networks = networks.join(",");
 
-            let output = docker.output().expect("failed to delete docker networks");
-
-            assert!(
-                output.status.success(),
-                "failed to delete docker networks: {}",
-                String::from_utf8(output.stderr).unwrap()
-            )
+                log::warn!(
+                    "networks '{}' will not be automatically removed due to `TESTCONTAINERS` command",
+                    networks
+                );
+            }
         }
     }
 }
@@ -573,5 +595,41 @@ mod tests {
             // original client has been dropped, should clean up networks
             assert!(!docker.network_exists("awesome-net"))
         }
+    }
+
+    struct FakeEnvAlwaysKeep;
+
+    impl GetEnvValue for FakeEnvAlwaysKeep {
+        fn get_env_value(_: &str) -> Option<String> {
+            Some("keep".to_owned())
+        }
+    }
+
+    #[test]
+    fn should_not_delete_network_if_command_is_keep() {
+        let network_name = "foobar-net";
+
+        {
+            let docker = Cli::new::<FakeEnvAlwaysKeep, _>("docker");
+
+            assert!(!docker.network_exists(network_name));
+
+            // creating the first container creates the network
+            let _container1 = docker.run_with_args(
+                HelloWorld::default(),
+                RunArgs::default().with_network(network_name),
+            );
+
+            assert!(docker.network_exists(network_name));
+        }
+
+        let docker = Cli::docker();
+
+        assert!(
+            docker.network_exists(network_name),
+            "network should still exist after client is dropped"
+        );
+
+        docker.delete_networks(vec![network_name]);
     }
 }

@@ -7,5 +7,6 @@ pub use self::{
 
 mod container;
 mod docker;
+pub mod env;
 mod image;
 mod wait_for_message;
