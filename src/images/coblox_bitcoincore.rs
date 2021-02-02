@@ -133,9 +133,11 @@ impl IntoIterator for BitcoinCoreImageArgs {
     type IntoIter = ::std::vec::IntoIter<String>;
 
     fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-        let mut args = Vec::new();
-
-        args.push(format!("-rpcauth={}", self.rpc_auth.encode()));
+        let mut args = vec![
+            format!("-rpcauth={}", self.rpc_auth.encode()),
+            "-debug".into(), // Needed for message "Flushed wallet.dat"
+            format!("-addresstype={}", self.address_type),
+        ];
 
         if self.server {
             args.push("-server".to_string())
@@ -178,10 +180,6 @@ impl IntoIterator for BitcoinCoreImageArgs {
         if let Some(fallback_fee) = self.fallback_fee {
             args.push(format!("-fallbackfee={}", fallback_fee));
         }
-
-        args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
-
-        args.push(format!("-addresstype={}", self.address_type));
 
         args.into_iter()
     }
