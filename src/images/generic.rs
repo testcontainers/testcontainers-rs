@@ -1,43 +1,5 @@
-use crate::{Container, Docker, Image, WaitError, WaitForMessage};
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum WaitFor {
-    Nothing,
-    LogMessage { message: String, stream: Stream },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Stream {
-    StdOut,
-    StdErr,
-}
-
-impl WaitFor {
-    pub fn message_on_stdout<S: Into<String>>(message: S) -> WaitFor {
-        WaitFor::LogMessage {
-            message: message.into(),
-            stream: Stream::StdOut,
-        }
-    }
-
-    pub fn message_on_stderr<S: Into<String>>(message: S) -> WaitFor {
-        WaitFor::LogMessage {
-            message: message.into(),
-            stream: Stream::StdErr,
-        }
-    }
-
-    fn wait<D: Docker, I: Image>(&self, container: &Container<'_, D, I>) -> Result<(), WaitError> {
-        match self {
-            WaitFor::Nothing => Ok(()),
-            WaitFor::LogMessage { message, stream } => match stream {
-                Stream::StdOut => container.logs().stdout.wait_for_message(message),
-                Stream::StdErr => container.logs().stderr.wait_for_message(message),
-            },
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct GenericImage {
@@ -45,7 +7,7 @@ pub struct GenericImage {
     arguments: Vec<String>,
     volumes: HashMap<String, String>,
     env_vars: HashMap<String, String>,
-    wait_for: WaitFor,
+    wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
 }
 
@@ -56,7 +18,7 @@ impl Default for GenericImage {
             arguments: vec![],
             volumes: HashMap::new(),
             env_vars: HashMap::new(),
-            wait_for: WaitFor::Nothing,
+            wait_for: Vec::new(),
             entrypoint: None,
         }
     }
@@ -81,7 +43,7 @@ impl GenericImage {
     }
 
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
-        self.wait_for = wait_for;
+        self.wait_for.push(wait_for);
         self
     }
 }
@@ -96,8 +58,8 @@ impl Image for GenericImage {
         self.descriptor.to_owned()
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        self.wait_for.wait(container).unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        self.wait_for.clone()
     }
 
     fn args(&self) -> Self::Args {

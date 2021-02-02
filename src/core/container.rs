@@ -1,4 +1,7 @@
-use crate::{core::Logs, Docker, Image};
+use crate::{
+    core::{image::WaitFor, Logs},
+    Docker, Image, WaitForMessage,
+};
 use std::env::var;
 
 /// Represents a running docker container.
@@ -110,7 +113,20 @@ where
     fn block_until_ready(&self) {
         log::debug!("Waiting for container {} to be ready", self.id);
 
-        self.image.wait_until_ready(self);
+        for condition in self.image.ready_conditions() {
+            match condition {
+                WaitFor::StdOutMessage { message } => {
+                    self.logs().stdout.wait_for_message(&message).unwrap()
+                }
+                WaitFor::StdErrMessage { message } => {
+                    self.logs().stderr.wait_for_message(&message).unwrap()
+                }
+                WaitFor::Duration { length } => {
+                    std::thread::sleep(length);
+                }
+                WaitFor::Nothing => {}
+            }
+        }
 
         log::debug!("Container {} is now ready!", self.id);
     }

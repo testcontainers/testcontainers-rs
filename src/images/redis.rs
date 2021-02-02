@@ -1,4 +1,4 @@
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "redis";
@@ -41,12 +41,8 @@ impl Image for Redis {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Ready to accept connections")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout("Ready to accept connections")]
     }
 
     fn args(&self) -> <Self as Image>::Args {

@@ -1,4 +1,4 @@
-use crate::core::{Container, Docker};
+use std::{env::var, time::Duration};
 
 /// Represents a docker image.
 ///
@@ -63,18 +63,17 @@ where
     /// suddenly changed.
     fn descriptor(&self) -> String;
 
-    /// Blocks the current thread until the started container is ready.
+    /// Returns a list of conditions that need to be met before a started container is considered ready.
     ///
     /// This method is the **🍞 and butter** of the whole testcontainers library. Containers are
     /// rarely instantly available as soon as they are started. Most of them take some time to boot
     /// up.
     ///
-    /// Implementations MUST block the current thread until the passed-in container is ready to be
-    /// interacted with. The container instance provides access to logs of the container.
-    ///
-    /// Most implementations will very likely want to make use of this to wait for a particular
-    /// message to be emitted.
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>);
+    /// The conditions returned from this method are evaluated **in the order** they are returned. Therefore
+    /// you most likely want to start with a [`WaitFor::StdOutMessage`] or [`WaitFor::StdErrMessage`] and
+    /// potentially follow up with a [`WaitFor::Duration`] in case the container usually needs a little
+    /// more time before it is ready.
+    fn ready_conditions(&self) -> Vec<WaitFor>;
 
     /// Returns the arguments this instance was created with.
     fn args(&self) -> Self::Args;
@@ -104,6 +103,58 @@ where
 pub struct Port {
     pub local: u16,
     pub internal: u16,
+}
+
+/// Represents a condition that needs to be met before a container is considered ready.
+#[derive(Debug, PartialEq, Clone)]
+pub enum WaitFor {
+    /// An empty condition. Useful for default cases or fallbacks.
+    Nothing,
+    /// Wait for a message on the stdout stream of the container's logs.
+    StdOutMessage { message: String },
+    /// Wait for a message on the stderr stream of the container's logs.
+    StdErrMessage { message: String },
+    /// Wait for a certain amount of time.
+    Duration { length: Duration },
+}
+
+impl WaitFor {
+    pub fn message_on_stdout<S: Into<String>>(message: S) -> WaitFor {
+        WaitFor::StdOutMessage {
+            message: message.into(),
+        }
+    }
+
+    pub fn message_on_stderr<S: Into<String>>(message: S) -> WaitFor {
+        WaitFor::StdErrMessage {
+            message: message.into(),
+        }
+    }
+
+    pub fn seconds(length: u64) -> WaitFor {
+        WaitFor::Duration {
+            length: Duration::from_secs(length),
+        }
+    }
+
+    pub fn millis(length: u64) -> WaitFor {
+        WaitFor::Duration {
+            length: Duration::from_millis(length),
+        }
+    }
+
+    pub fn millis_in_env_var(name: &'static str) -> WaitFor {
+        let additional_sleep_period = var(name).map(|value| value.parse());
+
+        (|| {
+            let length = additional_sleep_period.ok()?.ok()?;
+
+            Some(WaitFor::Duration {
+                length: Duration::from_millis(length),
+            })
+        })()
+        .unwrap_or(WaitFor::Nothing)
+    }
 }
 
 impl Into<Port> for (u16, u16) {

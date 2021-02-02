@@ -1,4 +1,4 @@
-use crate::{Container, Docker, Image, WaitForMessage};
+use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -53,12 +53,10 @@ impl Image for Postgres {
         format!("postgres:{}-alpine", self.version)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stderr
-            .wait_for_message("database system is ready to accept connections")
-            .unwrap();
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stderr(
+            "database system is ready to accept connections",
+        )]
     }
 
     fn args(&self) -> Self::Args {

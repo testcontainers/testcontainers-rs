@@ -1,7 +1,6 @@
-use crate::{Container, Docker, Image, WaitForMessage};
-use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
+use crate::{core::WaitFor, Image};
+use std::collections::HashMap;
 
-const ADDITIONAL_SLEEP_PERIOD: &str = "DYNAMODB_ADDITIONAL_SLEEP_PERIOD";
 const CONTAINER_IDENTIFIER: &str = "amazon/dynamodb-local";
 const DEFAULT_WAIT: u64 = 2000;
 const DEFAULT_TAG: &str = "latest";
@@ -43,26 +42,13 @@ impl Image for DynamoDb {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Initializing DynamoDB Local with the following configuration")
-            .unwrap();
-
-        let additional_sleep_period = var(ADDITIONAL_SLEEP_PERIOD)
-            .map(|value| value.parse().unwrap_or(DEFAULT_WAIT))
-            .unwrap_or(DEFAULT_WAIT);
-
-        let sleep_period = Duration::from_millis(additional_sleep_period);
-
-        log::trace!(
-            "Waiting for an additional {:?} for container {}.",
-            sleep_period,
-            container.id()
-        );
-
-        sleep(sleep_period)
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![
+            WaitFor::message_on_stdout(
+                "Initializing DynamoDB Local with the following configuration",
+            ),
+            WaitFor::millis(DEFAULT_WAIT),
+        ]
     }
 
     fn args(&self) -> <Self as Image>::Args {
