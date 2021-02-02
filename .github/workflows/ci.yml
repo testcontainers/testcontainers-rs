@@ -1,0 +1,48 @@
+name: Continuous Integration
+on:
+  pull_request:
+  push:
+    branches: [master, dev, trying, staging]
+jobs:
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          profile: minimal
+          toolchain: 1.41.0
+          override: true
+      - uses: actions/cache@v2
+        with:
+          path: target
+          key: msrv-job-${{ runner.os }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('Cargo.toml') }}-v2
+      - run: cargo build
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [
+            stable,
+            nightly # best practise to test libraries against current nightly
+        ]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - uses: actions/cache@v2
+        with:
+          path: target
+          key: test-job-${{ runner.os }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('Cargo.toml') }}-v2
+      - run: cargo test
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: thomaseizinger/check@master # temporarily until dprint moves this action into the org

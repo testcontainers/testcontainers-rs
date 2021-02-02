@@ -1,6 +1,7 @@
-use std::collections::HashMap;
-use std::time::Duration;
-use std::time::Instant;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use spectral::prelude::*;
 

@@ -1,8 +1,3 @@
-#![deny(unused_mut)]
-extern crate env_logger;
-extern crate log;
-extern crate zookeeper;
-
 use bitcoincore_rpc::RpcApi;
 use mongodb::{bson, Client};
 use redis::Commands;
@@ -351,7 +346,10 @@ pub fn free_local_port() -> Option<u16> {
 }
 
 #[test]
+#[ignore]
 fn zookeeper_check_directories_existence() {
+    let _ = pretty_env_logger::try_init();
+
     let docker = clients::Cli::default();
     let image = images::zookeeper::Zookeeper::default();
     let node = docker.run(image);
@@ -360,23 +358,16 @@ fn zookeeper_check_directories_existence() {
     let zk_urls = format!("localhost:{}", host_port);
     let zk = ZooKeeper::connect(&*zk_urls, Duration::from_secs(15), |_| ()).unwrap();
 
-    let path = zk.create(
+    zk.create(
         "/test",
         vec![1, 2],
         Acl::open_unsafe().clone(),
         CreateMode::Ephemeral,
-    );
-    let check_created_path = path
-        .and_then(|_| zk.exists("/test", false))
-        .map(|_| Some(()))
-        .unwrap_or(None);
-    let check_another_path = zk
-        .exists("/test2", false)
-        .map(|op| op.map(|_| ()))
-        .unwrap_or(None);
+    )
+    .unwrap();
 
-    assert_eq!(check_created_path, Some(()));
-    assert_eq!(check_another_path, None)
+    assert!(matches!(zk.exists("/test", false).unwrap(), Some(_)));
+    assert!(matches!(zk.exists("/test2", false).unwrap(), None));
 }
 
 #[test]

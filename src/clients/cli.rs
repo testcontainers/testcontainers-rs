@@ -1,11 +1,10 @@
 use crate::core::{self, Container, Docker, Image, Logs, RunArgs};
-use std::collections::HashMap;
-use std::sync::RwLock;
-use std::time::Instant;
 use std::{
+    collections::HashMap,
     process::{Command, Stdio},
+    sync::RwLock,
     thread::sleep,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
@@ -327,8 +326,7 @@ impl Ports {
 
 #[cfg(test)]
 mod tests {
-    use crate::images::generic::GenericImage;
-    use crate::{Container, Docker, Image};
+    use crate::{images::generic::GenericImage, Container, Docker, Image};
 
     use super::*;
 

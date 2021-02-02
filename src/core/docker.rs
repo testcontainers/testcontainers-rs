@@ -1,5 +1,4 @@
-use crate::core::Port;
-use crate::{Container, Image};
+use crate::{core::Port, Container, Image};
 use std::{collections::HashMap, fmt, io::Read};
 
 /// Defines the minimum API required for interacting with the Docker daemon.
