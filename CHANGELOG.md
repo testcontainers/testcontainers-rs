@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to implement `ready_conditions` which returns a list of `WaitFor` instances.
+- Return value of `get_host_port` from `Option<u16>` to `u16`.
+  If the port cannot be resolved, this function will now **panic**.
 
 ### Removed
 
