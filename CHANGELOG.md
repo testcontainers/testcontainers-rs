@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Allow using `podman` CLI in addition to `docker`
+- The `TESTCONTAINERS` environment variable to control what happens to containers and networks at the end of a test.
+  The default value is `remove` which deletes all containers and networks that were used in the test.
+  By setting the value to `keep`, containers and networks will not be deleted but kept **running**.
+  You will have to **stop** and **delete** those yourself eventually.
 
 ### Changed
 
@@ -22,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DYNAMODB_ADDITIONAL_SLEEP_PERIOD` variable from `dynamodb_local` image.
   Previously, we had a fallback of 2 seconds if this variable was not defined.
   We now wait for 2 seconds unconditionally after the specified message has been found.
+- Support for the `KEEP_CONTAINERS` env variable.
+  The functionality of `KEEP_CONTAINERS=true` is superseded by `TESTCONTAINERS=keep`.
 
 ## [0.12.0] - 2021-01-27
 

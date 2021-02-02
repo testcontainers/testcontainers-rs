@@ -1,8 +1,7 @@
 use crate::{
-    core::{image::WaitFor, Logs},
+    core::{env::Command, image::WaitFor, Logs},
     Docker, Image, WaitForMessage,
 };
-use std::env::var;
 
 /// Represents a running docker container.
 ///
@@ -33,6 +32,7 @@ where
     id: String,
     docker_client: &'d D,
     image: I,
+    command: Command,
 }
 
 impl<'d, D, I> Container<'d, D, I>
@@ -45,11 +45,12 @@ where
     /// This function will block the current thread (if [`wait_until_ready`] is implemented correctly) until the container is actually ready to be used.
     ///
     /// [`wait_until_ready`]: trait.Image.html#tymethod.wait_until_ready
-    pub fn new(id: String, docker_client: &'d D, image: I) -> Self {
+    pub(crate) fn new(id: String, docker_client: &'d D, image: I, command: Command) -> Self {
         let container = Container {
             id,
             docker_client,
             image,
+            command,
         };
 
         container.block_until_ready();
@@ -140,23 +141,19 @@ where
 
 /// The destructor implementation for a Container.
 ///
-/// As soon as the container goes out of scope, the destructor will either only stop or delete the docker container.
-/// This behaviour can be controlled through the `KEEP_CONTAINERS` environment variable. Setting it to `true` will only stop containers instead of removing them. Any other or no value will remove the container.
+/// As soon as the container goes out of scope, the destructor will either only stop or delete the docker container, depending on the [`Command`] value.
+///
+/// Setting it to `keep` will stop container.
+/// Setting it to `remove` will remove it.
 impl<'d, D, I> Drop for Container<'d, D, I>
 where
     D: Docker,
     I: Image,
 {
     fn drop(&mut self) {
-        let keep_container = var("KEEP_CONTAINERS")
-            .ok()
-            .and_then(|var| var.parse().ok())
-            .unwrap_or(false);
-
-        if keep_container {
-            self.stop()
-        } else {
-            self.rm()
+        match self.command {
+            Command::Keep => {}
+            Command::Remove => self.rm(),
         }
     }
 }
