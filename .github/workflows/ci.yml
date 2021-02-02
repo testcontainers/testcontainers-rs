@@ -27,7 +27,7 @@ jobs:
             stable,
             nightly # best practise to test libraries against current nightly
         ]
-      fail-fast: false
+      fail-fast: false # don't fail stable build on nightly toolchain
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -46,3 +46,26 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: thomaseizinger/check@master # temporarily until dprint moves this action into the org
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [
+            stable,
+            nightly # run linter on nightly to become aware of new lints early
+        ]
+      fail-fast: false # don't fail stable lints on new nightly lints
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        id: toolchain
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: clippy
+      - uses: actions/cache@v2
+        with:
+          path: target
+          key: lint-job-${{ runner.os }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('Cargo.toml') }}-v2
+      - run: cargo clippy --all-targets -- -D warnings

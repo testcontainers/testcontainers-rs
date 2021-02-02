@@ -65,7 +65,7 @@ impl Cli {
     fn wait_at_least_one_second_after_container_was_started(&self, id: &str) {
         if let Some(duration) = self.time_since_container_was_started(id) {
             if duration < ONE_SECOND {
-                sleep(ONE_SECOND.checked_sub(duration).unwrap_or_else(|| ZERO))
+                sleep(ONE_SECOND.checked_sub(duration).unwrap_or(ZERO))
             }
         }
     }
