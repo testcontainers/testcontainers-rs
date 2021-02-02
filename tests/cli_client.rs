@@ -1,45 +1,6 @@
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
-
 use spectral::prelude::*;
-
-use testcontainers::{core::WaitFor, *};
-
-#[derive(Default)]
-struct HelloWorld;
-
-impl Image for HelloWorld {
-    type Args = Vec<String>;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
-
-    fn descriptor(&self) -> String {
-        String::from("hello-world")
-    }
-
-    fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Hello from Docker!")]
-    }
-
-    fn args(&self) -> <Self as Image>::Args {
-        vec![]
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
-        self
-    }
-}
+use std::time::{Duration, Instant};
+use testcontainers::{images::hello_world::HelloWorld, *};
 
 #[test]
 fn should_wait_for_at_least_one_second_before_fetching_logs() {
