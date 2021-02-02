@@ -1,6 +1,6 @@
 # Testcontainers-rs
 
-[![Build Status](https://travis-ci.org/testcontainers/testcontainers-rs.svg?branch=master)](https://travis-ci.org/testcontainers/testcontainers-rs)
+![Continuous Integration](https://github.com/testcontainers/testcontainers-rs/workflows/Continuous%20Integration/badge.svg?branch=dev)
 [![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
 [![Docs.rs](https://docs.rs/testcontainers/badge.svg)](https://docs.rs/testcontainers)
 [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=testcontainers/testcontainers-rs)](https://dependabot.com)

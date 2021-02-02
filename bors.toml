@@ -1,1 +1,1 @@
-status = ["msrv", "test (stable)", "style"]
+status = ["msrv", "test", "style", "lint"]
