@@ -34,6 +34,8 @@ fn coblox_bitcoincore_getnewaddress() {
         .unwrap()
     };
 
+    assert_that(&client.create_wallet("miner", None, None, None, None)).is_ok();
+
     assert_that(&client.get_new_address(None, None)).is_ok();
 }
 

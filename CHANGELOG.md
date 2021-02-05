@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The default value is `remove` which deletes all containers and networks that were used in the test.
   By setting the value to `keep`, containers and networks will not be deleted but kept **running**.
   You will have to **stop** and **delete** those yourself eventually.
+- Upgrade default bitcoin-core image version to 0.21.0. This allows us to remove `-debug` for bitcoind and replace it with
+  `-startupnotify=echo ...`. More details on bitcoind 0.21.0 can be found [here](https://github.com/bitcoin/bitcoin/blob/master/doc/release-notes/release-notes-0.21.0.md).
+  Note: This release also removed the default wallet.
 
 ### Changed
 
