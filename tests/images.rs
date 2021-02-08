@@ -371,6 +371,7 @@ fn zookeeper_check_directories_existence() {
 }
 
 #[test]
+#[ignore]
 fn orientdb_exists_database() {
     let docker = clients::Cli::default();
     let orientdb_image = images::orientdb::OrientDB::default();
