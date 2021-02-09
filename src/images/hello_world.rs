@@ -18,16 +18,8 @@ impl Image for HelloWorld {
         vec![WaitFor::message_on_stdout("Hello from Docker!")]
     }
 
-    fn args(&self) -> <Self as Image>::Args {
+    fn args(&self) -> Self::Args {
         vec![]
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, _: <Self as Image>::Args) -> Self {

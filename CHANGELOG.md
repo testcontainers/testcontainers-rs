@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Only `DockerRun` is exposed publicly.
   All functionality from `DockerOps` (start, stop, rm, logs and ports) is available on a containers directly.
   This allows us to remove a type parameter from the `Container` type, simplifying its interface.
+- Make `Image::env_vars` and `Image::volumes` optional to implement.
+  Not every image cares about environment variables and volumes.
+  By making this optional, these images are easier and less noisy to implement.
 
 ### Removed
 
