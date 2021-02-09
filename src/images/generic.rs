@@ -46,6 +46,11 @@ impl GenericImage {
         self.wait_for.push(wait_for);
         self
     }
+
+    pub fn with_entrypoint(mut self, entrypoint: &str) -> Self {
+        self.entrypoint = Some(entrypoint.to_string());
+        self
+    }
 }
 
 impl Image for GenericImage {
@@ -76,13 +81,6 @@ impl Image for GenericImage {
 
     fn with_args(self, arguments: Self::Args) -> Self {
         Self { arguments, ..self }
-    }
-
-    fn with_entrypoint(self, entrypoint: &Self::EntryPoint) -> Self {
-        Self {
-            entrypoint: Some(entrypoint.to_string()),
-            ..self
-        }
     }
 
     fn entrypoint(&self) -> Option<String> {
