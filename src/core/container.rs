@@ -26,7 +26,7 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 /// [drop_impl]: struct.Container.html#impl-Drop
 pub struct Container<'d, I> {
     id: String,
-    docker_client: Arc<dyn DockerOps>,
+    docker: Arc<dyn DockerOps>,
     image: I,
     command: Command,
     /// Keeps track of the clients lifetime.
@@ -63,7 +63,7 @@ where
     {
         let container = Container {
             id,
-            docker_client: docker_client.clone(),
+            docker: docker_client.clone(),
             image,
             command,
             _phantom: PhantomData,
@@ -115,7 +115,7 @@ impl<'d, I> Container<'d, I> {
 
     /// Gives access to the log streams of this container.
     pub fn logs(&self) -> Logs {
-        self.docker_client.logs(&self.id)
+        self.docker.logs(&self.id)
     }
 
     /// Returns the mapped host port for an internal port of this docker container.
@@ -129,7 +129,7 @@ impl<'d, I> Container<'d, I> {
     /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
     /// is unlikely to be useful.
     pub fn get_host_port(&self, internal_port: u16) -> u16 {
-        self.docker_client
+        self.docker
             .ports(&self.id)
             .map_to_host_port(internal_port)
             .unwrap_or_else(|| {
@@ -143,17 +143,17 @@ impl<'d, I> Container<'d, I> {
     pub fn stop(&self) {
         log::debug!("Stopping docker container {}", self.id);
 
-        self.docker_client.stop(&self.id)
+        self.docker.stop(&self.id)
     }
 
     pub fn start(&self) {
-        self.docker_client.start(&self.id);
+        self.docker.start(&self.id);
     }
 
     pub fn rm(&self) {
         log::debug!("Deleting docker container {}", self.id);
 
-        self.docker_client.rm(&self.id)
+        self.docker.rm(&self.id)
     }
 }
 
