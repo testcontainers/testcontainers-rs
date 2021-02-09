@@ -55,8 +55,6 @@ impl GenericImage {
 
 impl Image for GenericImage {
     type Args = Vec<String>;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = str;
 
     fn descriptor(&self) -> String {
@@ -71,12 +69,12 @@ impl Image for GenericImage {
         self.arguments.clone()
     }
 
-    fn volumes(&self) -> Self::Volumes {
-        self.volumes.clone()
+    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.env_vars.iter())
     }
 
-    fn env_vars(&self) -> Self::EnvVars {
-        self.env_vars.clone()
+    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.volumes.iter())
     }
 
     fn with_args(self, arguments: Self::Args) -> Self {
@@ -98,9 +96,13 @@ mod tests {
             .with_env_var("one-key", "one-value")
             .with_env_var("two-key", "two-value");
 
-        let env_vars = image.env_vars();
-        assert_eq!(2, env_vars.len());
-        assert_eq!("one-value", env_vars.get("one-key").unwrap());
-        assert_eq!("two-value", env_vars.get("two-key").unwrap());
+        let mut env_vars = image.env_vars();
+        let (first_key, first_value) = env_vars.next().unwrap();
+        let (second_key, second_value) = env_vars.next().unwrap();
+
+        assert_eq!(first_key, "one-key");
+        assert_eq!(first_value, "one-value");
+        assert_eq!(second_key, "two-key");
+        assert_eq!(second_value, "two-value");
     }
 }

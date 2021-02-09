@@ -1,5 +1,4 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "amazon/dynamodb-local";
 const DEFAULT_WAIT: u64 = 2000;
@@ -34,8 +33,6 @@ impl Default for DynamoDb {
 
 impl Image for DynamoDb {
     type Args = DynamoDbArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -53,14 +50,6 @@ impl Image for DynamoDb {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

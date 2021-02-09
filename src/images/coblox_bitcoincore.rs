@@ -3,7 +3,7 @@ use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 
@@ -190,8 +190,6 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
 impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -207,14 +205,6 @@ impl Image for BitcoinCore {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

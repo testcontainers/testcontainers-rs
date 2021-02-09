@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `with_entrypoint` from the `Image` trait.
   This functionality is not used within the library.
   Images that need this kind of customization can always implement it on their own type directly but there is no need to force it onto them.
+- `Image::EnvVars` and `Image::Volumes` associated types.
+  The respective functions `Image::env_vars` and `Image::volumes` still exist but now return a trait object that must implement `Iterator<Item = (&String, &String)`.
+  This allows us to provide a default implementation which reduces the boilerplate in defining new images.
 
 ### Fixed
 

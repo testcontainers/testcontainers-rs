@@ -1,5 +1,4 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct GanacheCli {
@@ -56,8 +55,6 @@ impl IntoIterator for GanacheCliArgs {
 
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -70,14 +67,6 @@ impl Image for GanacheCli {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

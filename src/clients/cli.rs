@@ -398,8 +398,6 @@ mod tests {
 
     impl Image for HelloWorld {
         type Args = Vec<String>;
-        type EnvVars = HashMap<String, String>;
-        type Volumes = HashMap<String, String>;
         type EntryPoint = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
@@ -414,12 +412,12 @@ mod tests {
             vec![]
         }
 
-        fn volumes(&self) -> Self::Volumes {
-            self.volumes.clone()
+        fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+            Box::new(self.env_vars.iter())
         }
 
-        fn env_vars(&self) -> Self::EnvVars {
-            self.env_vars.clone()
+        fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+            Box::new(self.volumes.iter())
         }
 
         fn with_args(self, _arguments: <Self as Image>::Args) -> Self {

@@ -1,5 +1,4 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "zookeeper";
 const DEFAULT_TAG: &str = "3.6.2";
@@ -31,9 +30,8 @@ impl Default for Zookeeper {
 }
 impl Image for Zookeeper {
     type Args = ZookeeperArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
+
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
     }
@@ -44,14 +42,6 @@ impl Image for Zookeeper {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
