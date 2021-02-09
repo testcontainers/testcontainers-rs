@@ -93,8 +93,6 @@ impl Default for Kafka {
 
 impl Image for Kafka {
     type Args = KafkaArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -109,12 +107,8 @@ impl Image for Kafka {
         self.arguments.clone()
     }
 
-    fn env_vars(&self) -> Self::EnvVars {
-        self.env_vars.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
+    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.env_vars.iter())
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

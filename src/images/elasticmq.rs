@@ -1,5 +1,4 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
 const DEFAULT_TAG: &str = "0.14.6";
@@ -33,8 +32,6 @@ impl Default for ElasticMq {
 
 impl Image for ElasticMq {
     type Args = ElasticMqArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -47,14 +44,6 @@ impl Image for ElasticMq {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

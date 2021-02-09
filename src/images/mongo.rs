@@ -1,5 +1,4 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "mongo";
 const DEFAULT_TAG: &str = "4.0.17";
@@ -33,8 +32,6 @@ impl Default for Mongo {
 
 impl Image for Mongo {
     type Args = MongoArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -49,14 +46,6 @@ impl Image for Mongo {
 
     fn args(&self) -> <Self as Image>::Args {
         self.arguments.clone()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {

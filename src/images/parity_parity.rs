@@ -1,5 +1,4 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
 const CONTAINER_IDENTIFIER: &str = "parity/parity";
 const DEFAULT_TAG: &str = "v2.5.0";
@@ -39,8 +38,6 @@ impl Default for ParityEthereum {
 
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
@@ -53,14 +50,6 @@ impl Image for ParityEthereum {
 
     fn args(&self) -> Self::Args {
         self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
     }
 
     fn with_args(self, arguments: Self::Args) -> Self {

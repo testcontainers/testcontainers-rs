@@ -12,8 +12,6 @@ pub trait Image
 where
     Self: Sized + Default,
     Self::Args: Default + IntoIterator<Item = String>,
-    Self::EnvVars: Default + IntoIterator<Item = (String, String)>,
-    Self::Volumes: Default + IntoIterator<Item = (String, String)>,
     Self::EntryPoint: ToString,
 {
     /// A type representing the arguments for an Image.
@@ -27,30 +25,6 @@ where
     /// the arguments of your image, consider that the whole purpose is to facilitate integration
     /// testing. Only expose those that actually make sense for this case.
     type Args;
-
-    /// A type representing the environment variables for an Image.
-    ///
-    /// There are a couple of things regarding the arguments of images:
-    ///
-    /// 1. Similar to the Default implementation of an Image, the Default instance
-    /// of its environment variables should be meaningful!
-    /// 2. Implementations should be conservative about which environment variables they expose. Many times,
-    /// users will either go with the default ones or just override one or two. When defining
-    /// the environment variables of your image, consider that the whole purpose is to facilitate integration
-    /// testing. Only expose those that actually make sense for this case.
-    type EnvVars;
-
-    /// A type representing the volumes for an Image.
-    ///
-    /// There are a couple of things regarding the arguments of images:
-    ///
-    /// 1. Similar to the Default implementation of an Image, the Default instance
-    /// of its volumes should be meaningful!
-    /// 2. Implementations should be conservative about which volumes they expose. Many times,
-    /// users will either go with the default ones or just override one or two. When defining
-    /// the volumes of your image, consider that the whole purpose is to facilitate integration
-    /// testing. Only expose those that actually make sense for this case.
-    type Volumes;
 
     /// A type representing the entrypoint for an Image.
     type EntryPoint: ?Sized;
@@ -78,11 +52,29 @@ where
     /// Returns the arguments this instance was created with.
     fn args(&self) -> Self::Args;
 
-    /// Returns the environment variables this instance was created with.
-    fn env_vars(&self) -> Self::EnvVars;
+    /// There are a couple of things regarding the environment variables of images:
+    ///
+    /// 1. Similar to the Default implementation of an Image, the Default instance
+    /// of its environment variables should be meaningful!
+    /// 2. Implementations should be conservative about which environment variables they expose. Many times,
+    /// users will either go with the default ones or just override one or two. When defining
+    /// the environment variables of your image, consider that the whole purpose is to facilitate integration
+    /// testing. Only expose those that actually make sense for this case.
+    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(std::iter::empty())
+    }
 
-    /// Returns the volumes this instance was created with.
-    fn volumes(&self) -> Self::Volumes;
+    /// There are a couple of things regarding the volumes of images:
+    ///
+    /// 1. Similar to the Default implementation of an Image, the Default instance
+    /// of its volumes should be meaningful!
+    /// 2. Implementations should be conservative about which volumes they expose. Many times,
+    /// users will either go with the default ones or just override one or two. When defining
+    /// the volumes of your image, consider that the whole purpose is to facilitate integration
+    /// testing. Only expose those that actually make sense for this case.
+    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(std::iter::empty())
+    }
 
     /// Re-configures the current instance of this image with the given arguments.
     fn with_args(self, arguments: Self::Args) -> Self;
