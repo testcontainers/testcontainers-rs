@@ -194,11 +194,6 @@ impl Cli {
 }
 
 impl Docker for Cli {
-    fn run<I: Image>(&self, image: I) -> Container<'_, Cli, I> {
-        let empty_args = RunArgs::default();
-        self.run_with_args(image, empty_args)
-    }
-
     fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Cli, I> {
         let mut docker = self.command();
 
