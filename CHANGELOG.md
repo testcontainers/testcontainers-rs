@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   We now wait for 2 seconds unconditionally after the specified message has been found.
 - Support for the `KEEP_CONTAINERS` env variable.
   The functionality of `KEEP_CONTAINERS=true` is superseded by `TESTCONTAINERS=keep`.
+- `with_entrypoint` from the `Image` trait.
+  This functionality is not used within the library.
+  Images that need this kind of customization can always implement it on their own type directly but there is no need to force it onto them.
 
 ## [0.12.0] - 2021-01-27
 
