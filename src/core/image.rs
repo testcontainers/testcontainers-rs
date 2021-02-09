@@ -87,11 +87,6 @@ where
     /// Re-configures the current instance of this image with the given arguments.
     fn with_args(self, arguments: Self::Args) -> Self;
 
-    /// Re-configures the current instance of this image with the given entrypoint.
-    fn with_entrypoint(self, _entryppoint: &Self::EntryPoint) -> Self {
-        self
-    }
-
     /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
         None
