@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Return value of `get_host_port` from `Option<u16>` to `u16`.
   If the port cannot be resolved, this function will now **panic**.
 - MSRV bumped to 1.45.
+- Make `Docker` trait `pub(crate)`.
+  This reduces the API surface of the crate which allows for fewer breaking changes in the future.
+  All functionality from `Docker` (start, stop, rm, and ports) is available on a container directly.
 
 ### Removed
 

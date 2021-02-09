@@ -1,7 +1,8 @@
 use crate::{
-    core::{env::Command, image::WaitFor, Logs},
-    Docker, Image, WaitForMessage,
+    core::{docker::Docker, env::Command, image::WaitFor, Logs},
+    Image, WaitForMessage,
 };
+use std::{fmt, marker::PhantomData};
 
 /// Represents a running docker container.
 ///
@@ -23,21 +24,31 @@ use crate::{
 /// ```
 ///
 /// [drop_impl]: struct.Container.html#impl-Drop
-#[derive(Debug)]
-pub struct Container<'d, D, I>
-where
-    D: Docker,
-    I: Image,
-{
+pub struct Container<'d, I> {
     id: String,
-    docker_client: &'d D,
+    docker_client: Box<dyn Docker>,
     image: I,
     command: Command,
+
+    /// Tracks the lifetime of the client to make sure the container is dropped before the client.
+    client_lifetime: PhantomData<&'d ()>,
 }
 
-impl<'d, D, I> Container<'d, D, I>
+impl<'d, I> fmt::Debug for Container<'d, I>
 where
-    D: Docker,
+    I: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Container")
+            .field("id", &self.id)
+            .field("image", &self.image)
+            .field("command", &self.command)
+            .finish()
+    }
+}
+
+impl<'d, I> Container<'d, I>
+where
     I: Image,
 {
     /// Constructs a new container given an id, a docker client and the image.
@@ -45,49 +56,23 @@ where
     /// This function will block the current thread (if [`wait_until_ready`] is implemented correctly) until the container is actually ready to be used.
     ///
     /// [`wait_until_ready`]: trait.Image.html#tymethod.wait_until_ready
-    pub(crate) fn new(id: String, docker_client: &'d D, image: I, command: Command) -> Self {
+    pub(crate) fn new(
+        id: String,
+        docker_client: impl Docker + 'static,
+        image: I,
+        command: Command,
+    ) -> Self {
         let container = Container {
             id,
-            docker_client,
+            docker_client: Box::new(docker_client),
             image,
             command,
+            client_lifetime: PhantomData,
         };
 
         container.block_until_ready();
 
         container
-    }
-
-    /// Returns the id of this container.
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
-    /// Gives access to the log streams of this container.
-    pub fn logs(&self) -> Logs {
-        self.docker_client.logs(&self.id)
-    }
-
-    /// Returns the mapped host port for an internal port of this docker container.
-    ///
-    /// This method does **not** magically expose the given port, it simply performs a mapping on
-    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the given port is not mapped.
-    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
-    /// is unlikely to be useful.
-    pub fn get_host_port(&self, internal_port: u16) -> u16 {
-        self.docker_client
-            .ports(&self.id)
-            .map_to_host_port(internal_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "container {} does not expose port {}",
-                    self.id, internal_port
-                )
-            })
     }
 
     /// Returns a reference to the [`Image`] of this container.
@@ -121,6 +106,40 @@ where
 
         log::debug!("Container {} is now ready!", self.id);
     }
+}
+
+impl<'d, I> Container<'d, I> {
+    /// Returns the id of this container.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Gives access to the log streams of this container.
+    pub fn logs(&self) -> Logs {
+        self.docker_client.logs(&self.id)
+    }
+
+    /// Returns the mapped host port for an internal port of this docker container.
+    ///
+    /// This method does **not** magically expose the given port, it simply performs a mapping on
+    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the given port is not mapped.
+    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
+    /// is unlikely to be useful.
+    pub fn get_host_port(&self, internal_port: u16) -> u16 {
+        self.docker_client
+            .ports(&self.id)
+            .map_to_host_port(internal_port)
+            .unwrap_or_else(|| {
+                panic!(
+                    "container {} does not expose port {}",
+                    self.id, internal_port
+                )
+            })
+    }
 
     pub fn stop(&self) {
         log::debug!("Stopping docker container {}", self.id);
@@ -145,11 +164,7 @@ where
 ///
 /// Setting it to `keep` will stop container.
 /// Setting it to `remove` will remove it.
-impl<'d, D, I> Drop for Container<'d, D, I>
-where
-    D: Docker,
-    I: Image,
-{
+impl<'d, I> Drop for Container<'d, I> {
     fn drop(&mut self) {
         match self.command {
             Command::Keep => {}

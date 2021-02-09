@@ -1,7 +1,8 @@
+pub(crate) use self::docker::Docker;
 pub use self::{
     container::Container,
     container_async::ContainerAsync,
-    docker::{Docker, Logs, Ports, RunArgs},
+    docker::{Logs, Ports, RunArgs},
     image::{Image, Port, WaitFor},
     wait_for_message::{WaitError, WaitForMessage},
 };
