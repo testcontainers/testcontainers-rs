@@ -16,7 +16,7 @@ fn should_wait_for_at_least_one_second_before_fetching_logs() {
 
     let before_logs = Instant::now();
 
-    docker.logs(container.id());
+    container.logs();
 
     let after_logs = Instant::now();
 

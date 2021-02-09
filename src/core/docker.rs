@@ -1,21 +1,15 @@
 use crate::{core::Port, Container, Image};
 use std::{collections::HashMap, fmt, io::Read};
 
-/// Defines the minimum API required for interacting with the Docker daemon.
-pub trait Docker
+/// Defines the minimum API required for running a docker container.
+pub trait DockerRun
 where
     Self: Sized,
 {
-    fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Self, I>;
-    fn run<I: Image>(&self, image: I) -> Container<'_, Self, I> {
+    fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, I>;
+    fn run<I: Image>(&self, image: I) -> Container<'_, I> {
         self.run_with_args(image, RunArgs::default())
     }
-
-    fn logs(&self, id: &str) -> Logs;
-    fn ports(&self, id: &str) -> Ports;
-    fn rm(&self, id: &str);
-    fn stop(&self, id: &str);
-    fn start(&self, id: &str);
 }
 
 /// Container run command arguments.
@@ -27,6 +21,18 @@ pub struct RunArgs {
     name: Option<String>,
     network: Option<String>,
     ports: Option<Vec<Port>>,
+}
+
+/// Defines operations that we need to perform on docker containers and other entities.
+///
+/// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
+/// All functionality of this trait is available on [`Container`]s directly.
+pub(crate) trait DockerOps {
+    fn logs(&self, id: &str) -> Logs;
+    fn ports(&self, id: &str) -> Ports;
+    fn rm(&self, id: &str);
+    fn stop(&self, id: &str);
+    fn start(&self, id: &str);
 }
 
 impl RunArgs {

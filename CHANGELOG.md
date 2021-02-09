@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to implement `ready_conditions` which returns a list of `WaitFor` instances.
 - Return value of `get_host_port` from `Option<u16>` to `u16`.
   If the port cannot be resolved, this function will now **panic**.
+- Split `Docker` trait into `DockerRun` and `DockerOps`.
+  Only `DockerRun` is exposed publicly.
+  All functionality from `DockerOps` (start, stop, rm, logs and ports) is available on a containers directly.
+  This allows us to remove a type parameter from the `Container` type, simplifying its interface.
 
 ### Removed
 
