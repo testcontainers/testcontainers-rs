@@ -6,12 +6,12 @@ pub enum WaitError {
     /// Indicates the stream ended before finding the log line you were looking for.
     /// Contains all the lines that were read for debugging purposes.
     EndOfStream(Vec<String>),
-    IO(io::Error),
+    Io(io::Error),
 }
 
 impl From<io::Error> for WaitError {
     fn from(e: io::Error) -> Self {
-        WaitError::IO(e)
+        WaitError::Io(e)
     }
 }
 

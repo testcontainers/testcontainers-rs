@@ -5,9 +5,9 @@ const CONTAINER_IDENTIFIER: &str = "orientdb";
 const DEFAULT_TAG: &str = "3.1.3";
 
 #[derive(Debug, Default, Clone)]
-pub struct OrientDBArgs;
+pub struct OrientDbArgs;
 
-impl IntoIterator for OrientDBArgs {
+impl IntoIterator for OrientDbArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
 
@@ -17,27 +17,27 @@ impl IntoIterator for OrientDBArgs {
 }
 
 #[derive(Debug)]
-pub struct OrientDB {
+pub struct OrientDb {
     tag: String,
-    arguments: OrientDBArgs,
+    arguments: OrientDbArgs,
     env_vars: HashMap<String, String>,
 }
 
-impl Default for OrientDB {
+impl Default for OrientDb {
     fn default() -> Self {
         let mut env_vars = HashMap::new();
         env_vars.insert("ORIENTDB_ROOT_PASSWORD".to_owned(), "root".to_owned());
 
-        OrientDB {
+        OrientDb {
             tag: DEFAULT_TAG.to_string(),
-            arguments: OrientDBArgs {},
+            arguments: OrientDbArgs {},
             env_vars,
         }
     }
 }
 
-impl Image for OrientDB {
-    type Args = OrientDBArgs;
+impl Image for OrientDb {
+    type Args = OrientDbArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
@@ -63,13 +63,13 @@ impl Image for OrientDB {
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        OrientDB { arguments, ..self }
+        OrientDb { arguments, ..self }
     }
 }
 
-impl OrientDB {
+impl OrientDb {
     pub fn with_tag(self, tag_str: &str) -> Self {
-        OrientDB {
+        OrientDb {
             tag: tag_str.to_string(),
             ..self
         }
