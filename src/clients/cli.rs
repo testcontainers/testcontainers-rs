@@ -278,12 +278,13 @@ impl Docker for Cli {
             .output()
             .expect("Failed to execute docker command");
         let error_msg = "Failed to remove docker container";
-        assert!(output.status.success(), error_msg);
+        assert!(output.status.success(), "{}", error_msg);
         // The container's id is printed on stdout if it was removed successfully.
         assert!(
             String::from_utf8(output.stdout)
                 .expect("Could not decode daemon's response.")
                 .contains(id),
+            "{}",
             error_msg
         );
     }

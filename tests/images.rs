@@ -183,7 +183,7 @@ async fn mongo_fetch_document() {
 #[tokio::test]
 async fn sqs_list_queues() {
     let docker = clients::Cli::default();
-    let node = docker.run(images::elasticmq::ElasticMQ::default());
+    let node = docker.run(images::elasticmq::ElasticMq::default());
     let host_port = node.get_host_port(9324);
     let client = build_sqs_client(host_port);
 
@@ -374,7 +374,7 @@ fn zookeeper_check_directories_existence() {
 #[ignore]
 fn orientdb_exists_database() {
     let docker = clients::Cli::default();
-    let orientdb_image = images::orientdb::OrientDB::default();
+    let orientdb_image = images::orientdb::OrientDb::default();
     let node = docker.run(orientdb_image);
 
     let client =

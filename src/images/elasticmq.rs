@@ -5,9 +5,9 @@ const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
 const DEFAULT_TAG: &str = "0.14.6";
 
 #[derive(Debug, Default, Clone)]
-pub struct ElasticMQArgs;
+pub struct ElasticMqArgs;
 
-impl IntoIterator for ElasticMQArgs {
+impl IntoIterator for ElasticMqArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
 
@@ -17,22 +17,22 @@ impl IntoIterator for ElasticMQArgs {
 }
 
 #[derive(Debug)]
-pub struct ElasticMQ {
+pub struct ElasticMq {
     tag: String,
-    arguments: ElasticMQArgs,
+    arguments: ElasticMqArgs,
 }
 
-impl Default for ElasticMQ {
+impl Default for ElasticMq {
     fn default() -> Self {
-        ElasticMQ {
+        ElasticMq {
             tag: DEFAULT_TAG.to_string(),
-            arguments: ElasticMQArgs {},
+            arguments: ElasticMqArgs {},
         }
     }
 }
 
-impl Image for ElasticMQ {
-    type Args = ElasticMQArgs;
+impl Image for ElasticMq {
+    type Args = ElasticMqArgs;
     type EnvVars = HashMap<String, String>;
     type Volumes = HashMap<String, String>;
     type EntryPoint = std::convert::Infallible;
@@ -58,13 +58,13 @@ impl Image for ElasticMQ {
     }
 
     fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        ElasticMQ { arguments, ..self }
+        ElasticMq { arguments, ..self }
     }
 }
 
-impl ElasticMQ {
+impl ElasticMq {
     pub fn with_tag(self, tag_str: &str) -> Self {
-        ElasticMQ {
+        ElasticMq {
             tag: tag_str.to_string(),
             ..self
         }
