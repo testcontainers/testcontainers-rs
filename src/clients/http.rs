@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, logs::LogStreamAsync, ContainerAsync, DockerAsync, Ports, RunArgs},
+    core::{env, logs::LogStreamAsync, ports::Ports, ContainerAsync, DockerAsync, RunArgs},
     Image,
 };
 use async_trait::async_trait;
@@ -228,7 +228,6 @@ impl DockerAsync for Http {
     }
 
     async fn ports(&self, id: &str) -> Ports {
-        let mut ports = Ports::default();
         let container_detatils = self
             .inner
             .shiplift
@@ -238,32 +237,11 @@ impl DockerAsync for Http {
             .await
             .unwrap();
 
-        if let Some(inspect_ports) = container_detatils.network_settings.ports {
-            for (internal, external) in inspect_ports {
-                // PortMapping here is actualy a HashMap
-                // NetworkSettings -> Port -> Vec<HashMap<String, String>>
-                // therefore pop -> first key using next even though it's a map
-                let external = match external
-                    .and_then(|mut m| m.pop())
-                    .map(|m| m.values().next().unwrap().clone())
-                {
-                    Some(port) => port,
-                    None => {
-                        log::debug!("Port {} is not mapped to host machine, skipping.", internal);
-                        continue;
-                    }
-                };
-
-                let port = internal.split('/').next().unwrap();
-
-                let internal = parse_port(port);
-                let external = parse_port(&external);
-
-                ports.add_mapping(internal, external);
-            }
-        }
-
-        ports
+        container_detatils
+            .network_settings
+            .ports
+            .map(Ports::new)
+            .unwrap_or_default()
     }
 
     async fn rm(&self, id: &str) {
@@ -300,11 +278,6 @@ impl DockerAsync for Http {
             .await
             .unwrap();
     }
-}
-
-fn parse_port(port: &str) -> u16 {
-    port.parse()
-        .unwrap_or_else(|e| panic!("Failed to parse {} as u16 because {}", port, e))
 }
 
 #[cfg(test)]

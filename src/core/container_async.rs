@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, env::Command, logs::LogStreamAsync, Ports, WaitFor},
+    core::{env, env::Command, logs::LogStreamAsync, ports::Ports, WaitFor},
     Image,
 };
 use async_trait::async_trait;

@@ -1,6 +1,7 @@
 use crate::core::{
-    self, env, env::GetEnvValue, logs::LogStream, Container, Docker, Image, RunArgs,
+    env, env::GetEnvValue, logs::LogStream, ports::Ports, Container, Docker, Image, RunArgs,
 };
+use shiplift::rep::ContainerDetails;
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
@@ -280,7 +281,7 @@ impl Docker for Cli {
         LogStream::new(child.stderr.expect("stderr to be captured"))
     }
 
-    fn ports(&self, id: &str) -> crate::core::Ports {
+    fn ports(&self, id: &str) -> Ports {
         let child = self
             .inner
             .command()
@@ -292,13 +293,16 @@ impl Docker for Cli {
 
         let stdout = child.stdout.unwrap();
 
-        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
+        let mut infos: Vec<ContainerDetails> = serde_json::from_reader(stdout).unwrap();
 
         let info = infos.remove(0);
 
         log::trace!("Fetched container info: {:#?}", info);
 
-        info.network_settings.ports.into_ports()
+        info.network_settings
+            .ports
+            .map(Ports::new)
+            .unwrap_or_default()
     }
 
     fn rm(&self, id: &str) {
@@ -373,117 +377,11 @@ impl Drop for Client {
     }
 }
 
-#[derive(serde::Deserialize, Debug)]
-struct NetworkSettings {
-    #[serde(rename = "Ports")]
-    ports: Ports,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct PortMapping {
-    #[serde(rename = "HostIp")]
-    ip: String,
-    #[serde(rename = "HostPort")]
-    port: String,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct ContainerInfo {
-    #[serde(rename = "Id")]
-    id: String,
-    #[serde(rename = "NetworkSettings")]
-    network_settings: NetworkSettings,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct Ports(HashMap<String, Option<Vec<PortMapping>>>);
-
-impl Ports {
-    pub fn into_ports(self) -> core::Ports {
-        let mut ports = core::Ports::default();
-
-        for (internal, external) in self.0 {
-            let external = match external.and_then(|mut m| m.pop()).map(|m| m.port) {
-                Some(port) => port,
-                None => {
-                    log::debug!("Port {} is not mapped to host machine, skipping.", internal);
-                    continue;
-                }
-            };
-
-            let port = internal.split('/').next().unwrap();
-
-            let internal = Self::parse_port(port);
-            let external = Self::parse_port(&external);
-
-            ports.add_mapping(internal, external);
-        }
-
-        ports
-    }
-
-    fn parse_port(port: &str) -> u16 {
-        port.parse()
-            .unwrap_or_else(|e| panic!("Failed to parse {} as u16 because {}", port, e))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{core::WaitFor, images::generic::GenericImage, Image};
     use spectral::prelude::*;
-
-    #[test]
-    fn can_deserialize_docker_inspect_response_into_api_ports() {
-        let info = serde_json::from_str::<ContainerInfo>(
-            r#"{
-  "Id": "fd2e896b883052dae31202b065a06dc5374a214ae348b7a8f8da3734f690d010",
-  "NetworkSettings": {
-    "Ports": {
-      "18332/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33076"
-        }
-      ],
-      "18333/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33075"
-        }
-      ],
-      "18443/tcp": null,
-      "18444/tcp": null,
-      "8332/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33078"
-        }
-      ],
-      "8333/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33077"
-        }
-      ]
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let parsed_ports = info.network_settings.ports.into_ports();
-        let mut expected_ports = core::Ports::default();
-
-        expected_ports
-            .add_mapping(18332, 33076)
-            .add_mapping(18333, 33075)
-            .add_mapping(8332, 33078)
-            .add_mapping(8333, 33077);
-
-        assert_eq!(parsed_ports, expected_ports)
-    }
 
     #[derive(Default)]
     struct HelloWorld {

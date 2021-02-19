@@ -2,7 +2,7 @@ pub(crate) use self::docker::Docker;
 pub use self::{
     container::Container,
     container_async::ContainerAsync,
-    docker::{Ports, RunArgs},
+    docker::RunArgs,
     image::{Image, Port, WaitFor},
 };
 
@@ -13,5 +13,6 @@ pub mod env;
 mod image;
 
 pub(crate) mod logs;
+pub(crate) mod ports;
 
 pub(crate) use container_async::DockerAsync;

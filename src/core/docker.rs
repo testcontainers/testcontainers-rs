@@ -1,5 +1,4 @@
-use crate::core::{logs::LogStream, Port};
-use std::collections::HashMap;
+use crate::core::{logs::LogStream, ports::Ports, Port};
 
 /// Container run command arguments.
 /// `name` - run image instance with the given name (should be explicitly set to be seen by other containers created in the same docker network).
@@ -57,27 +56,5 @@ impl RunArgs {
 
     pub(crate) fn ports(&self) -> Option<Vec<Port>> {
         self.ports.clone()
-    }
-}
-
-/// The exposed ports of a running container.
-#[derive(Debug, PartialEq, Default)]
-pub struct Ports {
-    mapping: HashMap<u16, u16>,
-}
-
-impl Ports {
-    /// Registers the mapping of an exposed port.
-    pub fn add_mapping(&mut self, internal: u16, host: u16) -> &mut Self {
-        log::debug!("Registering port mapping: {} -> {}", internal, host);
-
-        self.mapping.insert(internal, host);
-
-        self
-    }
-
-    /// Returns the host port for the given internal port.
-    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
-        self.mapping.get(&internal_port).cloned()
     }
 }
