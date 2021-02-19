@@ -1,6 +1,6 @@
 use crate::{
-    core::{docker::Docker, env::Command, image::WaitFor, Logs},
-    Image, WaitForMessage,
+    core::{docker::Docker, env::Command, image::WaitFor},
+    Image,
 };
 use std::{fmt, marker::PhantomData};
 
@@ -91,12 +91,16 @@ where
 
         for condition in self.image.ready_conditions() {
             match condition {
-                WaitFor::StdOutMessage { message } => {
-                    self.logs().stdout.wait_for_message(&message).unwrap()
-                }
-                WaitFor::StdErrMessage { message } => {
-                    self.logs().stderr.wait_for_message(&message).unwrap()
-                }
+                WaitFor::StdOutMessage { message } => self
+                    .docker_client
+                    .stdout_logs(&self.id)
+                    .wait_for_message(&message)
+                    .unwrap(),
+                WaitFor::StdErrMessage { message } => self
+                    .docker_client
+                    .stderr_logs(&self.id)
+                    .wait_for_message(&message)
+                    .unwrap(),
                 WaitFor::Duration { length } => {
                     std::thread::sleep(length);
                 }
@@ -112,11 +116,6 @@ impl<'d, I> Container<'d, I> {
     /// Returns the id of this container.
     pub fn id(&self) -> &str {
         &self.id
-    }
-
-    /// Gives access to the log streams of this container.
-    pub fn logs(&self) -> Logs {
-        self.docker_client.logs(&self.id)
     }
 
     /// Returns the mapped host port for an internal port of this docker container.

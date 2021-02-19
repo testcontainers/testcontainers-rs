@@ -1,5 +1,5 @@
-use crate::core::Port;
-use std::{collections::HashMap, fmt, io::Read};
+use crate::core::{logs::LogStream, Port};
+use std::collections::HashMap;
 
 /// Container run command arguments.
 /// `name` - run image instance with the given name (should be explicitly set to be seen by other containers created in the same docker network).
@@ -17,7 +17,8 @@ pub struct RunArgs {
 /// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
 /// All functionality of this trait is available on [`Container`]s directly.
 pub(crate) trait Docker {
-    fn logs(&self, id: &str) -> Logs;
+    fn stdout_logs(&self, id: &str) -> LogStream;
+    fn stderr_logs(&self, id: &str) -> LogStream;
     fn ports(&self, id: &str) -> Ports;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
@@ -78,17 +79,5 @@ impl Ports {
     /// Returns the host port for the given internal port.
     pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
         self.mapping.get(&internal_port).cloned()
-    }
-}
-
-/// Log streams of running container (stdout & stderr).
-pub struct Logs {
-    pub stdout: Box<dyn Read>,
-    pub stderr: Box<dyn Read>,
-}
-
-impl fmt::Debug for Logs {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Logs").finish()
     }
 }

@@ -1,4 +1,6 @@
-use crate::core::{self, env, env::GetEnvValue, Container, Docker, Image, Logs, RunArgs};
+use crate::core::{
+    self, env, env::GetEnvValue, logs::LogStream, Container, Docker, Image, RunArgs,
+};
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
@@ -244,7 +246,7 @@ impl Cli {
 }
 
 impl Docker for Cli {
-    fn logs(&self, id: &str) -> Logs {
+    fn stdout_logs(&self, id: &str) -> LogStream {
         self.inner
             .wait_at_least_one_second_after_container_was_started(id);
 
@@ -255,14 +257,27 @@ impl Docker for Cli {
             .arg("-f")
             .arg(id)
             .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command");
+
+        LogStream::new(child.stdout.expect("stdout to be captured"))
+    }
+
+    fn stderr_logs(&self, id: &str) -> LogStream {
+        self.inner
+            .wait_at_least_one_second_after_container_was_started(id);
+
+        let child = self
+            .inner
+            .command()
+            .arg("logs")
+            .arg("-f")
+            .arg(id)
             .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to execute docker command");
 
-        Logs {
-            stdout: Box::new(child.stdout.unwrap()),
-            stderr: Box::new(child.stderr.unwrap()),
-        }
+        LogStream::new(child.stderr.expect("stderr to be captured"))
     }
 
     fn ports(&self, id: &str) -> crate::core::Ports {
@@ -415,9 +430,9 @@ impl Ports {
 
 #[cfg(test)]
 mod tests {
-    use crate::{core::WaitFor, images::generic::GenericImage, Image};
-
     use super::*;
+    use crate::{core::WaitFor, images::generic::GenericImage, Image};
+    use spectral::prelude::*;
 
     #[test]
     fn can_deserialize_docker_inspect_response_into_api_ports() {
@@ -487,7 +502,7 @@ mod tests {
         }
 
         fn ready_conditions(&self) -> Vec<WaitFor> {
-            vec![]
+            vec![WaitFor::message_on_stdout("Hello from Docker!")]
         }
 
         fn args(&self) -> <Self as Image>::Args {
@@ -661,5 +676,22 @@ mod tests {
         );
 
         docker.inner.delete_networks(vec![network_name]);
+    }
+
+    #[test]
+    fn should_wait_for_at_least_one_second_before_fetching_logs() {
+        let _ = pretty_env_logger::try_init();
+        let docker = Cli::default();
+
+        let before_run = Instant::now();
+        let container = docker.run(HelloWorld::default());
+        let after_run = Instant::now();
+
+        let before_logs = Instant::now();
+        docker.stdout_logs(container.id());
+        let after_logs = Instant::now();
+
+        assert_that(&(after_run - before_run)).is_greater_than(Duration::from_secs(1));
+        assert_that(&(after_logs - before_logs)).is_less_than(Duration::from_secs(1));
     }
 }
