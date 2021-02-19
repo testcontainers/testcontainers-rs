@@ -333,9 +333,11 @@ mod tests {
 
         let container_details = inspect(&docker.inner.shiplift, container.id()).await;
         let networks = container_details.network_settings.networks;
+
         assert!(
             networks.contains_key("awesome-net-1"),
-            format!("Networks is {:?}", networks)
+            "Networks is {:?}",
+            networks
         );
     }
 
