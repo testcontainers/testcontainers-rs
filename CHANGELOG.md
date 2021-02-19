@@ -9,17 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A new client implementation that talks to the Docker daemon via **HTTP**.
+  This implementation is available as `testcontainers::clients::Http` and provides an **async** interface.
 - Allow using `podman` CLI in addition to `docker`
 - The `TESTCONTAINERS` environment variable to control what happens to containers and networks at the end of a test.
   The default value is `remove` which deletes all containers and networks that were used in the test.
   By setting the value to `keep`, containers and networks will not be deleted but kept **running**.
   You will have to **stop** and **delete** those yourself eventually.
+- Upgrade default bitcoin-core image version to 0.21.0. This allows us to remove `-debug` for bitcoind and replace it with
+  `-startupnotify=echo ...`. More details on bitcoind 0.21.0 can be found [here](https://github.com/bitcoin/bitcoin/blob/master/doc/release-notes/release-notes-0.21.0.md).
+  Note: This release also removed the default wallet.
 
 ### Changed
 
 - How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to implement `ready_conditions` which returns a list of `WaitFor` instances.
 - Return value of `get_host_port` from `Option<u16>` to `u16`.
   If the port cannot be resolved, this function will now **panic**.
+- MSRV bumped to 1.45.
+- Make `Docker` trait `pub(crate)`.
+  This reduces the API surface of the crate which allows for fewer breaking changes in the future.
+  All functionality from `Docker` (start, stop, rm, and ports) is available on a container directly.
 
 ### Removed
 

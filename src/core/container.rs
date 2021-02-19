@@ -1,7 +1,8 @@
 use crate::{
-    core::{env::Command, image::WaitFor, Logs},
-    Docker, Image, WaitForMessage,
+    core::{docker::Docker, env::Command, image::WaitFor},
+    Image,
 };
+use std::{fmt, marker::PhantomData};
 
 /// Represents a running docker container.
 ///
@@ -23,21 +24,31 @@ use crate::{
 /// ```
 ///
 /// [drop_impl]: struct.Container.html#impl-Drop
-#[derive(Debug)]
-pub struct Container<'d, D, I>
-where
-    D: Docker,
-    I: Image,
-{
+pub struct Container<'d, I> {
     id: String,
-    docker_client: &'d D,
+    docker_client: Box<dyn Docker>,
     image: I,
     command: Command,
+
+    /// Tracks the lifetime of the client to make sure the container is dropped before the client.
+    client_lifetime: PhantomData<&'d ()>,
 }
 
-impl<'d, D, I> Container<'d, D, I>
+impl<'d, I> fmt::Debug for Container<'d, I>
 where
-    D: Docker,
+    I: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Container")
+            .field("id", &self.id)
+            .field("image", &self.image)
+            .field("command", &self.command)
+            .finish()
+    }
+}
+
+impl<'d, I> Container<'d, I>
+where
     I: Image,
 {
     /// Constructs a new container given an id, a docker client and the image.
@@ -45,12 +56,18 @@ where
     /// This function will block the current thread (if [`wait_until_ready`] is implemented correctly) until the container is actually ready to be used.
     ///
     /// [`wait_until_ready`]: trait.Image.html#tymethod.wait_until_ready
-    pub(crate) fn new(id: String, docker_client: &'d D, image: I, command: Command) -> Self {
+    pub(crate) fn new(
+        id: String,
+        docker_client: impl Docker + 'static,
+        image: I,
+        command: Command,
+    ) -> Self {
         let container = Container {
             id,
-            docker_client,
+            docker_client: Box::new(docker_client),
             image,
             command,
+            client_lifetime: PhantomData,
         };
 
         container.block_until_ready();
@@ -58,14 +75,47 @@ where
         container
     }
 
+    /// Returns a reference to the [`Image`] of this container.
+    ///
+    /// Access to this is useful if the [`arguments`] of the [`Image`] change how to connect to the
+    /// Access to this is useful to retrieve [`Image`] specific information such as authentication details or other relevant information which have been passed as [`arguments`]
+    ///
+    /// [`Image`]: trait.Image.html
+    /// [`arguments`]: trait.Image.html#associatedtype.Args
+    pub fn image(&self) -> &I {
+        &self.image
+    }
+
+    fn block_until_ready(&self) {
+        log::debug!("Waiting for container {} to be ready", self.id);
+
+        for condition in self.image.ready_conditions() {
+            match condition {
+                WaitFor::StdOutMessage { message } => self
+                    .docker_client
+                    .stdout_logs(&self.id)
+                    .wait_for_message(&message)
+                    .unwrap(),
+                WaitFor::StdErrMessage { message } => self
+                    .docker_client
+                    .stderr_logs(&self.id)
+                    .wait_for_message(&message)
+                    .unwrap(),
+                WaitFor::Duration { length } => {
+                    std::thread::sleep(length);
+                }
+                WaitFor::Nothing => {}
+            }
+        }
+
+        log::debug!("Container {} is now ready!", self.id);
+    }
+}
+
+impl<'d, I> Container<'d, I> {
     /// Returns the id of this container.
     pub fn id(&self) -> &str {
         &self.id
-    }
-
-    /// Gives access to the log streams of this container.
-    pub fn logs(&self) -> Logs {
-        self.docker_client.logs(&self.id)
     }
 
     /// Returns the mapped host port for an internal port of this docker container.
@@ -88,38 +138,6 @@ where
                     self.id, internal_port
                 )
             })
-    }
-
-    /// Returns a reference to the [`Image`] of this container.
-    ///
-    /// Access to this is useful if the [`arguments`] of the [`Image`] change how to connect to the
-    /// Access to this is useful to retrieve [`Image`] specific information such as authentication details or other relevant information which have been passed as [`arguments`]
-    ///
-    /// [`Image`]: trait.Image.html
-    /// [`arguments`]: trait.Image.html#associatedtype.Args
-    pub fn image(&self) -> &I {
-        &self.image
-    }
-
-    fn block_until_ready(&self) {
-        log::debug!("Waiting for container {} to be ready", self.id);
-
-        for condition in self.image.ready_conditions() {
-            match condition {
-                WaitFor::StdOutMessage { message } => {
-                    self.logs().stdout.wait_for_message(&message).unwrap()
-                }
-                WaitFor::StdErrMessage { message } => {
-                    self.logs().stderr.wait_for_message(&message).unwrap()
-                }
-                WaitFor::Duration { length } => {
-                    std::thread::sleep(length);
-                }
-                WaitFor::Nothing => {}
-            }
-        }
-
-        log::debug!("Container {} is now ready!", self.id);
     }
 
     pub fn stop(&self) {
@@ -145,11 +163,7 @@ where
 ///
 /// Setting it to `keep` will stop container.
 /// Setting it to `remove` will remove it.
-impl<'d, D, I> Drop for Container<'d, D, I>
-where
-    D: Docker,
-    I: Image,
-{
+impl<'d, I> Drop for Container<'d, I> {
     fn drop(&mut self) {
         match self.command {
             Command::Keep => {}

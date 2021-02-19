@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenericImage {
     descriptor: String,
     arguments: Vec<String>,

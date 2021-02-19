@@ -5,6 +5,8 @@ use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::{collections::HashMap, fmt};
 
+const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
+
 #[derive(Debug)]
 pub struct BitcoinCore {
     tag: String,
@@ -135,7 +137,8 @@ impl IntoIterator for BitcoinCoreImageArgs {
     fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
         let mut args = vec![
             format!("-rpcauth={}", self.rpc_auth.encode()),
-            "-debug".into(), // Needed for message "Flushed wallet.dat"
+            // Will print a message when bitcoind is fully started
+            format!("-startupnotify='echo \'{}\''", BITCOIND_STARTUP_MESSAGE),
             format!("-addresstype={}", self.address_type),
         ];
 
@@ -197,7 +200,7 @@ impl Image for BitcoinCore {
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![
-            WaitFor::message_on_stdout("Flushed wallet.dat"),
+            WaitFor::message_on_stdout(BITCOIND_STARTUP_MESSAGE),
             WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
         ]
     }
@@ -222,7 +225,7 @@ impl Image for BitcoinCore {
 impl Default for BitcoinCore {
     fn default() -> Self {
         BitcoinCore {
-            tag: "0.20.0".into(),
+            tag: "0.21.0".into(),
             arguments: BitcoinCoreImageArgs::default(),
         }
     }
