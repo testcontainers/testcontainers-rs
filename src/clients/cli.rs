@@ -479,8 +479,8 @@ mod tests {
 
         assert!(format!("{:?}", command).contains(r#"-d"#));
         assert!(!format!("{:?}", command).contains(r#"-P"#));
-        assert!(format!("{:?}", command).contains(r#""-p" "123:456""#));
-        assert!(format!("{:?}", command).contains(r#""-p" "555:888""#));
+        assert!(format!("{:?}", command).contains(r#""-p" "123:456/tcp""#));
+        assert!(format!("{:?}", command).contains(r#""-p" "555:888/tcp""#));
     }
 
     #[test]
