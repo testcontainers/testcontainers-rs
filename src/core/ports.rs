@@ -1,18 +1,32 @@
 use std::collections::HashMap;
 
+#[derive(Debug, PartialEq, Copy, Clone, Eq, Hash)]
+struct Sctp(u16);
+#[derive(Debug, PartialEq, Copy, Clone, Eq, Hash)]
+struct Tcp(u16);
+#[derive(Debug, PartialEq, Copy, Clone, Eq, Hash)]
+struct Udp(u16);
+
 /// The exposed ports of a running container.
 #[derive(Debug, PartialEq, Default)]
 pub struct Ports {
-    mapping: HashMap<u16, u16>,
+    tcp: HashMap<Tcp, Tcp>,
+    udp: HashMap<Udp, Udp>,
+    sctp: HashMap<Sctp, Sctp>
 }
 
 impl Ports {
     pub fn new(ports: HashMap<String, Option<Vec<HashMap<String, String>>>>) -> Self {
-        let mapping = ports
-            .into_iter()
+        let tcp = HashMap::new();
+        let udp = HashMap::new();
+        let sctp = HashMap::new();
+
+        ports.into_iter()
             .filter_map(|(internal, external)| {
-                // internal is '8332/tcp', split off the protocol ...
-                let internal = internal.split('/').next()?;
+                // internal is ')8332/tcp', split off the protocol ...
+                let mut iter = internal.split("/");
+                let internal = iter.next()?;
+                let protocol = iter.next()?.to_string();
 
                 // external is a an optional list of maps: [ { "HostIp": "0.0.0.0", "HostPort": "33078" } ]
                 // get the first entry and get the value of the `HostPort` field
@@ -21,18 +35,49 @@ impl Ports {
                 let internal = parse_port(internal);
                 let external = parse_port(&external);
 
-                log::debug!("Registering port mapping: {} -> {}", internal, external);
+                log::debug!("Registering port mapping: {} -> {} / {}", internal, external, protocol);
 
-                Some((internal, external))
+                Some((protocol, internal, external))
             })
-            .collect::<HashMap<_, _>>();
-
-        Self { mapping }
+            .fold(Self {tcp, udp, sctp}, |mut mappings, val| {
+                let (protocol, internal, external) = val;
+                match protocol.as_str() {
+                    "tcp" => { mappings.tcp.insert(Tcp(internal), Tcp(external)); },
+                    "udp" => { mappings.udp.insert(Udp(internal), Udp(external)); },
+                    "sctp" => { mappings.sctp.insert(Sctp(internal), Sctp(external)); },
+                    _ => panic!("Not a valid port mapping.")
+                };
+                mappings
+            })
     }
+}
 
+pub trait MapToHostPort<T> {
     /// Returns the host port for the given internal port.
-    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
-        self.mapping.get(&internal_port).cloned()
+    fn map_to_host_port(&self, internal_port: &T) -> Option<T>;
+}
+
+impl MapToHostPort<u16> for Ports {
+    fn map_to_host_port(&self, internal_port: &u16) -> Option<u16> {
+        self.map_to_host_port(&Tcp(*internal_port)).map(|p| p.0)
+    }
+}
+
+impl MapToHostPort<Tcp> for Ports {
+    fn map_to_host_port(&self, internal_port: &Tcp) -> Option<Tcp> {
+        self.tcp.get(internal_port).map(|p| p.clone())
+    }
+}
+
+impl MapToHostPort<Udp> for Ports {
+    fn map_to_host_port(&self, internal_port: &Udp) -> Option<Udp> {
+        self.udp.get(internal_port).map(|p| p.clone())
+    }
+}
+
+impl MapToHostPort<Sctp> for Ports {
+    fn map_to_host_port(&self, internal_port: &Sctp) -> Option<Sctp> {
+        self.sctp.get(internal_port).map(|p| p.clone())
     }
 }
 
@@ -281,10 +326,10 @@ mod tests {
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();
-        expected_ports.mapping.insert(18332, 33076);
-        expected_ports.mapping.insert(18333, 33075);
-        expected_ports.mapping.insert(8332, 33078);
-        expected_ports.mapping.insert(8333, 33077);
+        expected_ports.tcp.insert(Tcp(18332), Tcp(33076));
+        expected_ports.tcp.insert(Tcp(18333), Tcp(33075));
+        expected_ports.tcp.insert(Tcp(8332), Tcp(33078));
+        expected_ports.tcp.insert(Tcp(8333), Tcp(33077));
 
         assert_eq!(parsed_ports, expected_ports)
     }

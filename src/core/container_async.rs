@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, env::Command, logs::LogStreamAsync, ports::Ports, WaitFor},
+    core::{env, env::Command, logs::LogStreamAsync, ports::{Ports, MapToHostPort}, WaitFor},
     Image,
 };
 use async_trait::async_trait;
@@ -55,14 +55,18 @@ impl<'d, I> ContainerAsync<'d, I> {
     /// This method panics if the given port is not mapped.
     /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
     /// is unlikely to be useful.
-    pub async fn get_host_port(&self, internal_port: u16) -> u16 {
+    pub async fn get_host_port<T>(&self, internal_port: T) -> T
+    where
+        T: fmt::Debug,
+        Ports: MapToHostPort<T>
+    {
         self.docker_client
             .ports(&self.id)
             .await
-            .map_to_host_port(internal_port)
+            .map_to_host_port(&internal_port)
             .unwrap_or_else(|| {
                 panic!(
-                    "container {} does not expose port {}",
+                    "container {:?} does not expose port {:?}",
                     self.id, internal_port
                 )
             })
