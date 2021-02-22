@@ -24,7 +24,7 @@ impl Ports {
         ports.into_iter()
             .filter_map(|(internal, external)| {
                 // internal is ')8332/tcp', split off the protocol ...
-                let mut iter = internal.split("/");
+                let mut iter = internal.split('/');
                 let internal = iter.next()?;
                 let protocol = iter.next()?.to_string();
 
@@ -65,19 +65,19 @@ impl MapToHostPort<u16> for Ports {
 
 impl MapToHostPort<Tcp> for Ports {
     fn map_to_host_port(&self, internal_port: &Tcp) -> Option<Tcp> {
-        self.tcp.get(internal_port).map(|p| p.clone())
+        self.tcp.get(internal_port).copied()
     }
 }
 
 impl MapToHostPort<Udp> for Ports {
     fn map_to_host_port(&self, internal_port: &Udp) -> Option<Udp> {
-        self.udp.get(internal_port).map(|p| p.clone())
+        self.udp.get(internal_port).copied()
     }
 }
 
 impl MapToHostPort<Sctp> for Ports {
     fn map_to_host_port(&self, internal_port: &Sctp) -> Option<Sctp> {
-        self.sctp.get(internal_port).map(|p| p.clone())
+        self.sctp.get(internal_port).copied()
     }
 }
 
