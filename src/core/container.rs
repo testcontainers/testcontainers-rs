@@ -1,5 +1,10 @@
 use crate::{
-    core::{docker::Docker, ports::{Ports, MapToHostPort}, env::Command, image::WaitFor},
+    core::{
+        docker::Docker,
+        env::Command,
+        image::WaitFor,
+        ports::{MapToHostPort, Ports},
+    },
     Image,
 };
 use std::{fmt, marker::PhantomData};
@@ -131,7 +136,7 @@ impl<'d, I> Container<'d, I> {
     pub fn get_host_port<T>(&self, internal_port: T) -> T
     where
         T: fmt::Debug,
-        Ports: MapToHostPort<T>
+        Ports: MapToHostPort<T>,
     {
         self.docker_client
             .ports(&self.id)

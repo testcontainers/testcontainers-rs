@@ -12,7 +12,7 @@ struct Udp(u16);
 pub struct Ports {
     tcp: HashMap<Tcp, Tcp>,
     udp: HashMap<Udp, Udp>,
-    sctp: HashMap<Sctp, Sctp>
+    sctp: HashMap<Sctp, Sctp>,
 }
 
 impl Ports {
@@ -21,7 +21,8 @@ impl Ports {
         let udp = HashMap::new();
         let sctp = HashMap::new();
 
-        ports.into_iter()
+        ports
+            .into_iter()
             .filter_map(|(internal, external)| {
                 // internal is ')8332/tcp', split off the protocol ...
                 let mut iter = internal.split('/');
@@ -35,17 +36,28 @@ impl Ports {
                 let internal = parse_port(internal);
                 let external = parse_port(&external);
 
-                log::debug!("Registering port mapping: {} -> {} / {}", internal, external, protocol);
+                log::debug!(
+                    "Registering port mapping: {} -> {} / {}",
+                    internal,
+                    external,
+                    protocol
+                );
 
                 Some((protocol, internal, external))
             })
-            .fold(Self {tcp, udp, sctp}, |mut mappings, val| {
+            .fold(Self { tcp, udp, sctp }, |mut mappings, val| {
                 let (protocol, internal, external) = val;
                 match protocol.as_str() {
-                    "tcp" => { mappings.tcp.insert(Tcp(internal), Tcp(external)); },
-                    "udp" => { mappings.udp.insert(Udp(internal), Udp(external)); },
-                    "sctp" => { mappings.sctp.insert(Sctp(internal), Sctp(external)); },
-                    _ => panic!("Not a valid port mapping.")
+                    "tcp" => {
+                        mappings.tcp.insert(Tcp(internal), Tcp(external));
+                    }
+                    "udp" => {
+                        mappings.udp.insert(Udp(internal), Udp(external));
+                    }
+                    "sctp" => {
+                        mappings.sctp.insert(Sctp(internal), Sctp(external));
+                    }
+                    _ => panic!("Not a valid port mapping."),
                 };
                 mappings
             })

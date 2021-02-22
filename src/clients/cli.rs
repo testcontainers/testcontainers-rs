@@ -1,5 +1,6 @@
 use crate::core::{
-    env, env::GetEnvValue, logs::LogStream, ports::Ports, PortMapping, Container, Docker, Image, RunArgs,
+    env, env::GetEnvValue, logs::LogStream, ports::Ports, Container, Docker, Image, PortMapping,
+    RunArgs,
 };
 use shiplift::rep::ContainerDetails;
 use std::{
@@ -156,9 +157,9 @@ impl Client {
         if let Some(ports) = run_args.ports() {
             for port in &ports {
                 let (local, internal, protocol) = match port {
-                    PortMapping::Tcp{ local, internal } => (local, internal, "tcp"),
-                    PortMapping::Udp{ local, internal } => (local, internal , "udp"),
-                    PortMapping::Sctp{ local, internal } => (local, internal , "sctp")
+                    PortMapping::Tcp { local, internal } => (local, internal, "tcp"),
+                    PortMapping::Udp { local, internal } => (local, internal, "udp"),
+                    PortMapping::Sctp { local, internal } => (local, internal, "sctp"),
                 };
                 command
                     .arg("-p")
