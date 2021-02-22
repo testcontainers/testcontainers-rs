@@ -1,5 +1,11 @@
 use crate::{
-    core::{env, env::Command, logs::LogStreamAsync, ports::{Ports, MapToHostPort}, WaitFor},
+    core::{
+        env,
+        env::Command,
+        logs::LogStreamAsync,
+        ports::{MapToHostPort, Ports},
+        WaitFor,
+    },
     Image,
 };
 use async_trait::async_trait;
@@ -58,7 +64,7 @@ impl<'d, I> ContainerAsync<'d, I> {
     pub async fn get_host_port<T>(&self, internal_port: T) -> T
     where
         T: fmt::Debug,
-        Ports: MapToHostPort<T>
+        Ports: MapToHostPort<T>,
     {
         self.docker_client
             .ports(&self.id)
