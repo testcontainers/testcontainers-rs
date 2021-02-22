@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, logs::LogStreamAsync, ports::Ports, ContainerAsync, DockerAsync, RunArgs},
+    core::{env, logs::LogStreamAsync, ports::Ports, PortMapping, ContainerAsync, DockerAsync, RunArgs},
     Image,
 };
 use async_trait::async_trait;
@@ -100,10 +100,14 @@ impl Http {
 
         // ports
         if let Some(ports) = run_args.ports() {
-            // TODO support UDP?
             for port in &ports {
+                let (local, internal, protocol) = match port {
+                    PortMapping::Tcp{ local, internal } => (local, internal, "tcp"),
+                    PortMapping::Udp{ local, internal } => (local, internal , "udp"),
+                    PortMapping::Sctp{ local, internal } => (local, internal , "sctp")
+                };
                 // casting u16 to u32
-                options_builder.expose(port.internal as u32, "tcp", port.local as u32);
+                options_builder.expose(*internal as u32, protocol, *local as u32);
             }
         } else {
             options_builder.publish_all_ports();

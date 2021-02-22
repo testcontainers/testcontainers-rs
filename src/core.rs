@@ -3,7 +3,7 @@ pub use self::{
     container::Container,
     container_async::ContainerAsync,
     docker::RunArgs,
-    image::{Image, Port, WaitFor},
+    image::{Image, PortMapping, WaitFor},
 };
 
 mod container;

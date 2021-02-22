@@ -100,9 +100,10 @@ where
 
 /// Represents a port mapping between a local port and the internal port of a container.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Port {
-    pub local: u16,
-    pub internal: u16,
+pub enum PortMapping {
+    Tcp{local: u16, internal: u16},
+    Udp{local: u16, internal: u16},
+    Sctp{local: u16, internal: u16},
 }
 
 /// Represents a condition that needs to be met before a container is considered ready.
@@ -157,8 +158,8 @@ impl WaitFor {
     }
 }
 
-impl From<(u16, u16)> for Port {
+impl From<(u16, u16)> for PortMapping {
     fn from((local, internal): (u16, u16)) -> Self {
-        Port { local, internal }
+        Self::Tcp{local, internal}
     }
 }

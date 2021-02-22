@@ -1,4 +1,4 @@
-use crate::core::{logs::LogStream, ports::Ports, Port};
+use crate::core::{logs::LogStream, ports::Ports, PortMapping};
 
 /// Container run command arguments.
 /// `name` - run image instance with the given name (should be explicitly set to be seen by other containers created in the same docker network).
@@ -8,7 +8,7 @@ use crate::core::{logs::LogStream, ports::Ports, Port};
 pub struct RunArgs {
     name: Option<String>,
     network: Option<String>,
-    ports: Option<Vec<Port>>,
+    ports: Option<Vec<PortMapping>>,
 }
 
 /// Defines operations that we need to perform on docker containers and other entities.
@@ -39,7 +39,7 @@ impl RunArgs {
         }
     }
 
-    pub fn with_mapped_port<P: Into<Port>>(mut self, port: P) -> Self {
+    pub fn with_mapped_port<P: Into<PortMapping>>(mut self, port: P) -> Self {
         let mut ports = self.ports.unwrap_or_default();
         ports.push(port.into());
         self.ports = Some(ports);
@@ -54,7 +54,7 @@ impl RunArgs {
         self.name.clone()
     }
 
-    pub(crate) fn ports(&self) -> Option<Vec<Port>> {
+    pub(crate) fn ports(&self) -> Option<Vec<PortMapping>> {
         self.ports.clone()
     }
 }
