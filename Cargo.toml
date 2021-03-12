@@ -24,6 +24,7 @@ tokio = { version = "1", features = [ "macros" ] }
 
 [dev-dependencies]
 bitcoincore-rpc = "0.13"
+eventstore = "1.0"
 json = "0.12"
 mongodb = "2.0.0-alpha"
 orientdb-client = "0.5"
@@ -36,5 +37,5 @@ rusoto_credential = "0.46"
 rusoto_dynamodb = "0.46"
 rusoto_sqs = "0.46"
 spectral = "0.6"
-tokio = { version = "1", features = [ "macros" ] }
+tokio = { version = "1", features = [ "macros", "rt-multi-thread" ] }
 zookeeper = "0.5"

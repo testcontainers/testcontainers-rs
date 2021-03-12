@@ -393,3 +393,32 @@ fn orientdb_exists_database() {
 
     assert!(!exists);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn eventstoredb_read_stream() -> Result<(), Box<dyn std::error::Error>> {
+    let docker = clients::Cli::default();
+    let esdb_image = images::eventstoredb::EventStoreDB::default().insecure_mode();
+    let container = docker.run(esdb_image);
+
+    let settings = format!(
+        "esdb://localhost:{}?tls=false",
+        container.get_host_port(2_113)
+    )
+    .parse::<eventstore::ClientSettings>()?;
+
+    let client = eventstore::Client::create(settings).await?;
+
+    let payload = serde_json::json!({
+        "foobar": true,
+    });
+
+    let event = eventstore::EventData::json("baz", payload)?;
+
+    let result = client
+        .append_to_stream("testcontainters-stream", &Default::default(), event)
+        .await?;
+
+    result.expect("Everything went great!");
+
+    Ok(())
+}
