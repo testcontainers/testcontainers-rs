@@ -2,7 +2,7 @@ use crate::{
     core::{docker::Docker, env::Command, image::WaitFor},
     Image,
 };
-use std::{fmt, marker::PhantomData};
+use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
 ///
@@ -138,6 +138,18 @@ impl<'d, I> Container<'d, I> {
                     self.id, internal_port
                 )
             })
+    }
+
+    /// Returns the bridge ip address of docker container as specified in NetworkSettings.IPAddress
+    pub fn get_bridge_ip_address(&self) -> IpAddr {
+        IpAddr::from_str(
+            &self
+                .docker_client
+                .inspect(&self.id)
+                .network_settings
+                .ip_address,
+        )
+        .unwrap_or_else(|_| panic!("container {} has missing or invalid bridge IP", self.id))
     }
 
     pub fn stop(&self) {

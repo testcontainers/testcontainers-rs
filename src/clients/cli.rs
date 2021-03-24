@@ -282,6 +282,14 @@ impl Docker for Cli {
     }
 
     fn ports(&self, id: &str) -> Ports {
+        self.inspect(id)
+            .network_settings
+            .ports
+            .map(Ports::new)
+            .unwrap_or_default()
+    }
+
+    fn inspect(&self, id: &str) -> ContainerDetails {
         let child = self
             .inner
             .command()
@@ -298,11 +306,7 @@ impl Docker for Cli {
         let info = infos.remove(0);
 
         log::trace!("Fetched container info: {:#?}", info);
-
-        info.network_settings
-            .ports
-            .map(Ports::new)
-            .unwrap_or_default()
+        info
     }
 
     fn rm(&self, id: &str) {
