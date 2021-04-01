@@ -3,6 +3,7 @@ pub mod dynamodb_local;
 pub mod elasticmq;
 pub mod generic;
 pub mod hello_world;
+pub mod kafka;
 pub mod mongo;
 pub mod orientdb;
 pub mod parity_parity;
