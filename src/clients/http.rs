@@ -5,8 +5,8 @@ use crate::{
 use async_trait::async_trait;
 use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
 use shiplift::{
-    ContainerOptions, Docker, LogsOptions, NetworkCreateOptions, NetworkListOptions,
-    RmContainerOptions,
+    rep::ContainerDetails, ContainerOptions, Docker, LogsOptions, NetworkCreateOptions,
+    NetworkListOptions, RmContainerOptions,
 };
 use std::{
     fmt, io,
@@ -228,20 +228,22 @@ impl DockerAsync for Http {
     }
 
     async fn ports(&self, id: &str) -> Ports {
-        let container_detatils = self
-            .inner
+        self.inspect(id)
+            .await
+            .network_settings
+            .ports
+            .map(Ports::new)
+            .unwrap_or_default()
+    }
+
+    async fn inspect(&self, id: &str) -> ContainerDetails {
+        self.inner
             .shiplift
             .containers()
             .get(id)
             .inspect()
             .await
-            .unwrap();
-
-        container_detatils
-            .network_settings
-            .ports
-            .map(Ports::new)
-            .unwrap_or_default()
+            .unwrap()
     }
 
     async fn rm(&self, id: &str) {
