@@ -12,7 +12,7 @@ jobs:
         id: toolchain
         with:
           profile: minimal
-          toolchain: 1.45.0
+          toolchain: 1.46.0
           override: true
       - uses: actions/cache@v2
         with:
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: thomaseizinger/check@master # temporarily until dprint moves this action into the org
+      - uses: dprint/check@v1.2
   lint:
     runs-on: ubuntu-latest
     steps:
