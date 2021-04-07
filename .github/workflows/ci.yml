@@ -12,7 +12,7 @@ jobs:
         id: toolchain
         with:
           profile: minimal
-          toolchain: 1.45.0
+          toolchain: 1.46.0
           override: true
       - uses: actions/cache@v2
         with:
