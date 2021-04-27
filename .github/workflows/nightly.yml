@@ -11,10 +11,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - uses: actions/cache@v2
-        with:
-          path: target
-          key: test-job-${{ runner.os }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('Cargo.toml') }}-v2
+      - uses: Swatinem/rust-cache@v1.2.0
       - run: cargo test
   nightly-lints:
     runs-on: ubuntu-latest
@@ -27,8 +24,5 @@ jobs:
           toolchain: nightly
           override: true
           components: clippy
-      - uses: actions/cache@v2
-        with:
-          path: target
-          key: lint-job-${{ runner.os }}-${{ steps.toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('Cargo.toml') }}-v2
+      - uses: Swatinem/rust-cache@v1.2.0
       - run: cargo clippy --all-targets -- -D warnings
