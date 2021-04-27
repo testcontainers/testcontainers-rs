@@ -29,6 +29,7 @@ mongodb = "2.0.0-alpha"
 orientdb-client = "0.5"
 postgres = "0.19"
 pretty_env_logger = "0.4"
+rdkafka = "0.26"
 redis = "0.20"
 reqwest = { version = "0.11", features = [ "blocking" ] }
 rusoto_core = "0.46"
