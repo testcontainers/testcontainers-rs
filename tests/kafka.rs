@@ -6,7 +6,6 @@ use rdkafka::{
     Message,
 };
 use std::time::Duration;
-
 use testcontainers::{clients, core::RunArgs, images::kafka};
 
 #[tokio::test]

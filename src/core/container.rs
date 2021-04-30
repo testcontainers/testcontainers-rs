@@ -1,7 +1,8 @@
 use crate::{
-    core::{docker::Docker, env::Command, image::WaitFor},
+    core::{env::Command, image::WaitFor, logs::LogStream, ports::Ports},
     Image,
 };
+use shiplift::rep::ContainerDetails;
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
@@ -182,4 +183,18 @@ impl<'d, I> Drop for Container<'d, I> {
             Command::Remove => self.rm(),
         }
     }
+}
+
+/// Defines operations that we need to perform on docker containers and other entities.
+///
+/// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
+/// All functionality of this trait is available on [`Container`]s directly.
+pub(crate) trait Docker {
+    fn stdout_logs(&self, id: &str) -> LogStream;
+    fn stderr_logs(&self, id: &str) -> LogStream;
+    fn ports(&self, id: &str) -> Ports;
+    fn inspect(&self, id: &str) -> ContainerDetails;
+    fn rm(&self, id: &str);
+    fn stop(&self, id: &str);
+    fn start(&self, id: &str);
 }

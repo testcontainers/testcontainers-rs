@@ -1,5 +1,4 @@
-use crate::core::{logs::LogStream, ports::Ports, Port};
-use shiplift::rep::ContainerDetails;
+use crate::core::Port;
 
 /// Container run command arguments.
 /// `name` - run image instance with the given name (should be explicitly set to be seen by other containers created in the same docker network).
@@ -10,20 +9,6 @@ pub struct RunArgs {
     name: Option<String>,
     network: Option<String>,
     ports: Option<Vec<Port>>,
-}
-
-/// Defines operations that we need to perform on docker containers and other entities.
-///
-/// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
-/// All functionality of this trait is available on [`Container`]s directly.
-pub(crate) trait Docker {
-    fn stdout_logs(&self, id: &str) -> LogStream;
-    fn stderr_logs(&self, id: &str) -> LogStream;
-    fn ports(&self, id: &str) -> Ports;
-    fn inspect(&self, id: &str) -> ContainerDetails;
-    fn rm(&self, id: &str);
-    fn stop(&self, id: &str);
-    fn start(&self, id: &str);
 }
 
 impl RunArgs {
