@@ -38,7 +38,6 @@ impl Default for OrientDb {
 
 impl Image for OrientDb {
     type Args = OrientDbArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

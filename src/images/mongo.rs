@@ -32,7 +32,6 @@ impl Default for Mongo {
 
 impl Image for Mongo {
     type Args = MongoArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

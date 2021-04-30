@@ -32,7 +32,6 @@ impl Default for ElasticMq {
 
 impl Image for ElasticMq {
     type Args = ElasticMqArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

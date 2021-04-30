@@ -32,7 +32,6 @@ impl Default for Redis {
 
 impl Image for Redis {
     type Args = RedisArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

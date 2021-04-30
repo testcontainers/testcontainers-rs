@@ -12,7 +12,6 @@ pub trait Image
 where
     Self: Sized + Default,
     Self::Args: Default + IntoIterator<Item = String>,
-    Self::EntryPoint: ToString,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -25,9 +24,6 @@ where
     /// the arguments of your image, consider that the whole purpose is to facilitate integration
     /// testing. Only expose those that actually make sense for this case.
     type Args;
-
-    /// A type representing the entrypoint for an Image.
-    type EntryPoint: ?Sized;
 
     /// The descriptor of the docker image.
     ///
