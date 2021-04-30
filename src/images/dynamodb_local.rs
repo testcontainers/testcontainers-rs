@@ -33,7 +33,6 @@ impl Default for DynamoDb {
 
 impl Image for DynamoDb {
     type Args = DynamoDbArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

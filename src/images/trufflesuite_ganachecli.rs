@@ -55,7 +55,6 @@ impl IntoIterator for GanacheCliArgs {
 
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("trufflesuite/ganache-cli:{}", self.tag)

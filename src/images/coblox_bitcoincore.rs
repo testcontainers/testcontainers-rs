@@ -190,7 +190,6 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
 impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("coblox/bitcoin-core:{}", self.tag)

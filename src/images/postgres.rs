@@ -45,7 +45,6 @@ impl Postgres {
 
 impl Image for Postgres {
     type Args = PostgresArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("postgres:{}-alpine", self.version)

@@ -395,7 +395,6 @@ mod tests {
 
     impl Image for HelloWorld {
         type Args = Vec<String>;
-        type EntryPoint = std::convert::Infallible;
 
         fn descriptor(&self) -> String {
             String::from("hello-world")

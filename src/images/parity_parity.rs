@@ -38,7 +38,6 @@ impl Default for ParityEthereum {
 
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

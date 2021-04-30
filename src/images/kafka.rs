@@ -93,7 +93,6 @@ impl Default for Kafka {
 
 impl Image for Kafka {
     type Args = KafkaArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

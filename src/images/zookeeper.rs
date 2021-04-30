@@ -30,7 +30,6 @@ impl Default for Zookeeper {
 }
 impl Image for Zookeeper {
     type Args = ZookeeperArgs;
-    type EntryPoint = std::convert::Infallible;
 
     fn descriptor(&self) -> String {
         format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)

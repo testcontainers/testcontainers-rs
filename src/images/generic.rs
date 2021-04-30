@@ -55,7 +55,6 @@ impl GenericImage {
 
 impl Image for GenericImage {
     type Args = Vec<String>;
-    type EntryPoint = str;
 
     fn descriptor(&self) -> String {
         self.descriptor.to_owned()
