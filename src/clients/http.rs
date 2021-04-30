@@ -213,14 +213,14 @@ impl Drop for Client {
 
 #[async_trait]
 impl DockerAsync for Http {
-    fn stdout_logs<'s>(&'s self, id: &str) -> LogStreamAsync<'s> {
+    fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_> {
         self.logs(
             id.to_owned(),
             LogsOptions::builder().stdout(true).stderr(false).build(),
         )
     }
 
-    fn stderr_logs<'s>(&'s self, id: &str) -> LogStreamAsync<'s> {
+    fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_> {
         self.logs(
             id.to_owned(),
             LogsOptions::builder().stdout(false).stderr(true).build(),

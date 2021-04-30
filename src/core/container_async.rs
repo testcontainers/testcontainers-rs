@@ -126,8 +126,8 @@ pub(crate) trait DockerAsync
 where
     Self: Sync,
 {
-    fn stdout_logs<'s>(&'s self, id: &str) -> LogStreamAsync<'s>;
-    fn stderr_logs<'s>(&'s self, id: &str) -> LogStreamAsync<'s>;
+    fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_>;
+    fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_>;
     async fn ports(&self, id: &str) -> Ports;
     async fn inspect(&self, id: &str) -> ContainerDetails;
     async fn rm(&self, id: &str);
