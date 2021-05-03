@@ -64,20 +64,12 @@ impl Image for GenericImage {
         self.wait_for.clone()
     }
 
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
     }
 
     fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.volumes.iter())
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
     }
 
     fn entrypoint(&self) -> Option<String> {

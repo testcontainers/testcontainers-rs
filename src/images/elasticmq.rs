@@ -40,14 +40,6 @@ impl Image for ElasticMq {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Started SQS rest server")]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        ElasticMq { arguments, ..self }
-    }
 }
 
 impl ElasticMq {

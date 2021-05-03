@@ -10,12 +10,12 @@ const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 #[derive(Debug)]
 pub struct BitcoinCore {
     tag: String,
-    arguments: BitcoinCoreImageArgs,
 }
 
 impl BitcoinCore {
     pub fn auth(&self) -> &RpcAuth {
-        &self.arguments.rpc_auth
+        todo!()
+        // &self.arguments.rpc_auth
     }
 }
 
@@ -201,21 +201,12 @@ impl Image for BitcoinCore {
             WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
         ]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        BitcoinCore { arguments, ..self }
-    }
 }
 
 impl Default for BitcoinCore {
     fn default() -> Self {
         BitcoinCore {
             tag: "0.21.0".into(),
-            arguments: BitcoinCoreImageArgs::default(),
         }
     }
 }
@@ -224,7 +215,6 @@ impl BitcoinCore {
     pub fn with_tag(self, tag_str: &str) -> Self {
         BitcoinCore {
             tag: tag_str.to_string(),
-            ..self
         }
     }
 }

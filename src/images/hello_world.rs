@@ -13,12 +13,4 @@ impl Image for HelloWorld {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Hello from Docker!")]
     }
-
-    fn args(&self) -> Self::Args {
-        vec![]
-    }
-
-    fn with_args(self, _: <Self as Image>::Args) -> Self {
-        self
-    }
 }

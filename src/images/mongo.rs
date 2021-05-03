@@ -42,14 +42,6 @@ impl Image for Mongo {
             "waiting for connections on port",
         )]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Mongo { arguments, ..self }
-    }
 }
 
 impl Mongo {

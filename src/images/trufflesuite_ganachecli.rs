@@ -63,12 +63,4 @@ impl Image for GanacheCli {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Listening on localhost:")]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        GanacheCli { arguments, ..self }
-    }
 }

@@ -56,15 +56,7 @@ impl Image for Postgres {
         )]
     }
 
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
     }
 }

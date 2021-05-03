@@ -40,14 +40,6 @@ impl Image for Redis {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Ready to accept connections")]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Redis { arguments, ..self }
-    }
 }
 
 impl Redis {

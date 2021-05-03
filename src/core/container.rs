@@ -1,5 +1,5 @@
 use crate::{
-    core::{env::Command, image::WaitFor, logs::LogStream, ports::Ports},
+    core::{env::Command, image::WaitFor, logs::LogStream, ports::Ports, RunnableImage},
     Image,
 };
 use shiplift::rep::ContainerDetails;
@@ -25,10 +25,10 @@ use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 /// ```
 ///
 /// [drop_impl]: struct.Container.html#impl-Drop
-pub struct Container<'d, I> {
+pub struct Container<'d, I: Image> {
     id: String,
     docker_client: Box<dyn Docker>,
-    image: I,
+    runnable: RunnableImage<I>,
     command: Command,
 
     /// Tracks the lifetime of the client to make sure the container is dropped before the client.
@@ -37,12 +37,12 @@ pub struct Container<'d, I> {
 
 impl<'d, I> fmt::Debug for Container<'d, I>
 where
-    I: fmt::Debug,
+    I: fmt::Debug + Image,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Container")
             .field("id", &self.id)
-            .field("image", &self.image)
+            .field("image", &self.runnable)
             .field("command", &self.command)
             .finish()
     }
@@ -60,13 +60,13 @@ where
     pub(crate) fn new(
         id: String,
         docker_client: impl Docker + 'static,
-        image: I,
+        runnable: RunnableImage<I>,
         command: Command,
     ) -> Self {
         let container = Container {
             id,
             docker_client: Box::new(docker_client),
-            image,
+            runnable,
             command,
             client_lifetime: PhantomData,
         };
@@ -84,13 +84,13 @@ where
     /// [`Image`]: trait.Image.html
     /// [`arguments`]: trait.Image.html#associatedtype.Args
     pub fn image(&self) -> &I {
-        &self.image
+        &self.runnable.image
     }
 
     fn block_until_ready(&self) {
         log::debug!("Waiting for container {} to be ready", self.id);
 
-        for condition in self.image.ready_conditions() {
+        for condition in self.runnable.image.ready_conditions() {
             match condition {
                 WaitFor::StdOutMessage { message } => self
                     .docker_client
@@ -113,7 +113,10 @@ where
     }
 }
 
-impl<'d, I> Container<'d, I> {
+impl<'d, I> Container<'d, I>
+where
+    I: Image,
+{
     /// Returns the id of this container.
     pub fn id(&self) -> &str {
         &self.id
@@ -176,7 +179,10 @@ impl<'d, I> Container<'d, I> {
 ///
 /// Setting it to `keep` will stop container.
 /// Setting it to `remove` will remove it.
-impl<'d, I> Drop for Container<'d, I> {
+impl<'d, I> Drop for Container<'d, I>
+where
+    I: Image,
+{
     fn drop(&mut self) {
         match self.command {
             Command::Keep => {}

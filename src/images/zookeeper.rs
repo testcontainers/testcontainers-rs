@@ -38,15 +38,8 @@ impl Image for Zookeeper {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Started AdminServer")]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Zookeeper { arguments, ..self }
-    }
 }
+
 impl Zookeeper {
     pub fn with_tag(self, tag_str: &str) -> Self {
         Zookeeper {

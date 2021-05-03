@@ -1,12 +1,12 @@
 use crate::{
-    core::{env, logs::LogStreamAsync, ports::Ports, ContainerAsync, DockerAsync, RunArgs},
+    core::{env, logs::LogStreamAsync, ports::Ports, ContainerAsync, DockerAsync, RunnableImage},
     Image,
 };
 use async_trait::async_trait;
 use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
 use shiplift::{
-    rep::ContainerDetails, ContainerOptions, Docker, LogsOptions, NetworkCreateOptions,
-    NetworkListOptions, RmContainerOptions,
+    rep::ContainerDetails, Docker, LogsOptions, NetworkCreateOptions, NetworkListOptions,
+    RmContainerOptions,
 };
 use std::{
     fmt, io,
@@ -43,95 +43,99 @@ impl Default for Http {
 
 // public API
 impl Http {
-    pub async fn run<I: Image + Send + Sync>(&self, image: I) -> ContainerAsync<'_, I> {
-        self.run_with_args(image, RunArgs::default()).await
+    pub async fn run<I>(&self, image: impl Into<RunnableImage<I>>) -> ContainerAsync<'_, I>
+    where
+        I: Image,
+    {
+        todo!()
     }
 
-    pub async fn run_with_args<I: Image + Send + Sync>(
-        &self,
-        image: I,
-        run_args: RunArgs,
-    ) -> ContainerAsync<'_, I> {
-        let mut options_builder = ContainerOptions::builder(image.descriptor().as_str());
-
-        // Create network and add it to container creation
-        if let Some(network) = run_args.network() {
-            options_builder.network_mode(network.as_str());
-            if self.create_network_if_not_exists(&network).await {
-                let mut guard = self
-                    .inner
-                    .created_networks
-                    .write()
-                    .expect("'failed to lock RwLock'");
-                guard.push(network);
-            }
-        }
-
-        // name of the container
-        if let Some(name) = run_args.name() {
-            options_builder.name(name.as_str());
-        }
-
-        // handle environment variables
-        let envs: Vec<String> = image
-            .env_vars()
-            .into_iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .collect();
-
-        // the fact .env and .volumes takes Vec<&str> instead of AsRef<str> is making
-        // this more difficult than it needs to be
-        let envs_str: Vec<&str> = envs.iter().map(|s| s.as_ref()).collect();
-        options_builder.env(envs_str);
-
-        // volumes
-        let vols: Vec<String> = image
-            .volumes()
-            .into_iter()
-            .map(|(orig, dest)| format!("{}:{}", orig, dest))
-            .collect();
-        let vols_str: Vec<&str> = vols.iter().map(|s| s.as_ref()).collect();
-        options_builder.volumes(vols_str);
-
-        // entrypoint
-        if let Some(entrypoint) = image.entrypoint() {
-            options_builder.entrypoint(entrypoint.as_str());
-        }
-
-        // ports
-        if let Some(ports) = run_args.ports() {
-            // TODO support UDP?
-            for port in &ports {
-                // casting u16 to u32
-                options_builder.expose(port.internal as u32, "tcp", port.local as u32);
-            }
-        } else {
-            options_builder.publish_all_ports();
-        }
-
-        // create the container with options
-        let create_result = self
-            .inner
-            .shiplift
-            .containers()
-            .create(&options_builder.build())
-            .await;
-        let id = create_result.unwrap().id;
-
-        self.inner
-            .shiplift
-            .containers()
-            .get(&id)
-            .start()
-            .await
-            .unwrap();
-
-        let client = Http {
-            inner: self.inner.clone(),
-        };
-
-        ContainerAsync::new(id, client, image, self.inner.command).await
-    }
+    //
+    // pub async fn run_with_args<I: Image + Send + Sync>(
+    //     &self,
+    //     _image: I,
+    //     _run_args: RunArgs,
+    // ) -> ContainerAsync<'_, I> {
+    // let mut options_builder = ContainerOptions::builder(image.descriptor().as_str());
+    //
+    // // Create network and add it to container creation
+    // if let Some(network) = run_args.network() {
+    //     options_builder.network_mode(network.as_str());
+    //     if self.create_network_if_not_exists(&network).await {
+    //         let mut guard = self
+    //             .inner
+    //             .created_networks
+    //             .write()
+    //             .expect("'failed to lock RwLock'");
+    //         guard.push(network);
+    //     }
+    // }
+    //
+    // // name of the container
+    // if let Some(name) = run_args.name() {
+    //     options_builder.name(name.as_str());
+    // }
+    //
+    // // handle environment variables
+    // let envs: Vec<String> = image
+    //     .env_vars()
+    //     .into_iter()
+    //     .map(|(k, v)| format!("{}={}", k, v))
+    //     .collect();
+    //
+    // // the fact .env and .volumes takes Vec<&str> instead of AsRef<str> is making
+    // // this more difficult than it needs to be
+    // let envs_str: Vec<&str> = envs.iter().map(|s| s.as_ref()).collect();
+    // options_builder.env(envs_str);
+    //
+    // // volumes
+    // let vols: Vec<String> = image
+    //     .volumes()
+    //     .into_iter()
+    //     .map(|(orig, dest)| format!("{}:{}", orig, dest))
+    //     .collect();
+    // let vols_str: Vec<&str> = vols.iter().map(|s| s.as_ref()).collect();
+    // options_builder.volumes(vols_str);
+    //
+    // // entrypoint
+    // if let Some(entrypoint) = image.entrypoint() {
+    //     options_builder.entrypoint(entrypoint.as_str());
+    // }
+    //
+    // // ports
+    // if let Some(ports) = run_args.ports() {
+    //     // TODO support UDP?
+    //     for port in &ports {
+    //         // casting u16 to u32
+    //         options_builder.expose(port.internal as u32, "tcp", port.local as u32);
+    //     }
+    // } else {
+    //     options_builder.publish_all_ports();
+    // }
+    //
+    // // create the container with options
+    // let create_result = self
+    //     .inner
+    //     .shiplift
+    //     .containers()
+    //     .create(&options_builder.build())
+    //     .await;
+    // let id = create_result.unwrap().id;
+    //
+    // self.inner
+    //     .shiplift
+    //     .containers()
+    //     .get(&id)
+    //     .start()
+    //     .await
+    //     .unwrap();
+    //
+    // let client = Http {
+    //     inner: self.inner.clone(),
+    // };
+    //
+    // ContainerAsync::new(id, client, image, self.inner.command).await
+    // }
 }
 
 impl Http {
@@ -285,7 +289,10 @@ impl DockerAsync for Http {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::images::{generic::GenericImage, hello_world::HelloWorld};
+    use crate::{
+        images::{generic::GenericImage, hello_world::HelloWorld},
+        ImageExt,
+    };
     use shiplift::rep::ContainerDetails;
     use spectral::prelude::*;
 
@@ -295,9 +302,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
-        let image = HelloWorld::default();
         let docker = Http::new();
-        let container = docker.run(image).await;
+        let container = docker.run(HelloWorld).await;
 
         // inspect volume and env
         let container_details = inspect(&docker.inner.shiplift, container.id()).await;
@@ -306,13 +312,10 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_expose_only_requested_ports() {
-        let image = GenericImage::new("hello-world");
-
         let docker = Http::new();
         let container = docker
-            .run_with_args(
-                image,
-                RunArgs::default()
+            .run(
+                HelloWorld
                     .with_mapped_port((123, 456))
                     .with_mapped_port((555, 888)),
             )
@@ -327,11 +330,11 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_include_network() {
-        let image = GenericImage::new("hello-world");
         let docker = Http::new();
 
-        let run_args = RunArgs::default().with_network("awesome-net-1");
-        let container = docker.run_with_args(image, run_args).await;
+        let container = docker
+            .run(GenericImage::new("hello-world").with_network("awesome-net-1"))
+            .await;
 
         let container_details = inspect(&docker.inner.shiplift, container.id()).await;
         let networks = container_details.network_settings.networks;
@@ -345,11 +348,11 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_include_name() {
-        let image = GenericImage::new("hello-world");
         let docker = Http::new();
 
-        let run_args = RunArgs::default().with_name("hello_container");
-        let container = docker.run_with_args(image, run_args).await;
+        let container = docker
+            .run(GenericImage::new("hello-world").with_name("hello_container"))
+            .await;
 
         let container_details = inspect(&docker.inner.shiplift, container.id()).await;
         assert_that!(container_details.name).ends_with("hello_container");
@@ -364,19 +367,9 @@ mod tests {
             assert!(!network_exists(&client, "awesome-net-2").await);
 
             // creating the first container creates the network
-            let _container1 = docker
-                .run_with_args(
-                    HelloWorld::default(),
-                    RunArgs::default().with_network("awesome-net-2"),
-                )
-                .await;
+            let _container1 = docker.run(HelloWorld.with_network("awesome-net-2")).await;
             // creating a 2nd container doesn't fail because check if the network exists already
-            let _container2 = docker
-                .run_with_args(
-                    HelloWorld::default(),
-                    RunArgs::default().with_network("awesome-net-2"),
-                )
-                .await;
+            let _container2 = docker.run(HelloWorld.with_network("awesome-net-2")).await;
 
             assert!(network_exists(&client, "awesome-net-2").await);
         }

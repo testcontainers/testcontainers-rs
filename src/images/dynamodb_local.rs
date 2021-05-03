@@ -46,14 +46,6 @@ impl Image for DynamoDb {
             WaitFor::millis(DEFAULT_WAIT),
         ]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        DynamoDb { arguments, ..self }
-    }
 }
 
 impl DynamoDb {

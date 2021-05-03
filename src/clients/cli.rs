@@ -1,5 +1,8 @@
-use crate::core::{
-    env, env::GetEnvValue, logs::LogStream, ports::Ports, Container, Docker, Image, RunArgs,
+use crate::{
+    core::{
+        env, env::GetEnvValue, logs::LogStream, ports::Ports, Container, Docker, RunnableImage,
+    },
+    Image,
 };
 use shiplift::rep::ContainerDetails;
 use std::{
@@ -23,28 +26,27 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn run<I: Image>(&self, image: I) -> Container<'_, I> {
-        self.run_with_args(image, RunArgs::default())
-    }
+    pub fn run<I>(&self, image: impl Into<RunnableImage<I>>) -> Container<'_, I>
+    where
+        I: Image,
+    {
+        let runnable = image.into();
 
-    pub fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, I> {
-        let mut docker = self.inner.command();
-
-        if let Some(network) = run_args.network() {
-            if self.inner.create_network_if_not_exists(&network) {
+        if let Some(network) = runnable.network.as_ref() {
+            if self.inner.create_network_if_not_exists(network) {
                 let mut guard = self
                     .inner
                     .created_networks
                     .write()
                     .expect("failed to lock RwLock");
 
-                guard.push(network);
+                guard.push(network.to_owned());
             }
         }
 
-        let command = Client::build_run_command(&image, &mut docker, &run_args);
+        let mut command = build_run_command(self.inner.command(), &runnable);
 
-        log::debug!("Executing command: {:?}", command);
+        log::debug!("Executing command: {:?}", &command);
 
         let output = command.output().expect("Failed to execute docker command");
 
@@ -59,7 +61,7 @@ impl Cli {
             inner: self.inner.clone(),
         };
 
-        Container::new(container_id, client, image, self.inner.command)
+        Container::new(container_id, client, runnable, self.inner.command)
     }
 }
 
@@ -126,50 +128,6 @@ impl Client {
         }
     }
 
-    fn build_run_command<'a, I: Image>(
-        image: &I,
-        command: &'a mut Command,
-        run_args: &RunArgs,
-    ) -> &'a mut Command {
-        command.arg("run");
-
-        if let Some(network) = run_args.network() {
-            command.arg(format!("--network={}", network));
-        }
-
-        if let Some(name) = run_args.name() {
-            command.arg(format!("--name={}", name));
-        }
-
-        for (key, value) in image.env_vars() {
-            command.arg("-e").arg(format!("{}={}", key, value));
-        }
-
-        for (orig, dest) in image.volumes() {
-            command.arg("-v").arg(format!("{}:{}", orig, dest));
-        }
-
-        if let Some(entrypoint) = image.entrypoint() {
-            command.arg("--entrypoint").arg(entrypoint);
-        }
-
-        if let Some(ports) = run_args.ports() {
-            for port in &ports {
-                command
-                    .arg("-p")
-                    .arg(format!("{}:{}", port.local, port.internal));
-            }
-        } else {
-            command.arg("-P"); // expose all ports
-        }
-
-        command
-            .arg("-d") // Always run detached
-            .arg(image.descriptor())
-            .args(image.args())
-            .stdout(Stdio::piped())
-    }
-
     fn create_network_if_not_exists(&self, name: &str) -> bool {
         if self.network_exists(name) {
             return false;
@@ -211,6 +169,50 @@ impl Client {
             String::from_utf8(output.stderr).unwrap()
         )
     }
+}
+
+fn build_run_command<I: Image>(mut command: Command, runnable: &RunnableImage<I>) -> Command {
+    let command_ref = &mut command;
+
+    command_ref.arg("run");
+
+    if let Some(network) = runnable.network.as_ref() {
+        command_ref.arg(format!("--network={}", network));
+    }
+
+    if let Some(name) = runnable.name.as_ref() {
+        command_ref.arg(format!("--name={}", name));
+    }
+
+    for (key, value) in runnable.image.env_vars() {
+        command_ref.arg("-e").arg(format!("{}={}", key, value));
+    }
+
+    for (orig, dest) in runnable.image.volumes() {
+        command_ref.arg("-v").arg(format!("{}:{}", orig, dest));
+    }
+
+    if let Some(entrypoint) = runnable.image.entrypoint() {
+        command_ref.arg("--entrypoint").arg(entrypoint);
+    }
+
+    if let Some(ports) = runnable.ports.as_ref() {
+        for port in ports {
+            command_ref
+                .arg("-p")
+                .arg(format!("{}:{}", port.local, port.internal));
+        }
+    } else {
+        command_ref.arg("-P"); // expose all ports
+    }
+
+    command_ref
+        .arg("-d") // Always run detached
+        .arg(runnable.image.descriptor())
+        .args(runnable.image_args.clone().into_iter())
+        .stdout(Stdio::piped());
+
+    command
 }
 
 impl Default for Cli {
@@ -384,13 +386,14 @@ impl Drop for Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::WaitFor, images::generic::GenericImage, Image};
+    use crate::{core::WaitFor, images::generic::GenericImage, Image, ImageExt};
     use spectral::prelude::*;
+    use std::collections::BTreeMap;
 
     #[derive(Default)]
     struct HelloWorld {
-        volumes: HashMap<String, String>,
-        env_vars: HashMap<String, String>,
+        volumes: BTreeMap<String, String>,
+        env_vars: BTreeMap<String, String>,
     }
 
     impl Image for HelloWorld {
@@ -404,10 +407,6 @@ mod tests {
             vec![WaitFor::message_on_stdout("Hello from Docker!")]
         }
 
-        fn args(&self) -> <Self as Image>::Args {
-            vec![]
-        }
-
         fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
             Box::new(self.env_vars.iter())
         }
@@ -415,68 +414,54 @@ mod tests {
         fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
             Box::new(self.volumes.iter())
         }
-
-        fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
-            self
-        }
     }
 
     #[test]
     fn cli_run_command_should_include_env_vars() {
-        let mut volumes = HashMap::new();
+        let mut volumes = BTreeMap::new();
         volumes.insert("one-from".to_owned(), "one-dest".to_owned());
         volumes.insert("two-from".to_owned(), "two-dest".to_owned());
 
-        let mut env_vars = HashMap::new();
+        let mut env_vars = BTreeMap::new();
         env_vars.insert("one-key".to_owned(), "one-value".to_owned());
         env_vars.insert("two-key".to_owned(), "two-value".to_owned());
 
         let image = HelloWorld { volumes, env_vars };
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default();
-        let command = Client::build_run_command(&image, &mut docker, &run_args);
+        let command = build_run_command(Command::new("docker"), &RunnableImage::from(image));
 
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"-d"#));
-        assert!(format!("{:?}", command).contains(r#"-P"#));
-        assert!(format!("{:?}", command).contains(r#""-v" "one-from:one-dest"#));
-        assert!(format!("{:?}", command).contains(r#""-v" "two-from:two-dest"#));
-        assert!(format!("{:?}", command).contains(r#""-e" "one-key=one-value""#));
-        assert!(format!("{:?}", command).contains(r#""-e" "two-key=two-value""#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-e" "one-key=one-value" "-e" "two-key=two-value" "-v" "one-from:one-dest" "-v" "two-from:two-dest" "-P" "-d" "hello-world""#
+        );
     }
 
     #[test]
     fn cli_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
-        let image = GenericImage::new("hello");
+        let command = build_run_command(
+            Command::new("docker"),
+            &RunnableImage::from(GenericImage::new("hello")),
+        );
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default();
-        let command = Client::build_run_command(&image, &mut docker, &run_args);
-
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"-d"#));
-        assert!(format!("{:?}", command).contains(r#"-P"#));
-        assert!(!format!("{:?}", command).contains(r#"-p"#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "hello""#
+        );
     }
 
     #[test]
     fn cli_run_command_should_expose_only_requested_ports() {
-        let image = GenericImage::new("hello");
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default()
-            .with_mapped_port((123, 456))
-            .with_mapped_port((555, 888));
-        let command = Client::build_run_command(&image, &mut docker, &run_args);
+        let command = build_run_command(
+            Command::new("docker"),
+            &GenericImage::new("hello")
+                .with_mapped_port((123, 456))
+                .with_mapped_port((555, 888)),
+        );
 
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"-d"#));
-        assert!(!format!("{:?}", command).contains(r#"-P"#));
-        assert!(format!("{:?}", command).contains(r#""-p" "123:456""#));
-        assert!(format!("{:?}", command).contains(r#""-p" "555:888""#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-p" "123:456" "-p" "555:888" "-d" "hello""#
+        );
     }
 
     #[test]
@@ -489,28 +474,27 @@ mod tests {
 
     #[test]
     fn cli_run_command_should_include_network() {
-        let image = GenericImage::new("hello");
-
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default().with_network("awesome-net");
-        let command = Client::build_run_command(&image, &mut docker, &run_args);
-
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"--network=awesome-net"#));
+        let command = build_run_command(
+            Command::new("docker"),
+            &GenericImage::new("hello").with_network("awesome-net"),
+        );
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--network=awesome-net" "-P" "-d" "hello""#
+        );
     }
 
     #[test]
     fn cli_run_command_should_include_name() {
-        let image = GenericImage::new("hello");
+        let command = build_run_command(
+            Command::new("docker"),
+            &GenericImage::new("hello").with_name("hello_container"),
+        );
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default().with_name("hello_container");
-        let command = Client::build_run_command(&image, &mut docker, &run_args);
-
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"--name=hello_container"#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--name=hello_container" "-P" "-d" "hello""#
+        );
     }
 
     #[test]
@@ -521,15 +505,9 @@ mod tests {
             assert!(!docker.inner.network_exists("awesome-net"));
 
             // creating the first container creates the network
-            let _container1 = docker.run_with_args(
-                HelloWorld::default(),
-                RunArgs::default().with_network("awesome-net"),
-            );
+            let _container1 = docker.run(HelloWorld::default().with_network("awesome-net"));
             // creating a 2nd container doesn't fail because check if the network exists already
-            let _container2 = docker.run_with_args(
-                HelloWorld::default(),
-                RunArgs::default().with_network("awesome-net"),
-            );
+            let _container2 = docker.run(HelloWorld::default().with_network("awesome-net"));
 
             assert!(docker.inner.network_exists("awesome-net"));
         }
@@ -559,10 +537,7 @@ mod tests {
             assert!(!docker.inner.network_exists(network_name));
 
             // creating the first container creates the network
-            let _container1 = docker.run_with_args(
-                HelloWorld::default(),
-                RunArgs::default().with_network(network_name),
-            );
+            let _container1 = docker.run(HelloWorld::default().with_network(network_name));
 
             assert!(docker.inner.network_exists(network_name));
         }

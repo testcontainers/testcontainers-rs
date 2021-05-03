@@ -46,14 +46,6 @@ impl Image for ParityEthereum {
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stderr("Public node URL:")]
     }
-
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
-    }
 }
 
 impl ParityEthereum {

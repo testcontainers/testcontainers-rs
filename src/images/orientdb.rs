@@ -47,16 +47,8 @@ impl Image for OrientDb {
         vec![WaitFor::message_on_stderr("OrientDB Studio available at")]
     }
 
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        OrientDb { arguments, ..self }
     }
 }
 

@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removing a docker container did not error if failed. This was fixed by asserting the daemon's response instead of
   just the status code: If a docker container was removed correctly using `rm -f -v <ID>` <ID> is printed on stdout.
   <ID> can either be the container name or its ID which is used within testcontainer-rs.
-- Fixed clippy warnings of camel case names containing a capitalized acronym.
+- Clippy warnings of camel case names containing a capitalized acronym.
 
 ## [0.12.0] - 2021-01-27
 

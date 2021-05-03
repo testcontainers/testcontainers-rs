@@ -10,9 +10,8 @@ use rusoto_dynamodb::{
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
 use std::time::Duration;
-use zookeeper::{Acl, CreateMode, ZooKeeper};
-
 use testcontainers::{core::WaitFor, *};
+use zookeeper::{Acl, CreateMode, ZooKeeper};
 
 #[test]
 fn coblox_bitcoincore_getnewaddress() {
@@ -278,8 +277,7 @@ fn build_sqs_client(host_port: u16) -> SqsClient {
 #[test]
 fn postgres_one_plus_one() {
     let docker = clients::Cli::default();
-    let postgres_image = images::postgres::Postgres::default();
-    let node = docker.run(postgres_image);
+    let node = docker.run(images::postgres::Postgres::default());
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",
@@ -301,8 +299,8 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let free_local_port = free_local_port().unwrap();
 
     let docker = clients::Cli::default();
-    let run_args = RunArgs::default().with_mapped_port((free_local_port, 5432));
-    let _node = docker.run_with_args(images::postgres::Postgres::default(), run_args);
+    let _node =
+        docker.run(images::postgres::Postgres::default().with_mapped_port((free_local_port, 5432)));
 
     let mut conn = postgres::Client::connect(
         &format!(
@@ -321,8 +319,7 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
 #[test]
 fn postgres_custom_version() {
     let docker = clients::Cli::default();
-    let postgres_image = images::postgres::Postgres::default().with_version(13);
-    let node = docker.run(postgres_image);
+    let node = docker.run(images::postgres::Postgres::default().with_version(13));
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",
@@ -353,8 +350,7 @@ fn zookeeper_check_directories_existence() {
     let _ = pretty_env_logger::try_init();
 
     let docker = clients::Cli::default();
-    let image = images::zookeeper::Zookeeper::default();
-    let node = docker.run(image);
+    let node = docker.run(images::zookeeper::Zookeeper::default());
 
     let host_port = node.get_host_port(2181);
     let zk_urls = format!("localhost:{}", host_port);
@@ -376,8 +372,7 @@ fn zookeeper_check_directories_existence() {
 #[ignore]
 fn orientdb_exists_database() {
     let docker = clients::Cli::default();
-    let orientdb_image = images::orientdb::OrientDb::default();
-    let node = docker.run(orientdb_image);
+    let node = docker.run(images::orientdb::OrientDb::default());
 
     let client =
         orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424))).unwrap();

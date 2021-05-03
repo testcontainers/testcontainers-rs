@@ -1,4 +1,4 @@
-use std::{env::var, time::Duration};
+use std::{env::var, fmt::Debug, time::Duration};
 
 /// Represents a docker image.
 ///
@@ -10,8 +10,8 @@ use std::{env::var, time::Duration};
 /// [docker_run]: trait.Docker.html#tymethod.run
 pub trait Image
 where
-    Self: Sized + Default,
-    Self::Args: Default + IntoIterator<Item = String>,
+    Self: Sized,
+    Self::Args: IntoIterator<Item = String> + Debug + Clone,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -45,9 +45,6 @@ where
     /// more time before it is ready.
     fn ready_conditions(&self) -> Vec<WaitFor>;
 
-    /// Returns the arguments this instance was created with.
-    fn args(&self) -> Self::Args;
-
     /// There are a couple of things regarding the environment variables of images:
     ///
     /// 1. Similar to the Default implementation of an Image, the Default instance
@@ -72,14 +69,64 @@ where
         Box::new(std::iter::empty())
     }
 
-    /// Re-configures the current instance of this image with the given arguments.
-    fn with_args(self, arguments: Self::Args) -> Self;
-
     /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
         None
     }
 }
+
+pub trait ImageExt: Image {
+    fn with_args(self, args: Self::Args) -> RunnableImage<Self> {
+        RunnableImage {
+            image: self,
+            image_args: args,
+            name: None,
+            network: None,
+            ports: None,
+        }
+    }
+
+    fn with_network(self, network: impl Into<String>) -> RunnableImage<Self>
+    where
+        Self::Args: Default,
+    {
+        RunnableImage {
+            image: self,
+            image_args: Self::Args::default(),
+            name: None,
+            network: Some(network.into()),
+            ports: None,
+        }
+    }
+
+    fn with_name(self, name: impl Into<String>) -> RunnableImage<Self>
+    where
+        Self::Args: Default,
+    {
+        RunnableImage {
+            image: self,
+            image_args: Self::Args::default(),
+            name: Some(name.into()),
+            network: None,
+            ports: None,
+        }
+    }
+
+    fn with_mapped_port<P: Into<Port>>(self, port: P) -> RunnableImage<Self>
+    where
+        Self::Args: Default,
+    {
+        RunnableImage {
+            image: self,
+            image_args: Self::Args::default(),
+            name: None,
+            network: None,
+            ports: Some(vec![port.into()]),
+        }
+    }
+}
+
+impl<I> ImageExt for I where I: Image {}
 
 /// Represents a port mapping between a local port and the internal port of a container.
 #[derive(Clone, Debug, PartialEq)]
@@ -143,5 +190,73 @@ impl WaitFor {
 impl From<(u16, u16)> for Port {
     fn from((local, internal): (u16, u16)) -> Self {
         Port { local, internal }
+    }
+}
+
+#[derive(Debug)]
+pub struct RunnableImage<I: Image> {
+    pub(crate) image: I,
+    pub(crate) image_args: I::Args,
+    pub(crate) name: Option<String>,
+    pub(crate) network: Option<String>,
+    pub(crate) ports: Option<Vec<Port>>,
+}
+
+impl<I: Image> RunnableImage<I> {
+    pub fn image(&self) -> &I {
+        &self.image
+    }
+
+    pub fn image_args(&self) -> &I::Args {
+        &self.image_args
+    }
+}
+
+impl<I: Image> RunnableImage<I> {
+    pub fn with_image_args(self, args: <I as Image>::Args) -> RunnableImage<I> {
+        Self {
+            image_args: args,
+            ..self
+        }
+    }
+
+    pub fn with_name(self, name: impl Into<String>) -> Self {
+        Self {
+            name: Some(name.into()),
+            ..self
+        }
+    }
+
+    pub fn with_network(self, network: impl Into<String>) -> Self {
+        Self {
+            network: Some(network.into()),
+            ..self
+        }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+
+        Self {
+            ports: Some(ports),
+            ..self
+        }
+    }
+}
+
+impl<I> From<I> for RunnableImage<I>
+where
+    I: Image + Default,
+    <I as Image>::Args: Default,
+{
+    fn from(image: I) -> Self {
+        Self {
+            image,
+            image_args: I::Args::default(),
+            name: None,
+            network: None,
+            ports: None,
+        }
     }
 }
