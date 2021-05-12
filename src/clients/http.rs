@@ -4,9 +4,12 @@ use crate::{
 };
 use async_trait::async_trait;
 use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
+use hyper::StatusCode;
+use shiplift::builder::ContainerOptionsBuilder;
+use shiplift::rep::ContainerCreateInfo;
 use shiplift::{
     rep::ContainerDetails, ContainerOptions, Docker, LogsOptions, NetworkCreateOptions,
-    NetworkListOptions, RmContainerOptions,
+    NetworkListOptions, PullOptions, RmContainerOptions,
 };
 use std::{
     fmt, io,
@@ -110,13 +113,32 @@ impl Http {
         }
 
         // create the container with options
-        let create_result = self
-            .inner
-            .shiplift
-            .containers()
-            .create(&options_builder.build())
-            .await;
-        let id = create_result.unwrap().id;
+        let create_result = self.create_container(&options_builder).await;
+        let id = {
+            match create_result {
+                Ok(container) => container.id,
+                Err(err) => match err {
+                    shiplift::Error::Fault { code, message: _ } => {
+                        if code != StatusCode::NOT_FOUND {
+                            panic!("{}", err);
+                        }
+                        {
+                            let mut options_builder = PullOptions::builder();
+                            options_builder.image(image.descriptor());
+                            let mut pulling =
+                                self.inner.shiplift.images().pull(&options_builder.build());
+                            while let Some(result) = pulling.next().await {
+                                if result.is_err() {
+                                    result.unwrap();
+                                }
+                            }
+                        }
+                        self.create_container(&options_builder).await.unwrap().id
+                    }
+                    _ => panic!("{}", err),
+                },
+            }
+        };
 
         self.inner
             .shiplift
@@ -158,6 +180,17 @@ impl Http {
         }
 
         false
+    }
+
+    async fn create_container(
+        &self,
+        options_builder: &ContainerOptionsBuilder,
+    ) -> shiplift::Result<ContainerCreateInfo> {
+        self.inner
+            .shiplift
+            .containers()
+            .create(&options_builder.build())
+            .await
     }
 
     fn logs(&self, container_id: String, options: LogsOptions) -> LogStreamAsync<'_> {

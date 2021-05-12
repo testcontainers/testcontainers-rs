@@ -21,6 +21,7 @@ serde_json = "1"
 sha2 = "0.9"
 shiplift = { version = "0.7", default-features = false, features = [ "chrono", "unix-socket" ] }
 tokio = { version = "1", features = [ "macros" ] }
+hyper = "0.14.7"
 
 [dev-dependencies]
 bitcoincore-rpc = "0.13"
