@@ -4,7 +4,6 @@ use crate::{
 };
 use async_trait::async_trait;
 use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
-use hyper::StatusCode;
 use shiplift::builder::ContainerOptionsBuilder;
 use shiplift::rep::ContainerCreateInfo;
 use shiplift::{
@@ -117,26 +116,21 @@ impl Http {
         let id = {
             match create_result {
                 Ok(container) => container.id,
-                Err(err) => match err {
-                    shiplift::Error::Fault { code, message: _ } => {
-                        if code != StatusCode::NOT_FOUND {
-                            panic!("{}", err);
-                        }
-                        {
-                            let mut options_builder = PullOptions::builder();
-                            options_builder.image(image.descriptor());
-                            let mut pulling =
-                                self.inner.shiplift.images().pull(&options_builder.build());
-                            while let Some(result) = pulling.next().await {
-                                if result.is_err() {
-                                    result.unwrap();
-                                }
+                Err(shiplift::Error::Fault { code, .. }) if code == 404 => {
+                    {
+                        let mut options_builder = PullOptions::builder();
+                        options_builder.image(image.descriptor());
+                        let mut pulling =
+                            self.inner.shiplift.images().pull(&options_builder.build());
+                        while let Some(result) = pulling.next().await {
+                            if result.is_err() {
+                                result.unwrap();
                             }
                         }
-                        self.create_container(&options_builder).await.unwrap().id
                     }
-                    _ => panic!("{}", err),
-                },
+                    self.create_container(&options_builder).await.unwrap().id
+                }
+                Err(err) => panic!("{}", err),
             }
         };
 
