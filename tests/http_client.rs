@@ -16,8 +16,8 @@ async fn shiplift_can_run_hello_world() {
 }
 
 async fn cleanup_hello_world_image() {
-    let hello_world_images = {
-        let docker = shiplift::Docker::new();
+    let docker = shiplift::Docker::new();
+    futures::future::join_all(
         docker
             .images()
             .list(&ImageListOptions::builder().build())
@@ -26,14 +26,9 @@ async fn cleanup_hello_world_image() {
             .into_iter()
             .flat_map(|image| image.repo_tags.into_iter().flatten())
             .filter(|tag| tag.starts_with("hello-world"))
-            .collect::<Vec<String>>()
-    };
-    let docker = clients::Cli::docker();
-    let images = hello_world_images
-        .iter()
-        .map(|s| s.as_str())
-        .collect::<Vec<&str>>();
-    docker.delete_images(&images);
+            .map(|tag| async { docker.images().get(tag).delete().await }),
+    )
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
