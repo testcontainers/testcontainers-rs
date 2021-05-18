@@ -244,6 +244,21 @@ impl Cli {
             }),
         }
     }
+
+    pub fn delete_images(&self, names: &[&str]) {
+        if names.is_empty() {
+            return;
+        }
+        self.inner
+            .command()
+            .arg("rmi")
+            .args(names)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to delete docker images");
+    }
 }
 
 impl Docker for Cli {
