@@ -162,7 +162,7 @@ async fn mongo_fetch_document() {
     let host_port = node.get_host_port(27017);
     let url = format!("mongodb://localhost:{}/", host_port);
 
-    let client: Client = Client::with_uri_str(url.as_ref()).await.unwrap();
+    let client: Client = Client::with_uri_str(&url).await.unwrap();
     let db = client.database("some_db");
     let coll = db.collection("some-coll");
 
