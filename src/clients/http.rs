@@ -4,11 +4,11 @@ use crate::{
 };
 use async_trait::async_trait;
 use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
-use shiplift::builder::ContainerOptionsBuilder;
-use shiplift::rep::ContainerCreateInfo;
 use shiplift::{
-    rep::ContainerDetails, ContainerOptions, Docker, LogsOptions, NetworkCreateOptions,
-    NetworkListOptions, PullOptions, RmContainerOptions,
+    builder::ContainerOptionsBuilder,
+    rep::{ContainerCreateInfo, ContainerDetails},
+    ContainerOptions, Docker, LogsOptions, NetworkCreateOptions, NetworkListOptions, PullOptions,
+    RmContainerOptions,
 };
 use std::{
     fmt, io,
