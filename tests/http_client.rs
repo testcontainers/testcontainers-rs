@@ -1,3 +1,4 @@
+use shiplift::ImageListOptions;
 use std::time::Duration;
 use testcontainers::{
     core::WaitFor,
@@ -11,6 +12,30 @@ async fn shiplift_can_run_hello_world() {
 
     let docker = clients::Http::default();
 
+    let _container = docker.run(HelloWorld).await;
+}
+
+async fn cleanup_hello_world_image() {
+    let docker = shiplift::Docker::new();
+    futures::future::join_all(
+        docker
+            .images()
+            .list(&ImageListOptions::builder().build())
+            .await
+            .unwrap()
+            .into_iter()
+            .flat_map(|image| image.repo_tags.into_iter().flatten())
+            .filter(|tag| tag.starts_with("hello-world"))
+            .map(|tag| async { docker.images().get(tag).delete().await }),
+    )
+    .await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn shiplift_pull_missing_image_hello_world() {
+    let _ = pretty_env_logger::try_init();
+    cleanup_hello_world_image().await;
+    let docker = clients::Http::default();
     let _container = docker.run(HelloWorld).await;
 }
 
