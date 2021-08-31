@@ -160,7 +160,10 @@ impl Client {
                     .arg(format!("{}:{}", port.local, port.internal));
             }
         } else {
-            command.arg("-P"); // expose all ports
+            for port in image.expose_ports() {
+                command.arg(format!("--expose={}", port));
+            }
+            command.arg("-P"); // publish all exposed ports
         }
 
         command
