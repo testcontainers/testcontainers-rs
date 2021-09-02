@@ -9,10 +9,12 @@ use rusoto_dynamodb::{
 };
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
-use std::time::Duration;
+use std::{ops::Range, time::Duration};
 use zookeeper::{Acl, CreateMode, ZooKeeper};
 
 use testcontainers::{core::WaitFor, *};
+
+const RANDOM_PORTS: Range<u16> = 32768..61000;
 
 #[test]
 fn coblox_bitcoincore_getnewaddress() {
@@ -37,6 +39,46 @@ fn coblox_bitcoincore_getnewaddress() {
     assert_that(&client.create_wallet("miner", None, None, None, None)).is_ok();
 
     assert_that(&client.get_new_address(None, None)).is_ok();
+}
+
+#[test]
+fn bigtable_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
+        images::google_cloud_sdk::Emulator::Bigtable,
+    ));
+    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::BIGTABLE_PORT)));
+}
+
+#[test]
+fn datastore_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
+        images::google_cloud_sdk::Emulator::Datastore,
+    ));
+    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::DATASTORE_PORT)));
+}
+
+#[test]
+fn firestore_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
+        images::google_cloud_sdk::Emulator::Firestore,
+    ));
+    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::FIRESTORE_PORT)));
+}
+
+#[test]
+fn pubsub_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
+        images::google_cloud_sdk::Emulator::PubSub,
+    ));
+    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::PUBSUB_PORT)));
 }
 
 #[test]
