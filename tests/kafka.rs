@@ -35,9 +35,6 @@ async fn test_produce_and_consume_messages() {
         .expect("Failed to create Kafka StreamConsumer");
 
     let topic = "test-topic";
-    consumer
-        .subscribe(&[&topic])
-        .expect("Failed to subscribe to a topic");
 
     let number_of_messages_to_produce = 5_usize;
     let expected: Vec<String> = (0..number_of_messages_to_produce)
@@ -47,7 +44,7 @@ async fn test_produce_and_consume_messages() {
     for (i, message) in expected.iter().enumerate() {
         producer
             .send(
-                FutureRecord::to(&topic)
+                FutureRecord::to(topic)
                     .payload(message)
                     .key(&format!("Key {}", i)),
                 Duration::from_secs(0),
@@ -55,6 +52,10 @@ async fn test_produce_and_consume_messages() {
             .await
             .unwrap();
     }
+
+    consumer
+        .subscribe(&[topic])
+        .expect("Failed to subscribe to a topic");
 
     let mut message_stream = consumer.stream();
     for produced in expected {
