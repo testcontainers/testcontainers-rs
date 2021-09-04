@@ -2,6 +2,7 @@ pub mod coblox_bitcoincore;
 pub mod dynamodb_local;
 pub mod elasticmq;
 pub mod generic;
+pub mod google_cloud_sdk;
 pub mod hello_world;
 pub mod kafka;
 pub mod mongo;

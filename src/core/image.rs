@@ -96,6 +96,14 @@ where
     fn entrypoint(&self) -> Option<String> {
         None
     }
+
+    /// Returns the ports that needs to be exposed when a container is created.
+    ///
+    /// This method is useful when there is a need to expose some ports, but there is
+    /// no EXPOSE instruction in the Dockerfile of an image.
+    fn expose_ports(&self) -> Vec<u16> {
+        Default::default()
+    }
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
