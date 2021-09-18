@@ -1,5 +1,8 @@
 use crate::{core::WaitFor, Image};
 
+const NAME: &str = "trufflesuite/ganache-cli";
+const DEFAULT_TAG: &str = "v6.1.3";
+
 #[derive(Debug)]
 pub struct GanacheCli {
     tag: String,
@@ -16,7 +19,7 @@ pub struct GanacheCliArgs {
 impl Default for GanacheCli {
     fn default() -> Self {
         GanacheCli {
-            tag: "v6.1.3".into(),
+            tag: DEFAULT_TAG.to_owned(),
             arguments: GanacheCliArgs::default(),
         }
     }
@@ -56,19 +59,15 @@ impl IntoIterator for GanacheCliArgs {
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
 
-    fn descriptor(&self) -> String {
-        format!("trufflesuite/ganache-cli:{}", self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Listening on localhost:")]
-    }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        GanacheCli { arguments, ..self }
     }
 }

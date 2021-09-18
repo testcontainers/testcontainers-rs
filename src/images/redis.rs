@@ -1,6 +1,6 @@
 use crate::{core::WaitFor, Image};
 
-const CONTAINER_IDENTIFIER: &str = "redis";
+const NAME: &str = "redis";
 const DEFAULT_TAG: &str = "5.0";
 
 #[derive(Debug, Default, Clone)]
@@ -33,28 +33,15 @@ impl Default for Redis {
 impl Image for Redis {
     type Args = RedisArgs;
 
-    fn descriptor(&self) -> String {
-        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Ready to accept connections")]
-    }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Redis { arguments, ..self }
-    }
-}
-
-impl Redis {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        Redis {
-            tag: tag_str.to_string(),
-            ..self
-        }
     }
 }

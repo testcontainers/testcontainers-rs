@@ -1,11 +1,14 @@
 use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
+const NAME: &str = "postgres";
+const DEFAULT_TAG: &str = "11-alpine";
+
 #[derive(Debug)]
 pub struct Postgres {
+    tag: String,
     arguments: PostgresArgs,
     env_vars: HashMap<String, String>,
-    version: u8,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -27,27 +30,22 @@ impl Default for Postgres {
         env_vars.insert("POSTGRES_HOST_AUTH_METHOD".into(), "trust".into());
 
         Self {
+            tag: DEFAULT_TAG.to_owned(),
             arguments: PostgresArgs::default(),
             env_vars,
-            version: 11,
         }
-    }
-}
-impl Postgres {
-    pub fn with_env_vars(self, env_vars: HashMap<String, String>) -> Self {
-        Self { env_vars, ..self }
-    }
-
-    pub fn with_version(self, version: u8) -> Self {
-        Self { version, ..self }
     }
 }
 
 impl Image for Postgres {
     type Args = PostgresArgs;
 
-    fn descriptor(&self) -> String {
-        format!("postgres:{}-alpine", self.version)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -56,15 +54,7 @@ impl Image for Postgres {
         )]
     }
 
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
     }
 }

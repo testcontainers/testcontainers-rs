@@ -6,15 +6,14 @@ use rdkafka::{
     Message,
 };
 use std::time::Duration;
-use testcontainers::{clients, core::RunArgs, images::kafka};
+use testcontainers::{clients, images::kafka, RunnableImage};
 
 #[tokio::test]
 async fn test_produce_and_consume_messages() {
     let docker = clients::Cli::default();
-    let kafka_node = docker.run_with_args(
-        kafka::Kafka::default(),
-        RunArgs::default().with_mapped_port((kafka::KAFKA_PORT, kafka::KAFKA_PORT)),
-    );
+    let image = RunnableImage::from(kafka::Kafka::default())
+        .with_mapped_port((kafka::KAFKA_PORT, kafka::KAFKA_PORT));
+    let kafka_node = docker.run(image);
 
     let bootstrap_servers = format!("localhost:{}", kafka_node.get_host_port(kafka::KAFKA_PORT));
 

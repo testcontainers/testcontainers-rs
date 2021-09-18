@@ -1,6 +1,6 @@
 use crate::{core::WaitFor, Image};
 
-const CONTAINER_IDENTIFIER: &str = "parity/parity";
+const NAME: &str = "parity/parity";
 const DEFAULT_TAG: &str = "v2.5.0";
 
 #[derive(Debug)]
@@ -39,28 +39,15 @@ impl Default for ParityEthereum {
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
 
-    fn descriptor(&self) -> String {
-        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stderr("Public node URL:")]
-    }
-
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
-    }
-}
-
-impl ParityEthereum {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        ParityEthereum {
-            tag: tag_str.to_string(),
-            ..self
-        }
     }
 }

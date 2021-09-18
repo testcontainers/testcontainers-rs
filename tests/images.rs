@@ -27,7 +27,7 @@ fn coblox_bitcoincore_getnewaddress() {
 
         let url = format!("http://localhost:{}", host_port);
 
-        let auth = node.image().auth();
+        let auth = &node.image_args().rpc_auth;
 
         bitcoincore_rpc::Client::new(
             url,
@@ -45,9 +45,7 @@ fn coblox_bitcoincore_getnewaddress() {
 fn bigtable_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
-        images::google_cloud_sdk::Emulator::Bigtable,
-    ));
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::bigtable());
     assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::BIGTABLE_PORT)));
 }
 
@@ -55,9 +53,7 @@ fn bigtable_emulator_expose_port() {
 fn datastore_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
-        images::google_cloud_sdk::Emulator::Datastore,
-    ));
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::datastore("test"));
     assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::DATASTORE_PORT)));
 }
 
@@ -65,9 +61,7 @@ fn datastore_emulator_expose_port() {
 fn firestore_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
-        images::google_cloud_sdk::Emulator::Firestore,
-    ));
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::firestore());
     assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::FIRESTORE_PORT)));
 }
 
@@ -75,9 +69,7 @@ fn firestore_emulator_expose_port() {
 fn pubsub_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::new(
-        images::google_cloud_sdk::Emulator::PubSub,
-    ));
+    let node = docker.run(images::google_cloud_sdk::CloudSdk::pubsub());
     assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::PUBSUB_PORT)));
 }
 
@@ -245,7 +237,7 @@ fn generic_image() {
     let user = "postgres-user-test";
     let password = "postgres-password-test";
 
-    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine")
+    let generic_postgres = images::generic::GenericImage::new("postgres", "9.6-alpine")
         .with_wait_for(WaitFor::message_on_stderr(
             "database system is ready to accept connections",
         ))
@@ -277,7 +269,7 @@ fn generic_image_with_custom_entrypoint() {
     let docker = clients::Cli::default();
     let msg = WaitFor::message_on_stdout("server is ready");
 
-    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server", "latest")
         .with_wait_for(msg.clone());
 
     let node = docker.run(generic);
@@ -290,7 +282,7 @@ fn generic_image_with_custom_entrypoint() {
             .unwrap()
     );
 
-    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server", "latest")
         .with_wait_for(msg)
         .with_entrypoint("/bar");
 
@@ -343,8 +335,9 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let free_local_port = free_local_port().unwrap();
 
     let docker = clients::Cli::default();
-    let run_args = RunArgs::default().with_mapped_port((free_local_port, 5432));
-    let _node = docker.run_with_args(images::postgres::Postgres::default(), run_args);
+    let image = RunnableImage::from(images::postgres::Postgres::default())
+        .with_mapped_port((free_local_port, 5432));
+    let _node = docker.run(image);
 
     let mut conn = postgres::Client::connect(
         &format!(
@@ -363,8 +356,8 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
 #[test]
 fn postgres_custom_version() {
     let docker = clients::Cli::default();
-    let postgres_image = images::postgres::Postgres::default().with_version(13);
-    let node = docker.run(postgres_image);
+    let image = RunnableImage::from(images::postgres::Postgres::default()).with_tag("13-alpine");
+    let node = docker.run(image);
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",

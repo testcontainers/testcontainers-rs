@@ -1,6 +1,6 @@
 use crate::{core::WaitFor, Image};
 
-const CONTAINER_IDENTIFIER: &str = "softwaremill/elasticmq";
+const NAME: &str = "softwaremill/elasticmq";
 const DEFAULT_TAG: &str = "0.14.6";
 
 #[derive(Debug, Default, Clone)]
@@ -33,28 +33,15 @@ impl Default for ElasticMq {
 impl Image for ElasticMq {
     type Args = ElasticMqArgs;
 
-    fn descriptor(&self) -> String {
-        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Started SQS rest server")]
-    }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        ElasticMq { arguments, ..self }
-    }
-}
-
-impl ElasticMq {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        ElasticMq {
-            tag: tag_str.to_string(),
-            ..self
-        }
     }
 }

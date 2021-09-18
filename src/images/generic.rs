@@ -1,12 +1,13 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct GenericImage {
-    descriptor: String,
+    name: String,
+    tag: String,
     arguments: Vec<String>,
-    volumes: HashMap<String, String>,
-    env_vars: HashMap<String, String>,
+    volumes: BTreeMap<String, String>,
+    env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
 }
@@ -14,10 +15,11 @@ pub struct GenericImage {
 impl Default for GenericImage {
     fn default() -> Self {
         Self {
-            descriptor: "".to_owned(),
+            name: "".to_owned(),
+            tag: "".to_owned(),
             arguments: vec![],
-            volumes: HashMap::new(),
-            env_vars: HashMap::new(),
+            volumes: BTreeMap::new(),
+            env_vars: BTreeMap::new(),
             wait_for: Vec::new(),
             entrypoint: None,
         }
@@ -25,9 +27,10 @@ impl Default for GenericImage {
 }
 
 impl GenericImage {
-    pub fn new<S: Into<String>>(descriptor: S) -> GenericImage {
+    pub fn new<S: Into<String>>(name: S, tag: S) -> GenericImage {
         Self {
-            descriptor: descriptor.into(),
+            name: name.into(),
+            tag: tag.into(),
             ..Default::default()
         }
     }
@@ -56,16 +59,16 @@ impl GenericImage {
 impl Image for GenericImage {
     type Args = Vec<String>;
 
-    fn descriptor(&self) -> String {
-        self.descriptor.to_owned()
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         self.wait_for.clone()
-    }
-
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
     }
 
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
@@ -74,10 +77,6 @@ impl Image for GenericImage {
 
     fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.volumes.iter())
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
     }
 
     fn entrypoint(&self) -> Option<String> {
@@ -91,7 +90,7 @@ mod tests {
 
     #[test]
     fn should_return_env_vars() {
-        let image = GenericImage::new("hello")
+        let image = GenericImage::new("hello-world", "latest")
             .with_env_var("one-key", "one-value")
             .with_env_var("two-key", "two-value");
 

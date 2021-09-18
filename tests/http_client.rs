@@ -45,7 +45,7 @@ async fn start_containers_in_parallel() {
 
     let docker = clients::Http::default();
 
-    let image = GenericImage::new("hello-world").with_wait_for(WaitFor::seconds(2));
+    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
 
     let run_1 = docker.run(image.clone());
     let run_2 = docker.run(image.clone());

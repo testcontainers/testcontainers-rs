@@ -1,6 +1,6 @@
 use crate::{core::WaitFor, Image};
 
-const CONTAINER_IDENTIFIER: &str = "zookeeper";
+const NAME: &str = "zookeeper";
 const DEFAULT_TAG: &str = "3.6.2";
 
 #[derive(Debug, Default, Clone)]
@@ -31,27 +31,15 @@ impl Default for Zookeeper {
 impl Image for Zookeeper {
     type Args = ZookeeperArgs;
 
-    fn descriptor(&self) -> String {
-        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Started AdminServer")]
-    }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        Zookeeper { arguments, ..self }
-    }
-}
-impl Zookeeper {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        Zookeeper {
-            tag: tag_str.to_string(),
-            ..self
-        }
     }
 }

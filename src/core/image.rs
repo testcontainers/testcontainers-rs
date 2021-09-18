@@ -1,4 +1,4 @@
-use std::{env::var, time::Duration};
+use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
 
 /// Represents a docker image.
 ///
@@ -10,8 +10,8 @@ use std::{env::var, time::Duration};
 /// [docker_run]: trait.Docker.html#tymethod.run
 pub trait Image
 where
-    Self: Sized + Default,
-    Self::Args: Default + IntoIterator<Item = String>,
+    Self: Sized,
+    Self::Args: IntoIterator<Item = String> + Clone + Debug,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -25,13 +25,13 @@ where
     /// testing. Only expose those that actually make sense for this case.
     type Args;
 
-    /// The descriptor of the docker image.
-    ///
-    /// This should return a full-qualified descriptor.
+    /// The name of the docker image to pull from the Docker Hub registry.
+    fn name(&self) -> String;
+
     /// Implementations are encouraged to include a tag that will not change (i.e. NOT latest)
     /// in order to prevent test code from randomly breaking because the underlying docker
     /// suddenly changed.
-    fn descriptor(&self) -> String;
+    fn tag(&self) -> String;
 
     /// Returns a list of conditions that need to be met before a started container is considered ready.
     ///
@@ -44,9 +44,6 @@ where
     /// potentially follow up with a [`WaitFor::Duration`] in case the container usually needs a little
     /// more time before it is ready.
     fn ready_conditions(&self) -> Vec<WaitFor>;
-
-    /// Returns the arguments this instance was created with.
-    fn args(&self) -> Self::Args;
 
     /// There are a couple of things regarding the environment variables of images:
     ///
@@ -72,9 +69,6 @@ where
         Box::new(std::iter::empty())
     }
 
-    /// Re-configures the current instance of this image with the given arguments.
-    fn with_args(self, arguments: Self::Args) -> Self;
-
     /// Returns the entrypoint this instance was created with.
     fn entrypoint(&self) -> Option<String> {
         None
@@ -86,6 +80,142 @@ where
     /// no EXPOSE instruction in the Dockerfile of an image.
     fn expose_ports(&self) -> Vec<u16> {
         Default::default()
+    }
+}
+
+#[derive(Debug)]
+pub struct RunnableImage<I: Image> {
+    image: I,
+    image_args: I::Args,
+    image_tag: Option<String>,
+    container_name: Option<String>,
+    network: Option<String>,
+    env_vars: BTreeMap<String, String>,
+    volumes: BTreeMap<String, String>,
+    ports: Option<Vec<Port>>,
+}
+
+impl<I: Image> RunnableImage<I> {
+    pub fn inner(&self) -> &I {
+        &self.image
+    }
+
+    pub fn args(&self) -> &I::Args {
+        &self.image_args
+    }
+
+    pub fn network(&self) -> &Option<String> {
+        &self.network
+    }
+
+    pub fn container_name(&self) -> &Option<String> {
+        &self.container_name
+    }
+
+    pub fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.image.env_vars().chain(self.env_vars.iter()))
+    }
+
+    pub fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.image.volumes().chain(self.volumes.iter()))
+    }
+
+    pub fn ports(&self) -> &Option<Vec<Port>> {
+        &self.ports
+    }
+
+    pub fn entrypoint(&self) -> Option<String> {
+        self.image.entrypoint()
+    }
+
+    pub fn descriptor(&self) -> String {
+        if let Some(tag) = &self.image_tag {
+            format!("{}:{}", self.image.name(), tag)
+        } else {
+            format!("{}:{}", self.image.name(), self.image.tag())
+        }
+    }
+
+    pub fn ready_conditions(&self) -> Vec<WaitFor> {
+        self.image.ready_conditions()
+    }
+
+    pub fn expose_ports(&self) -> Vec<u16> {
+        self.image.expose_ports()
+    }
+}
+
+impl<I: Image> RunnableImage<I> {
+    /// There is no guarantee that the specified tag for an image would result in a
+    /// running container. Users of this API are advised to use this at their own risk.
+    pub fn with_tag(self, tag: impl Into<String>) -> Self {
+        Self {
+            image_tag: Some(tag.into()),
+            ..self
+        }
+    }
+
+    pub fn with_container_name(self, name: impl Into<String>) -> Self {
+        Self {
+            container_name: Some(name.into()),
+            ..self
+        }
+    }
+
+    pub fn with_network(self, network: impl Into<String>) -> Self {
+        Self {
+            network: Some(network.into()),
+            ..self
+        }
+    }
+
+    pub fn with_env_var(self, env_var: (impl Into<String>, impl Into<String>)) -> Self {
+        let mut env_vars = self.env_vars;
+        let (key, value) = env_var;
+        env_vars.insert(key.into(), value.into());
+        Self { env_vars, ..self }
+    }
+
+    pub fn with_volume(self, volume: (impl Into<String>, impl Into<String>)) -> Self {
+        let mut volumes = self.volumes;
+        let (orig, dest) = volume;
+        volumes.insert(orig.into(), dest.into());
+        Self { volumes, ..self }
+    }
+
+    pub fn with_mapped_port<P: Into<Port>>(self, port: P) -> Self {
+        let mut ports = self.ports.unwrap_or_default();
+        ports.push(port.into());
+
+        Self {
+            ports: Some(ports),
+            ..self
+        }
+    }
+}
+
+impl<I> From<I> for RunnableImage<I>
+where
+    I: Image,
+    I::Args: Default,
+{
+    fn from(image: I) -> Self {
+        Self::from((image, I::Args::default()))
+    }
+}
+
+impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
+    fn from((image, image_args): (I, I::Args)) -> Self {
+        Self {
+            image,
+            image_args,
+            image_tag: None,
+            container_name: None,
+            network: None,
+            env_vars: BTreeMap::default(),
+            volumes: BTreeMap::default(),
+            ports: None,
+        }
     }
 }
 
