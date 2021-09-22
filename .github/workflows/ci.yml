@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: dprint/check@v1.2
+      - uses: dprint/check@v2.0
   lint:
     runs-on: ubuntu-latest
     steps:
