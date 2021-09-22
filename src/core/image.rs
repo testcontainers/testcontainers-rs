@@ -169,16 +169,14 @@ impl<I: Image> RunnableImage<I> {
         }
     }
 
-    pub fn with_env_var(self, env_var: (impl Into<String>, impl Into<String>)) -> Self {
+    pub fn with_env_var(self, (key, value): (impl Into<String>, impl Into<String>)) -> Self {
         let mut env_vars = self.env_vars;
-        let (key, value) = env_var;
         env_vars.insert(key.into(), value.into());
         Self { env_vars, ..self }
     }
 
-    pub fn with_volume(self, volume: (impl Into<String>, impl Into<String>)) -> Self {
+    pub fn with_volume(self, (orig, dest): (impl Into<String>, impl Into<String>)) -> Self {
         let mut volumes = self.volumes;
-        let (orig, dest) = volume;
         volumes.insert(orig.into(), dest.into());
         Self { volumes, ..self }
     }
