@@ -1,19 +1,23 @@
+#[cfg(feature = "experimental")]
 use futures::{stream::BoxStream, StreamExt};
 use std::{
     fmt, io,
     io::{BufRead, BufReader, Read},
 };
 
+#[cfg(feature = "experimental")]
 pub(crate) struct LogStreamAsync<'d> {
     inner: BoxStream<'d, Result<String, std::io::Error>>,
 }
 
+#[cfg(feature = "experimental")]
 impl<'d> fmt::Debug for LogStreamAsync<'d> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LogStreamAsync").finish()
     }
 }
 
+#[cfg(feature = "experimental")]
 impl<'d> LogStreamAsync<'d> {
     pub fn new(stream: BoxStream<'d, Result<String, std::io::Error>>) -> Self {
         Self { inner: stream }
