@@ -11,7 +11,6 @@ const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 #[derive(Debug)]
 pub struct BitcoinCore {
     tag: String,
-    arguments: BitcoinCoreImageArgs,
 }
 
 #[derive(Debug, Clone)]
@@ -206,7 +205,6 @@ impl Default for BitcoinCore {
     fn default() -> Self {
         BitcoinCore {
             tag: "0.21.0".into(),
-            arguments: BitcoinCoreImageArgs::default(),
         }
     }
 }

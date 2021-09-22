@@ -6,7 +6,6 @@ const DEFAULT_TAG: &str = "v6.1.3";
 #[derive(Debug)]
 pub struct GanacheCli {
     tag: String,
-    arguments: GanacheCliArgs,
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +19,6 @@ impl Default for GanacheCli {
     fn default() -> Self {
         GanacheCli {
             tag: DEFAULT_TAG.to_owned(),
-            arguments: GanacheCliArgs::default(),
         }
     }
 }

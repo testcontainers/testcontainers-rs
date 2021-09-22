@@ -5,7 +5,6 @@ const DEFAULT_TAG: &str = "v2.5.0";
 
 #[derive(Debug)]
 pub struct ParityEthereum {
-    arguments: ParityEthereumArgs,
     tag: String,
 }
 
@@ -30,7 +29,6 @@ impl IntoIterator for ParityEthereumArgs {
 impl Default for ParityEthereum {
     fn default() -> Self {
         ParityEthereum {
-            arguments: ParityEthereumArgs {},
             tag: DEFAULT_TAG.to_string(),
         }
     }

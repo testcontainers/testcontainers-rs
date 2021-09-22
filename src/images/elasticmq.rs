@@ -18,14 +18,12 @@ impl IntoIterator for ElasticMqArgs {
 #[derive(Debug)]
 pub struct ElasticMq {
     tag: String,
-    arguments: ElasticMqArgs,
 }
 
 impl Default for ElasticMq {
     fn default() -> Self {
         ElasticMq {
             tag: DEFAULT_TAG.to_string(),
-            arguments: ElasticMqArgs {},
         }
     }
 }

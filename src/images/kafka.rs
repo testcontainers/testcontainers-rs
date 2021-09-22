@@ -36,7 +36,6 @@ zookeeper-server-start zookeeper.properties &
 
 #[derive(Debug)]
 pub struct Kafka {
-    arguments: KafkaArgs,
     env_vars: HashMap<String, String>,
     tag: String,
 }
@@ -75,7 +74,6 @@ impl Default for Kafka {
         );
 
         Self {
-            arguments: KafkaArgs::default(),
             env_vars,
             tag: DEFAULT_TAG.to_owned(),
         }

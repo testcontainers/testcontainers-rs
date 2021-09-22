@@ -19,7 +19,6 @@ impl IntoIterator for OrientDbArgs {
 #[derive(Debug)]
 pub struct OrientDb {
     tag: String,
-    arguments: OrientDbArgs,
     env_vars: HashMap<String, String>,
 }
 
@@ -30,7 +29,6 @@ impl Default for OrientDb {
 
         OrientDb {
             tag: DEFAULT_TAG.to_string(),
-            arguments: OrientDbArgs {},
             env_vars,
         }
     }

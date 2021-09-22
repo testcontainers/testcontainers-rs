@@ -19,14 +19,12 @@ impl IntoIterator for DynamoDbArgs {
 #[derive(Debug)]
 pub struct DynamoDb {
     tag: String,
-    arguments: DynamoDbArgs,
 }
 
 impl Default for DynamoDb {
     fn default() -> Self {
         DynamoDb {
             tag: DEFAULT_TAG.to_string(),
-            arguments: DynamoDbArgs {},
         }
     }
 }

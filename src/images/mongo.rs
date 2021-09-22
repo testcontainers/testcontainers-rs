@@ -18,14 +18,12 @@ impl IntoIterator for MongoArgs {
 #[derive(Debug)]
 pub struct Mongo {
     tag: String,
-    arguments: MongoArgs,
 }
 
 impl Default for Mongo {
     fn default() -> Self {
         Mongo {
             tag: DEFAULT_TAG.to_string(),
-            arguments: MongoArgs {},
         }
     }
 }

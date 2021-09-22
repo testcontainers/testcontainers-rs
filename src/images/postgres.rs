@@ -7,7 +7,6 @@ const DEFAULT_TAG: &str = "11-alpine";
 #[derive(Debug)]
 pub struct Postgres {
     tag: String,
-    arguments: PostgresArgs,
     env_vars: HashMap<String, String>,
 }
 
@@ -31,7 +30,6 @@ impl Default for Postgres {
 
         Self {
             tag: DEFAULT_TAG.to_owned(),
-            arguments: PostgresArgs::default(),
             env_vars,
         }
     }

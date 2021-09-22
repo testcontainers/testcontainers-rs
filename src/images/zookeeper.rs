@@ -17,14 +17,12 @@ impl IntoIterator for ZookeeperArgs {
 #[derive(Debug)]
 pub struct Zookeeper {
     tag: String,
-    arguments: ZookeeperArgs,
 }
 
 impl Default for Zookeeper {
     fn default() -> Self {
         Zookeeper {
             tag: DEFAULT_TAG.to_string(),
-            arguments: ZookeeperArgs {},
         }
     }
 }

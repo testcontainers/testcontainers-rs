@@ -18,14 +18,12 @@ impl IntoIterator for RedisArgs {
 #[derive(Debug)]
 pub struct Redis {
     tag: String,
-    arguments: RedisArgs,
 }
 
 impl Default for Redis {
     fn default() -> Self {
         Redis {
             tag: DEFAULT_TAG.to_string(),
-            arguments: RedisArgs {},
         }
     }
 }

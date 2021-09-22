@@ -5,7 +5,6 @@ use std::collections::BTreeMap;
 pub struct GenericImage {
     name: String,
     tag: String,
-    arguments: Vec<String>,
     volumes: BTreeMap<String, String>,
     env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
@@ -17,7 +16,6 @@ impl Default for GenericImage {
         Self {
             name: "".to_owned(),
             tag: "".to_owned(),
-            arguments: vec![],
             volumes: BTreeMap::new(),
             env_vars: BTreeMap::new(),
             wait_for: Vec::new(),
