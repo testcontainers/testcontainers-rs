@@ -65,7 +65,7 @@ jobs:
           echo "::set-output name=version::$VERSION"
 
       - name: Create pull request for merging release-branch back into dev
-        uses: thomaseizinger/create-pull-request@1.0.0
+        uses: thomaseizinger/create-pull-request@1.2.1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           head: release/${{ steps.extract-version.outputs.version }}
