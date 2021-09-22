@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A new client implementation that talks to the Docker daemon via **HTTP**.
   This implementation is available as `testcontainers::clients::Http` and provides an **async** interface.
+  As of now, this implementation is guarded behind the `experimental` feature-flag and not yet guaranteed to work flawlessly.
 - Allow using `podman` CLI in addition to `docker`
 - The `TESTCONTAINERS` environment variable to control what happens to containers and networks at the end of a test.
   The default value is `remove` which deletes all containers and networks that were used in the test.

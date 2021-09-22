@@ -22,6 +22,9 @@ sha2 = "0.9"
 shiplift = { version = "0.7", default-features = false, features = [ "chrono", "unix-socket" ] }
 tokio = { version = "1", features = [ "macros" ] }
 
+[features]
+experimental = [ ]
+
 [dev-dependencies]
 bitcoincore-rpc = "0.13"
 json = "0.12"

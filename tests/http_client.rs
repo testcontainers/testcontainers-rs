@@ -1,3 +1,5 @@
+#![cfg(feature = "experimental")]
+
 use shiplift::ImageListOptions;
 use std::time::Duration;
 use testcontainers::{
