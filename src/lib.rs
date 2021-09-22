@@ -36,7 +36,7 @@
 //! [`Images`]: trait.Image.html#implementors
 //! [`Container`]: struct.Container.html
 
-pub use crate::core::{Container, ContainerAsync, Image, RunArgs};
+pub use crate::core::{Container, ContainerAsync, Image, RunnableImage};
 
 /// All available Docker clients.
 pub mod clients;

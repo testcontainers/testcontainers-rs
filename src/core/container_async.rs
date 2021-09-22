@@ -1,6 +1,6 @@
 use crate::{
     core::{env, env::Command, logs::LogStreamAsync, ports::Ports, WaitFor},
-    Image,
+    Image, RunnableImage,
 };
 use async_trait::async_trait;
 use futures::{executor::block_on, FutureExt};
@@ -30,17 +30,20 @@ use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 /// ```
 ///
 /// [drop_impl]: struct.ContainerAsync.html#impl-Drop
-pub struct ContainerAsync<'d, I> {
+pub struct ContainerAsync<'d, I: Image> {
     id: String,
     docker_client: Box<dyn DockerAsync>,
-    image: I,
+    image: RunnableImage<I>,
     command: Command,
 
     /// Tracks the lifetime of the client to make sure the container is dropped before the client.
     client_lifetime: PhantomData<&'d ()>,
 }
 
-impl<'d, I> ContainerAsync<'d, I> {
+impl<'d, I> ContainerAsync<'d, I>
+where
+    I: Image,
+{
     /// Returns the id of this container.
     pub fn id(&self) -> &str {
         &self.id
@@ -107,7 +110,7 @@ impl<'d, I> ContainerAsync<'d, I> {
 
 impl<'d, I> fmt::Debug for ContainerAsync<'d, I>
 where
-    I: fmt::Debug,
+    I: fmt::Debug + Image,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ContainerAsync")
@@ -126,8 +129,8 @@ pub(crate) trait DockerAsync
 where
     Self: Sync,
 {
-    fn stdout_logs<'s>(&'s self, id: &str) -> LogStreamAsync<'s>;
-    fn stderr_logs<'s>(&'s self, id: &str) -> LogStreamAsync<'s>;
+    fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_>;
+    fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_>;
     async fn ports(&self, id: &str) -> Ports;
     async fn inspect(&self, id: &str) -> ContainerDetails;
     async fn rm(&self, id: &str);
@@ -144,7 +147,7 @@ where
     pub(crate) async fn new(
         id: String,
         docker_client: impl DockerAsync + 'static,
-        image: I,
+        image: RunnableImage<I>,
         command: env::Command,
     ) -> ContainerAsync<'d, I> {
         let container = ContainerAsync {
@@ -188,7 +191,10 @@ where
     }
 }
 
-impl<'d, I> Drop for ContainerAsync<'d, I> {
+impl<'d, I> Drop for ContainerAsync<'d, I>
+where
+    I: Image,
+{
     fn drop(&mut self) {
         block_on(self.drop_async())
     }

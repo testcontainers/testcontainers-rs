@@ -1,22 +1,17 @@
-use crate::core::{Image, WaitFor};
+use crate::{core::WaitFor, Image};
 use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
+const NAME: &str = "coblox/bitcoin-core";
 const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 
 #[derive(Debug)]
 pub struct BitcoinCore {
     tag: String,
     arguments: BitcoinCoreImageArgs,
-}
-
-impl BitcoinCore {
-    pub fn auth(&self) -> &RpcAuth {
-        &self.arguments.rpc_auth
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -190,12 +185,13 @@ impl IntoIterator for BitcoinCoreImageArgs {
 
 impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
 
-    fn descriptor(&self) -> String {
-        format!("coblox/bitcoin-core:{}", self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -204,22 +200,6 @@ impl Image for BitcoinCore {
             WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
         ]
     }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        BitcoinCore { arguments, ..self }
-    }
 }
 
 impl Default for BitcoinCore {
@@ -227,15 +207,6 @@ impl Default for BitcoinCore {
         BitcoinCore {
             tag: "0.21.0".into(),
             arguments: BitcoinCoreImageArgs::default(),
-        }
-    }
-}
-
-impl BitcoinCore {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        BitcoinCore {
-            tag: tag_str.to_string(),
-            ..self
         }
     }
 }

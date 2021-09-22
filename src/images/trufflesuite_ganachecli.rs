@@ -1,5 +1,7 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
+
+const NAME: &str = "trufflesuite/ganache-cli";
+const DEFAULT_TAG: &str = "v6.1.3";
 
 #[derive(Debug)]
 pub struct GanacheCli {
@@ -17,7 +19,7 @@ pub struct GanacheCliArgs {
 impl Default for GanacheCli {
     fn default() -> Self {
         GanacheCli {
-            tag: "v6.1.3".into(),
+            tag: DEFAULT_TAG.to_owned(),
             arguments: GanacheCliArgs::default(),
         }
     }
@@ -56,31 +58,16 @@ impl IntoIterator for GanacheCliArgs {
 
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
 
-    fn descriptor(&self) -> String {
-        format!("trufflesuite/ganache-cli:{}", self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Listening on localhost:")]
-    }
-
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        GanacheCli { arguments, ..self }
     }
 }

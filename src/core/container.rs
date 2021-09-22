@@ -1,7 +1,8 @@
 use crate::{
-    core::{docker::Docker, env::Command, image::WaitFor},
-    Image,
+    core::{env::Command, image::WaitFor, logs::LogStream, ports::Ports},
+    Image, RunnableImage,
 };
+use shiplift::rep::ContainerDetails;
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
@@ -24,10 +25,10 @@ use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 /// ```
 ///
 /// [drop_impl]: struct.Container.html#impl-Drop
-pub struct Container<'d, I> {
+pub struct Container<'d, I: Image> {
     id: String,
     docker_client: Box<dyn Docker>,
-    image: I,
+    image: RunnableImage<I>,
     command: Command,
 
     /// Tracks the lifetime of the client to make sure the container is dropped before the client.
@@ -36,7 +37,7 @@ pub struct Container<'d, I> {
 
 impl<'d, I> fmt::Debug for Container<'d, I>
 where
-    I: fmt::Debug,
+    I: fmt::Debug + Image,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Container")
@@ -59,7 +60,7 @@ where
     pub(crate) fn new(
         id: String,
         docker_client: impl Docker + 'static,
-        image: I,
+        image: RunnableImage<I>,
         command: Command,
     ) -> Self {
         let container = Container {
@@ -77,13 +78,19 @@ where
 
     /// Returns a reference to the [`Image`] of this container.
     ///
-    /// Access to this is useful if the [`arguments`] of the [`Image`] change how to connect to the
-    /// Access to this is useful to retrieve [`Image`] specific information such as authentication details or other relevant information which have been passed as [`arguments`]
+    /// [`Image`]: trait.Image.html
+    pub fn image(&self) -> &I {
+        self.image.inner()
+    }
+
+    /// Returns a reference to the [`arguments`] of the [`Image`] of this container.
+    ///
+    /// Access to this is useful to retrieve relevant information which had been passed as [`arguments`]
     ///
     /// [`Image`]: trait.Image.html
     /// [`arguments`]: trait.Image.html#associatedtype.Args
-    pub fn image(&self) -> &I {
-        &self.image
+    pub fn image_args(&self) -> &I::Args {
+        self.image.args()
     }
 
     fn block_until_ready(&self) {
@@ -112,7 +119,10 @@ where
     }
 }
 
-impl<'d, I> Container<'d, I> {
+impl<'d, I> Container<'d, I>
+where
+    I: Image,
+{
     /// Returns the id of this container.
     pub fn id(&self) -> &str {
         &self.id
@@ -175,11 +185,28 @@ impl<'d, I> Container<'d, I> {
 ///
 /// Setting it to `keep` will stop container.
 /// Setting it to `remove` will remove it.
-impl<'d, I> Drop for Container<'d, I> {
+impl<'d, I> Drop for Container<'d, I>
+where
+    I: Image,
+{
     fn drop(&mut self) {
         match self.command {
             Command::Keep => {}
             Command::Remove => self.rm(),
         }
     }
+}
+
+/// Defines operations that we need to perform on docker containers and other entities.
+///
+/// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
+/// All functionality of this trait is available on [`Container`]s directly.
+pub(crate) trait Docker {
+    fn stdout_logs(&self, id: &str) -> LogStream;
+    fn stderr_logs(&self, id: &str) -> LogStream;
+    fn ports(&self, id: &str) -> Ports;
+    fn inspect(&self, id: &str) -> ContainerDetails;
+    fn rm(&self, id: &str);
+    fn stop(&self, id: &str);
+    fn start(&self, id: &str);
 }

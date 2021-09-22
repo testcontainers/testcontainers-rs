@@ -1,7 +1,6 @@
 use crate::{core::WaitFor, Image};
-use std::collections::HashMap;
 
-const CONTAINER_IDENTIFIER: &str = "parity/parity";
+const NAME: &str = "parity/parity";
 const DEFAULT_TAG: &str = "v2.5.0";
 
 #[derive(Debug)]
@@ -39,40 +38,16 @@ impl Default for ParityEthereum {
 
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
 
-    fn descriptor(&self) -> String {
-        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
+    }
+
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stderr("Public node URL:")]
-    }
-
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
-    }
-}
-
-impl ParityEthereum {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        ParityEthereum {
-            tag: tag_str.to_string(),
-            ..self
-        }
     }
 }

@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgrade default bitcoin-core image version to 0.21.0. This allows us to remove `-debug` for bitcoind and replace it with
   `-startupnotify=echo ...`. More details on bitcoind 0.21.0 can be found [here](https://github.com/bitcoin/bitcoin/blob/master/doc/release-notes/release-notes-0.21.0.md).
   Note: This release also removed the default wallet.
+- `expose_port` functionality to `Image` trait.
+- `Google Cloud SDK` image
 
 ### Changed
 
@@ -29,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Make `Docker` trait `pub(crate)`.
   This reduces the API surface of the crate which allows for fewer breaking changes in the future.
   All functionality from `Docker` (start, stop, rm, and ports) is available on a container directly.
+- `descriptor` is broken down into `name` and `tag` within `Image` trait.
 
 ### Removed
 
@@ -37,6 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   We now wait for 2 seconds unconditionally after the specified message has been found.
 - Support for the `KEEP_CONTAINERS` env variable.
   The functionality of `KEEP_CONTAINERS=true` is superseded by `TESTCONTAINERS=keep`.
+- `with_entrypoint` from the `Image` trait.
+  This functionality is not used within the library.
+  Images that need this kind of customization can always implement it on their own type directly but there is no need to force it onto them.
+- `Image::EnvVars` and `Image::Volumes` associated types.
+  The respective functions `Image::env_vars` and `Image::volumes` still exist but now return a trait object that must implement `Iterator<Item = (&String, &String)`.
+  This allows us to provide a default implementation which reduces the boilerplate in defining new images.
+- `args` and `with_args` from `Image` trait.
 
 ### Fixed
 
