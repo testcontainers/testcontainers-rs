@@ -14,7 +14,7 @@ jobs:
           profile: minimal
           toolchain: 1.46.0
           override: true
-      - uses: Swatinem/rust-cache@v1.2.0
+      - uses: Swatinem/rust-cache@v1.3.0
       - run: cargo build
   test:
     runs-on: ubuntu-latest
@@ -26,13 +26,13 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1.2.0
+      - uses: Swatinem/rust-cache@v1.3.0
       - run: cargo test
   style:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: dprint/check@v1.2
+      - uses: dprint/check@v2.0
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -44,5 +44,5 @@ jobs:
           toolchain: stable
           override: true
           components: clippy
-      - uses: Swatinem/rust-cache@v1.2.0
+      - uses: Swatinem/rust-cache@v1.3.0
       - run: cargo clippy --all-targets -- -D warnings
