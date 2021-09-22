@@ -9,18 +9,6 @@ pub struct Postgres {
     env_vars: HashMap<String, String>,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct PostgresArgs;
-
-impl IntoIterator for PostgresArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        vec![].into_iter()
-    }
-}
-
 impl Default for Postgres {
     fn default() -> Self {
         let mut env_vars = HashMap::new();
@@ -32,7 +20,7 @@ impl Default for Postgres {
 }
 
 impl Image for Postgres {
-    type Args = PostgresArgs;
+    type Args = ();
 
     fn name(&self) -> String {
         NAME.to_owned()

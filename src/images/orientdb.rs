@@ -4,18 +4,6 @@ use std::collections::HashMap;
 const NAME: &str = "orientdb";
 const TAG: &str = "3.1.3";
 
-#[derive(Debug, Default, Clone)]
-pub struct OrientDbArgs;
-
-impl IntoIterator for OrientDbArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-        vec![].into_iter()
-    }
-}
-
 #[derive(Debug)]
 pub struct OrientDb {
     env_vars: HashMap<String, String>,
@@ -31,7 +19,7 @@ impl Default for OrientDb {
 }
 
 impl Image for OrientDb {
-    type Args = OrientDbArgs;
+    type Args = ();
 
     fn name(&self) -> String {
         NAME.to_owned()

@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "trufflesuite/ganache-cli";
 const TAG: &str = "v6.1.3";
@@ -23,11 +23,8 @@ impl Default for GanacheCliArgs {
     }
 }
 
-impl IntoIterator for GanacheCliArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+impl ImageArgs for GanacheCliArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let mut args = Vec::new();
 
         if !self.mnemonic.is_empty() {
@@ -40,7 +37,7 @@ impl IntoIterator for GanacheCliArgs {
         args.push("-i".to_string());
         args.push(self.network_id.to_string());
 
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 

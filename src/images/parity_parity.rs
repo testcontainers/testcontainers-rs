@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "parity/parity";
 const TAG: &str = "v2.5.0";
@@ -9,18 +9,17 @@ pub struct ParityEthereum;
 #[derive(Debug, Default, Clone)]
 pub struct ParityEthereumArgs;
 
-impl IntoIterator for ParityEthereumArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        vec![
-            "--config=dev".to_string(),
-            "--jsonrpc-apis=all".to_string(),
-            "--unsafe-expose".to_string(),
-            "--tracing=on".to_string(),
-        ]
-        .into_iter()
+impl ImageArgs for ParityEthereumArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(
+            vec![
+                "--config=dev".to_string(),
+                "--jsonrpc-apis=all".to_string(),
+                "--unsafe-expose".to_string(),
+                "--tracing=on".to_string(),
+            ]
+            .into_iter(),
+        )
     }
 }
 

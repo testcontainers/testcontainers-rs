@@ -4,7 +4,7 @@ pub(crate) use container_async::DockerAsync;
 
 pub use self::{
     container::Container,
-    image::{Image, Port, RunnableImage, WaitFor},
+    image::{Image, ImageArgs, Port, RunnableImage, WaitFor},
 };
 
 #[cfg(feature = "experimental")]

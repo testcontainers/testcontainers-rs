@@ -3,23 +3,11 @@ use crate::{core::WaitFor, Image};
 const NAME: &str = "mongo";
 const TAG: &str = "4.0.17";
 
-#[derive(Debug, Default, Clone)]
-pub struct MongoArgs;
-
-impl IntoIterator for MongoArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-        vec![].into_iter()
-    }
-}
-
 #[derive(Default, Debug)]
 pub struct Mongo;
 
 impl Image for Mongo {
-    type Args = MongoArgs;
+    type Args = ();
 
     fn name(&self) -> String {
         NAME.to_owned()

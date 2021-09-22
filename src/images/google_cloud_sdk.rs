@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "google/cloud-sdk";
 const TAG: &str = "353.0.0";
@@ -24,11 +24,8 @@ pub enum Emulator {
     PubSub,
 }
 
-impl IntoIterator for CloudSdkArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+impl ImageArgs for CloudSdkArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let (emulator, project) = match &self.emulator {
             Emulator::Bigtable => ("bigtable", None),
             Emulator::Datastore { project } => ("datastore", Some(project)),
@@ -49,7 +46,7 @@ impl IntoIterator for CloudSdkArgs {
         args.push("--host-port".to_owned());
         args.push(format!("{}:{}", self.host, self.port));
 
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 

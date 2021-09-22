@@ -1,5 +1,11 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 use std::collections::BTreeMap;
+
+impl ImageArgs for Vec<String> {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(self.into_iter())
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct GenericImage {

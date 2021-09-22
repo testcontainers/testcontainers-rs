@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
 pub trait Image
 where
     Self: Sized,
-    Self::Args: IntoIterator<Item = String> + Clone + Debug,
+    Self::Args: ImageArgs + Clone + Debug,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -80,6 +80,16 @@ where
     /// no EXPOSE instruction in the Dockerfile of an image.
     fn expose_ports(&self) -> Vec<u16> {
         Default::default()
+    }
+}
+
+pub trait ImageArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>>;
+}
+
+impl ImageArgs for () {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(vec![].into_iter())
     }
 }
 
