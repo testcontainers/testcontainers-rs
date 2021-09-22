@@ -2,12 +2,12 @@ use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 const NAME: &str = "confluentinc/cp-kafka";
-const DEFAULT_TAG: &str = "6.1.1";
+const TAG: &str = "6.1.1";
 
 pub const KAFKA_PORT: u16 = 9093;
 const ZOOKEEPER_PORT: u16 = 2181;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct KafkaArgs;
 
 impl IntoIterator for KafkaArgs {
@@ -37,7 +37,6 @@ zookeeper-server-start zookeeper.properties &
 #[derive(Debug)]
 pub struct Kafka {
     env_vars: HashMap<String, String>,
-    tag: String,
 }
 
 impl Default for Kafka {
@@ -73,10 +72,7 @@ impl Default for Kafka {
             "1".to_owned(),
         );
 
-        Self {
-            env_vars,
-            tag: DEFAULT_TAG.to_owned(),
-        }
+        Self { env_vars }
     }
 }
 
@@ -88,7 +84,7 @@ impl Image for Kafka {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

@@ -1,26 +1,16 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "trufflesuite/ganache-cli";
-const DEFAULT_TAG: &str = "v6.1.3";
+const TAG: &str = "v6.1.3";
 
-#[derive(Debug)]
-pub struct GanacheCli {
-    tag: String,
-}
+#[derive(Debug, Default)]
+pub struct GanacheCli;
 
 #[derive(Debug, Clone)]
 pub struct GanacheCliArgs {
     pub network_id: u32,
     pub number_of_accounts: u32,
     pub mnemonic: String,
-}
-
-impl Default for GanacheCli {
-    fn default() -> Self {
-        GanacheCli {
-            tag: DEFAULT_TAG.to_owned(),
-        }
-    }
 }
 
 impl Default for GanacheCliArgs {
@@ -62,7 +52,7 @@ impl Image for GanacheCli {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

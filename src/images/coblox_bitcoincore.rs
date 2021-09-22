@@ -6,12 +6,11 @@ use sha2::Sha256;
 use std::fmt;
 
 const NAME: &str = "coblox/bitcoin-core";
+const TAG: &str = "0.21.0";
 const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 
-#[derive(Debug)]
-pub struct BitcoinCore {
-    tag: String,
-}
+#[derive(Debug, Default)]
+pub struct BitcoinCore;
 
 #[derive(Debug, Clone)]
 pub enum Network {
@@ -190,7 +189,7 @@ impl Image for BitcoinCore {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -198,14 +197,6 @@ impl Image for BitcoinCore {
             WaitFor::message_on_stdout(BITCOIND_STARTUP_MESSAGE),
             WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
         ]
-    }
-}
-
-impl Default for BitcoinCore {
-    fn default() -> Self {
-        BitcoinCore {
-            tag: "0.21.0".into(),
-        }
     }
 }
 

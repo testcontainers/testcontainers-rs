@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "redis";
-const DEFAULT_TAG: &str = "5.0";
+const TAG: &str = "5.0";
 
 #[derive(Debug, Default, Clone)]
 pub struct RedisArgs;
@@ -15,18 +15,8 @@ impl IntoIterator for RedisArgs {
     }
 }
 
-#[derive(Debug)]
-pub struct Redis {
-    tag: String,
-}
-
-impl Default for Redis {
-    fn default() -> Self {
-        Redis {
-            tag: DEFAULT_TAG.to_string(),
-        }
-    }
-}
+#[derive(Debug, Default)]
+pub struct Redis;
 
 impl Image for Redis {
     type Args = RedisArgs;
@@ -36,7 +26,7 @@ impl Image for Redis {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

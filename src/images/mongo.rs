@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "mongo";
-const DEFAULT_TAG: &str = "4.0.17";
+const TAG: &str = "4.0.17";
 
 #[derive(Debug, Default, Clone)]
 pub struct MongoArgs;
@@ -15,18 +15,8 @@ impl IntoIterator for MongoArgs {
     }
 }
 
-#[derive(Debug)]
-pub struct Mongo {
-    tag: String,
-}
-
-impl Default for Mongo {
-    fn default() -> Self {
-        Mongo {
-            tag: DEFAULT_TAG.to_string(),
-        }
-    }
-}
+#[derive(Default, Debug)]
+pub struct Mongo;
 
 impl Image for Mongo {
     type Args = MongoArgs;
@@ -36,7 +26,7 @@ impl Image for Mongo {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

@@ -1,8 +1,8 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "amazon/dynamodb-local";
+const TAG: &str = "latest";
 const DEFAULT_WAIT: u64 = 2000;
-const DEFAULT_TAG: &str = "latest";
 
 #[derive(Debug, Default, Clone)]
 pub struct DynamoDbArgs;
@@ -16,18 +16,8 @@ impl IntoIterator for DynamoDbArgs {
     }
 }
 
-#[derive(Debug)]
-pub struct DynamoDb {
-    tag: String,
-}
-
-impl Default for DynamoDb {
-    fn default() -> Self {
-        DynamoDb {
-            tag: DEFAULT_TAG.to_string(),
-        }
-    }
-}
+#[derive(Default, Debug)]
+pub struct DynamoDb;
 
 impl Image for DynamoDb {
     type Args = DynamoDbArgs;
@@ -37,7 +27,7 @@ impl Image for DynamoDb {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

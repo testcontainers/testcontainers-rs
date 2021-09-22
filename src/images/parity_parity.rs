@@ -1,15 +1,13 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "parity/parity";
-const DEFAULT_TAG: &str = "v2.5.0";
+const TAG: &str = "v2.5.0";
 
-#[derive(Debug)]
-pub struct ParityEthereum {
-    tag: String,
-}
+#[derive(Debug, Default)]
+pub struct ParityEthereum;
 
-#[derive(Default, Debug, Clone)]
-pub struct ParityEthereumArgs {}
+#[derive(Debug, Default, Clone)]
+pub struct ParityEthereumArgs;
 
 impl IntoIterator for ParityEthereumArgs {
     type Item = String;
@@ -26,14 +24,6 @@ impl IntoIterator for ParityEthereumArgs {
     }
 }
 
-impl Default for ParityEthereum {
-    fn default() -> Self {
-        ParityEthereum {
-            tag: DEFAULT_TAG.to_string(),
-        }
-    }
-}
-
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
 
@@ -42,7 +32,7 @@ impl Image for ParityEthereum {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "softwaremill/elasticmq";
-const DEFAULT_TAG: &str = "0.14.6";
+const TAG: &str = "0.14.6";
 
 #[derive(Debug, Default, Clone)]
 pub struct ElasticMqArgs;
@@ -15,18 +15,8 @@ impl IntoIterator for ElasticMqArgs {
     }
 }
 
-#[derive(Debug)]
-pub struct ElasticMq {
-    tag: String,
-}
-
-impl Default for ElasticMq {
-    fn default() -> Self {
-        ElasticMq {
-            tag: DEFAULT_TAG.to_string(),
-        }
-    }
-}
+#[derive(Debug, Default)]
+pub struct ElasticMq;
 
 impl Image for ElasticMq {
     type Args = ElasticMqArgs;
@@ -36,7 +26,7 @@ impl Image for ElasticMq {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

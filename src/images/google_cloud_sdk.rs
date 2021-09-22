@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "google/cloud-sdk";
-const DEFAULT_TAG: &str = "353.0.0";
+const TAG: &str = "353.0.0";
 
 const HOST: &str = "0.0.0.0";
 pub const BIGTABLE_PORT: u16 = 8086;
@@ -55,7 +55,6 @@ impl IntoIterator for CloudSdkArgs {
 
 #[derive(Debug)]
 pub struct CloudSdk {
-    tag: String,
     exposed_port: u16,
     ready_condition: WaitFor,
 }
@@ -68,7 +67,7 @@ impl Image for CloudSdk {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -82,7 +81,6 @@ impl Image for CloudSdk {
 
 impl CloudSdk {
     fn new(port: u16, emulator: Emulator, ready_condition: WaitFor) -> (Self, CloudSdkArgs) {
-        let tag = DEFAULT_TAG.to_owned();
         let arguments = CloudSdkArgs {
             host: HOST.to_owned(),
             port,
@@ -91,7 +89,6 @@ impl CloudSdk {
         let exposed_port = port;
         (
             Self {
-                tag,
                 exposed_port,
                 ready_condition,
             },

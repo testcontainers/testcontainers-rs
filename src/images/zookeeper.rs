@@ -1,10 +1,11 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "zookeeper";
-const DEFAULT_TAG: &str = "3.6.2";
+const TAG: &str = "3.6.2";
 
 #[derive(Debug, Default, Clone)]
 pub struct ZookeeperArgs;
+
 impl IntoIterator for ZookeeperArgs {
     type Item = String;
     type IntoIter = ::std::vec::IntoIter<String>;
@@ -14,18 +15,9 @@ impl IntoIterator for ZookeeperArgs {
     }
 }
 
-#[derive(Debug)]
-pub struct Zookeeper {
-    tag: String,
-}
+#[derive(Debug, Default)]
+pub struct Zookeeper;
 
-impl Default for Zookeeper {
-    fn default() -> Self {
-        Zookeeper {
-            tag: DEFAULT_TAG.to_string(),
-        }
-    }
-}
 impl Image for Zookeeper {
     type Args = ZookeeperArgs;
 
@@ -34,7 +26,7 @@ impl Image for Zookeeper {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
