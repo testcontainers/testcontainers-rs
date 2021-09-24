@@ -1,25 +1,23 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 use std::collections::HashMap;
 
 const NAME: &str = "confluentinc/cp-kafka";
-const DEFAULT_TAG: &str = "6.1.1";
+const TAG: &str = "6.1.1";
 
 pub const KAFKA_PORT: u16 = 9093;
 const ZOOKEEPER_PORT: u16 = 2181;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct KafkaArgs;
 
-impl IntoIterator for KafkaArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        vec![
-            "/bin/bash".to_owned(),
-            "-c".to_owned(),
-            format!(
-                r#"
+impl ImageArgs for KafkaArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(
+            vec![
+                "/bin/bash".to_owned(),
+                "-c".to_owned(),
+                format!(
+                    r#"
 echo 'clientPort={}' > zookeeper.properties;
 echo 'dataDir=/var/lib/zookeeper/data' >> zookeeper.properties;
 echo 'dataLogDir=/var/lib/zookeeper/log' >> zookeeper.properties;
@@ -27,18 +25,17 @@ zookeeper-server-start zookeeper.properties &
 . /etc/confluent/docker/bash-config &&
 /etc/confluent/docker/configure &&
 /etc/confluent/docker/launch"#,
-                ZOOKEEPER_PORT
-            ),
-        ]
-        .into_iter()
+                    ZOOKEEPER_PORT
+                ),
+            ]
+            .into_iter(),
+        )
     }
 }
 
 #[derive(Debug)]
 pub struct Kafka {
-    arguments: KafkaArgs,
     env_vars: HashMap<String, String>,
-    tag: String,
 }
 
 impl Default for Kafka {
@@ -74,11 +71,7 @@ impl Default for Kafka {
             "1".to_owned(),
         );
 
-        Self {
-            arguments: KafkaArgs::default(),
-            env_vars,
-            tag: DEFAULT_TAG.to_owned(),
-        }
+        Self { env_vars }
     }
 }
 
@@ -90,7 +83,7 @@ impl Image for Kafka {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

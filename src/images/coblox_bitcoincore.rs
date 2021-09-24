@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 use hex::encode;
 use hmac::{Hmac, Mac, NewMac};
 use rand::{thread_rng, Rng};
@@ -6,13 +6,11 @@ use sha2::Sha256;
 use std::fmt;
 
 const NAME: &str = "coblox/bitcoin-core";
+const TAG: &str = "0.21.0";
 const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 
-#[derive(Debug)]
-pub struct BitcoinCore {
-    tag: String,
-    arguments: BitcoinCoreImageArgs,
-}
+#[derive(Debug, Default)]
+pub struct BitcoinCore;
 
 #[derive(Debug, Clone)]
 pub enum Network {
@@ -125,11 +123,8 @@ impl Default for BitcoinCoreImageArgs {
     }
 }
 
-impl IntoIterator for BitcoinCoreImageArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+impl ImageArgs for BitcoinCoreImageArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let mut args = vec![
             format!("-rpcauth={}", self.rpc_auth.encode()),
             // Will print a message when bitcoind is fully started
@@ -179,7 +174,7 @@ impl IntoIterator for BitcoinCoreImageArgs {
             args.push(format!("-fallbackfee={}", fallback_fee));
         }
 
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 
@@ -191,7 +186,7 @@ impl Image for BitcoinCore {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -199,15 +194,6 @@ impl Image for BitcoinCore {
             WaitFor::message_on_stdout(BITCOIND_STARTUP_MESSAGE),
             WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
         ]
-    }
-}
-
-impl Default for BitcoinCore {
-    fn default() -> Self {
-        BitcoinCore {
-            tag: "0.21.0".into(),
-            arguments: BitcoinCoreImageArgs::default(),
-        }
     }
 }
 

@@ -1,28 +1,16 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "trufflesuite/ganache-cli";
-const DEFAULT_TAG: &str = "v6.1.3";
+const TAG: &str = "v6.1.3";
 
-#[derive(Debug)]
-pub struct GanacheCli {
-    tag: String,
-    arguments: GanacheCliArgs,
-}
+#[derive(Debug, Default)]
+pub struct GanacheCli;
 
 #[derive(Debug, Clone)]
 pub struct GanacheCliArgs {
     pub network_id: u32,
     pub number_of_accounts: u32,
     pub mnemonic: String,
-}
-
-impl Default for GanacheCli {
-    fn default() -> Self {
-        GanacheCli {
-            tag: DEFAULT_TAG.to_owned(),
-            arguments: GanacheCliArgs::default(),
-        }
-    }
 }
 
 impl Default for GanacheCliArgs {
@@ -35,11 +23,8 @@ impl Default for GanacheCliArgs {
     }
 }
 
-impl IntoIterator for GanacheCliArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+impl ImageArgs for GanacheCliArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let mut args = Vec::new();
 
         if !self.mnemonic.is_empty() {
@@ -52,7 +37,7 @@ impl IntoIterator for GanacheCliArgs {
         args.push("-i".to_string());
         args.push(self.network_id.to_string());
 
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 
@@ -64,7 +49,7 @@ impl Image for GanacheCli {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

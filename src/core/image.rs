@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
 pub trait Image
 where
     Self: Sized,
-    Self::Args: IntoIterator<Item = String> + Clone + Debug,
+    Self::Args: ImageArgs + Clone + Debug,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -80,6 +80,16 @@ where
     /// no EXPOSE instruction in the Dockerfile of an image.
     fn expose_ports(&self) -> Vec<u16> {
         Default::default()
+    }
+}
+
+pub trait ImageArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>>;
+}
+
+impl ImageArgs for () {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(vec![].into_iter())
     }
 }
 
@@ -169,16 +179,14 @@ impl<I: Image> RunnableImage<I> {
         }
     }
 
-    pub fn with_env_var(self, env_var: (impl Into<String>, impl Into<String>)) -> Self {
+    pub fn with_env_var(self, (key, value): (impl Into<String>, impl Into<String>)) -> Self {
         let mut env_vars = self.env_vars;
-        let (key, value) = env_var;
         env_vars.insert(key.into(), value.into());
         Self { env_vars, ..self }
     }
 
-    pub fn with_volume(self, volume: (impl Into<String>, impl Into<String>)) -> Self {
+    pub fn with_volume(self, (orig, dest): (impl Into<String>, impl Into<String>)) -> Self {
         let mut volumes = self.volumes;
-        let (orig, dest) = volume;
         volumes.insert(orig.into(), dest.into());
         Self { volumes, ..self }
     }

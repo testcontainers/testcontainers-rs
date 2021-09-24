@@ -1,44 +1,20 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "softwaremill/elasticmq";
-const DEFAULT_TAG: &str = "0.14.6";
+const TAG: &str = "0.14.6";
 
-#[derive(Debug, Default, Clone)]
-pub struct ElasticMqArgs;
-
-impl IntoIterator for ElasticMqArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-        vec![].into_iter()
-    }
-}
-
-#[derive(Debug)]
-pub struct ElasticMq {
-    tag: String,
-    arguments: ElasticMqArgs,
-}
-
-impl Default for ElasticMq {
-    fn default() -> Self {
-        ElasticMq {
-            tag: DEFAULT_TAG.to_string(),
-            arguments: ElasticMqArgs {},
-        }
-    }
-}
+#[derive(Debug, Default)]
+pub struct ElasticMq;
 
 impl Image for ElasticMq {
-    type Args = ElasticMqArgs;
+    type Args = ();
 
     fn name(&self) -> String {
         NAME.to_owned()
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

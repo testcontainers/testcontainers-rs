@@ -35,8 +35,7 @@
 //! [`Client`]: trait.Docker.html#implementors
 //! [`Images`]: trait.Image.html#implementors
 //! [`Container`]: struct.Container.html
-
-pub use crate::core::{Container, Image, RunnableImage};
+pub use crate::core::{Container, Image, ImageArgs, RunnableImage};
 
 #[cfg(feature = "experimental")]
 pub use crate::core::ContainerAsync;

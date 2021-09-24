@@ -2,24 +2,10 @@ use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 const NAME: &str = "orientdb";
-const DEFAULT_TAG: &str = "3.1.3";
-
-#[derive(Debug, Default, Clone)]
-pub struct OrientDbArgs;
-
-impl IntoIterator for OrientDbArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-        vec![].into_iter()
-    }
-}
+const TAG: &str = "3.1.3";
 
 #[derive(Debug)]
 pub struct OrientDb {
-    tag: String,
-    arguments: OrientDbArgs,
     env_vars: HashMap<String, String>,
 }
 
@@ -28,23 +14,19 @@ impl Default for OrientDb {
         let mut env_vars = HashMap::new();
         env_vars.insert("ORIENTDB_ROOT_PASSWORD".to_owned(), "root".to_owned());
 
-        OrientDb {
-            tag: DEFAULT_TAG.to_string(),
-            arguments: OrientDbArgs {},
-            env_vars,
-        }
+        OrientDb { env_vars }
     }
 }
 
 impl Image for OrientDb {
-    type Args = OrientDbArgs;
+    type Args = ();
 
     fn name(&self) -> String {
         NAME.to_owned()
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

@@ -1,7 +1,7 @@
-use crate::{core::WaitFor, Image};
+use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "google/cloud-sdk";
-const DEFAULT_TAG: &str = "353.0.0";
+const TAG: &str = "353.0.0";
 
 const HOST: &str = "0.0.0.0";
 pub const BIGTABLE_PORT: u16 = 8086;
@@ -24,11 +24,8 @@ pub enum Emulator {
     PubSub,
 }
 
-impl IntoIterator for CloudSdkArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+impl ImageArgs for CloudSdkArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let (emulator, project) = match &self.emulator {
             Emulator::Bigtable => ("bigtable", None),
             Emulator::Datastore { project } => ("datastore", Some(project)),
@@ -49,13 +46,12 @@ impl IntoIterator for CloudSdkArgs {
         args.push("--host-port".to_owned());
         args.push(format!("{}:{}", self.host, self.port));
 
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 
 #[derive(Debug)]
 pub struct CloudSdk {
-    tag: String,
     exposed_port: u16,
     ready_condition: WaitFor,
 }
@@ -68,7 +64,7 @@ impl Image for CloudSdk {
     }
 
     fn tag(&self) -> String {
-        self.tag.clone()
+        TAG.to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -82,7 +78,6 @@ impl Image for CloudSdk {
 
 impl CloudSdk {
     fn new(port: u16, emulator: Emulator, ready_condition: WaitFor) -> (Self, CloudSdkArgs) {
-        let tag = DEFAULT_TAG.to_owned();
         let arguments = CloudSdkArgs {
             host: HOST.to_owned(),
             port,
@@ -91,7 +86,6 @@ impl CloudSdk {
         let exposed_port = port;
         (
             Self {
-                tag,
                 exposed_port,
                 ready_condition,
             },

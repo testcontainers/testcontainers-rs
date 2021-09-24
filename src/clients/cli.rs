@@ -1,6 +1,6 @@
 use crate::{
     core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, Docker},
-    Container, Image, RunnableImage,
+    Container, Image, ImageArgs, RunnableImage,
 };
 use shiplift::rep::ContainerDetails;
 use std::{
@@ -162,7 +162,7 @@ impl Client {
         command
             .arg("-d") // Always run detached
             .arg(image.descriptor())
-            .args(image.args().clone().into_iter())
+            .args(image.args().clone().into_iterator())
             .stdout(Stdio::piped());
 
         command
@@ -393,7 +393,7 @@ mod tests {
     }
 
     impl Image for HelloWorld {
-        type Args = Vec<String>;
+        type Args = ();
 
         fn name(&self) -> String {
             "hello-world".to_owned()

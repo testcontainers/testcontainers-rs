@@ -4,7 +4,7 @@ use crate::{core::WaitFor, Image};
 pub struct HelloWorld;
 
 impl Image for HelloWorld {
-    type Args = Vec<String>;
+    type Args = ();
 
     fn name(&self) -> String {
         "hello-world".to_owned()
