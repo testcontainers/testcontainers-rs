@@ -1,5 +1,5 @@
 use crate::{
-    core::{env::Command, logs::LogStream, ports::Ports, ExecCommand, Substitution, WaitFor},
+    core::{env::Command, logs::LogStream, ports::Ports, ExecCommand, WaitFor},
     Image, RunnableImage,
 };
 use shiplift::rep::ContainerDetails;
@@ -90,6 +90,10 @@ where
     pub fn image_args(&self) -> &I::Args {
         self.image.args()
     }
+
+    pub fn ports(&self) -> Ports {
+        self.ports.clone()
+    }
 }
 
 impl<'d, I> Container<'d, I>
@@ -134,30 +138,18 @@ where
         .unwrap_or_else(|_| panic!("container {} has missing or invalid bridge IP", self.id))
     }
 
-    pub fn exec(&self, exec_commands: Vec<ExecCommand>) {
-        for exec_command in exec_commands {
-            let ExecCommand {
-                cmd,
-                substitutions,
-                ready_conditions,
-            } = exec_command;
+    pub fn exec(&self, cmd: ExecCommand) {
+        let ExecCommand {
+            cmd,
+            ready_conditions,
+        } = cmd;
 
-            let cmd = substitutions
-                .into_iter()
-                .fold(cmd, |cmd, (pattern, substitution)| match substitution {
-                    Substitution::HostPort { internal_port } => {
-                        cmd.replace(&pattern, &self.get_host_port(internal_port).to_string())
-                    }
-                    Substitution::Nothing => cmd,
-                });
+        log::debug!("Executing command {:?}", cmd);
 
-            log::debug!("Executing command {:?} in container {}", cmd, self.id());
+        self.docker_client.exec(self.id(), cmd);
 
-            self.docker_client.exec(self.id(), cmd);
-
-            self.docker_client
-                .block_until_ready(self.id(), ready_conditions);
-        }
+        self.docker_client
+            .block_until_ready(self.id(), ready_conditions);
     }
 
     pub fn stop(&self) {

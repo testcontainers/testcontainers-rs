@@ -1,4 +1,7 @@
-use crate::{core::WaitFor, Image, ImageArgs};
+use crate::{
+    core::{ContainerState, ExecCommand, WaitFor},
+    Image, ImageArgs,
+};
 use std::collections::HashMap;
 
 const NAME: &str = "confluentinc/cp-kafka";
@@ -92,5 +95,25 @@ impl Image for Kafka {
 
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
+    }
+
+    fn expose_ports(&self) -> Vec<u16> {
+        vec![KAFKA_PORT]
+    }
+
+    fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
+        let mut commands = vec![];
+        let cmd = format!(
+            "kafka-configs --alter --bootstrap-server 0.0.0.0:9092 --entity-type brokers --entity-name 1 --add-config advertised.listeners=[PLAINTEXT://localhost:{},BROKER://localhost:9092]",
+            cs.host_port(KAFKA_PORT)
+        );
+        let ready_conditions = vec![WaitFor::message_on_stdout(
+            "Checking need to trigger auto leader balancing",
+        )];
+        commands.push(ExecCommand {
+            cmd,
+            ready_conditions,
+        });
+        commands
     }
 }

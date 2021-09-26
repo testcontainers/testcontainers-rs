@@ -1,9 +1,6 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    env::var,
-    fmt::Debug,
-    time::Duration,
-};
+use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
+
+use super::ports::Ports;
 
 /// Represents a docker image.
 ///
@@ -92,27 +89,37 @@ where
     ///
     /// This method is useful when certain re-configuration is required after the start
     /// of container for the container to be considered ready for use in tests.
-    fn exec_after_start(&self) -> Option<Vec<ExecCommand>> {
-        None
+    #[allow(unused_variables)]
+    fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
+        Default::default()
     }
 }
 
 #[derive(Default, Debug)]
 pub struct ExecCommand {
     pub cmd: String,
-    pub substitutions: HashMap<String, Substitution>,
     pub ready_conditions: Vec<WaitFor>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Substitution {
-    Nothing,
-    HostPort { internal_port: u16 },
+#[derive(Debug)]
+pub struct ContainerState {
+    ports: Ports,
 }
 
-impl Substitution {
-    pub fn host_port(internal_port: u16) -> Substitution {
-        Substitution::HostPort { internal_port }
+impl ContainerState {
+    pub fn new(ports: Ports) -> Self {
+        Self { ports }
+    }
+
+    pub fn host_port(&self, internal_port: u16) -> u16 {
+        self.ports
+            .map_to_host_port(internal_port)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Container does not have a mapped port for {}",
+                    internal_port
+                )
+            })
     }
 }
 
@@ -187,8 +194,8 @@ impl<I: Image> RunnableImage<I> {
         self.image.expose_ports()
     }
 
-    pub fn exec_after_start(&self) -> Option<Vec<ExecCommand>> {
-        self.image.exec_after_start()
+    pub fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
+        self.image.exec_after_start(cs)
     }
 }
 

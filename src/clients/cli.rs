@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, Docker, WaitFor},
+    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
     Container, Image, ImageArgs, RunnableImage,
 };
 use shiplift::rep::ContainerDetails;
@@ -60,8 +60,11 @@ impl Cli {
 
         let container = Container::new(container_id, client, image, self.inner.command);
 
-        if let Some(commands) = container.image().exec_after_start() {
-            container.exec(commands);
+        for cmd in container
+            .image()
+            .exec_after_start(ContainerState::new(container.ports()))
+        {
+            container.exec(cmd);
         }
 
         container
