@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    env::var,
+    fmt::Debug,
+    time::Duration,
+};
 
 /// Represents a docker image.
 ///
@@ -81,6 +86,34 @@ where
     fn expose_ports(&self) -> Vec<u16> {
         Default::default()
     }
+
+    /// Returns the commands that needs to be executed after a container is started i.e. commands
+    /// to be run in a running container.
+    ///
+    /// This method is useful when certain re-configuration is required after the start
+    /// of container for the container to be considered ready for use in tests.
+    fn exec_after_start(&self) -> Option<Vec<ExecCommand>> {
+        None
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct ExecCommand {
+    pub cmd: String,
+    pub substitutions: HashMap<String, Substitution>,
+    pub ready_conditions: Vec<WaitFor>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Substitution {
+    Nothing,
+    HostPort { internal_port: u16 },
+}
+
+impl Substitution {
+    pub fn host_port(internal_port: u16) -> Substitution {
+        Substitution::HostPort { internal_port }
+    }
 }
 
 pub trait ImageArgs {
@@ -152,6 +185,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn expose_ports(&self) -> Vec<u16> {
         self.image.expose_ports()
+    }
+
+    pub fn exec_after_start(&self) -> Option<Vec<ExecCommand>> {
+        self.image.exec_after_start()
     }
 }
 
