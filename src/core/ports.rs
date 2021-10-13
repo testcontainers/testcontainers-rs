@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 /// The exposed ports of a running container.
-#[derive(Debug, PartialEq, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Ports {
     mapping: HashMap<u16, u16>,
 }

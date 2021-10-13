@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, Docker},
+    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
     Container, Image, ImageArgs, RunnableImage,
 };
 use shiplift::rep::ContainerDetails;
@@ -52,11 +52,22 @@ impl Cli {
             .to_string();
         self.inner.register_container_started(container_id.clone());
 
+        self.block_until_ready(&container_id, image.ready_conditions());
+
         let client = Cli {
             inner: self.inner.clone(),
         };
 
-        Container::new(container_id, client, image, self.inner.command)
+        let container = Container::new(container_id, client, image, self.inner.command);
+
+        for cmd in container
+            .image()
+            .exec_after_start(ContainerState::new(container.ports()))
+        {
+            container.exec(cmd);
+        }
+
+        container
     }
 }
 
@@ -330,8 +341,7 @@ impl Docker for Cli {
     }
 
     fn stop(&self, id: &str) {
-        let _ = self
-            .inner
+        self.inner
             .command()
             .arg("stop")
             .arg(id)
@@ -352,6 +362,43 @@ impl Docker for Cli {
             .expect("Failed to execute docker command")
             .wait()
             .expect("Failed to start docker container");
+    }
+
+    fn exec(&self, id: &str, cmd: String) {
+        self.inner
+            .command()
+            .arg("exec")
+            .arg("-d")
+            .arg(id)
+            .arg("sh")
+            .arg("-c")
+            .arg(cmd)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to exec in a docker container");
+    }
+
+    fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>) {
+        log::debug!("Waiting for container {} to be ready", id);
+
+        for condition in ready_conditions {
+            match condition {
+                WaitFor::StdOutMessage { message } => {
+                    self.stdout_logs(id).wait_for_message(&message).unwrap()
+                }
+                WaitFor::StdErrMessage { message } => {
+                    self.stderr_logs(id).wait_for_message(&message).unwrap()
+                }
+                WaitFor::Duration { length } => {
+                    std::thread::sleep(length);
+                }
+                WaitFor::Nothing => {}
+            }
+        }
+
+        log::debug!("Container {} is now ready!", id);
     }
 }
 

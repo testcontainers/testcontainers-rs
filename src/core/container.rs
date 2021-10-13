@@ -1,5 +1,5 @@
 use crate::{
-    core::{env::Command, image::WaitFor, logs::LogStream, ports::Ports},
+    core::{env::Command, logs::LogStream, ports::Ports, ExecCommand, WaitFor},
     Image, RunnableImage,
 };
 use shiplift::rep::ContainerDetails;
@@ -30,7 +30,7 @@ pub struct Container<'d, I: Image> {
     docker_client: Box<dyn Docker>,
     image: RunnableImage<I>,
     command: Command,
-
+    ports: Ports,
     /// Tracks the lifetime of the client to make sure the container is dropped before the client.
     client_lifetime: PhantomData<&'d ()>,
 }
@@ -63,17 +63,15 @@ where
         image: RunnableImage<I>,
         command: Command,
     ) -> Self {
-        let container = Container {
+        let ports = docker_client.ports(&id);
+        Self {
             id,
             docker_client: Box::new(docker_client),
             image,
             command,
+            ports,
             client_lifetime: PhantomData,
-        };
-
-        container.block_until_ready();
-
-        container
+        }
     }
 
     /// Returns a reference to the [`Image`] of this container.
@@ -93,29 +91,8 @@ where
         self.image.args()
     }
 
-    fn block_until_ready(&self) {
-        log::debug!("Waiting for container {} to be ready", self.id);
-
-        for condition in self.image.ready_conditions() {
-            match condition {
-                WaitFor::StdOutMessage { message } => self
-                    .docker_client
-                    .stdout_logs(&self.id)
-                    .wait_for_message(&message)
-                    .unwrap(),
-                WaitFor::StdErrMessage { message } => self
-                    .docker_client
-                    .stderr_logs(&self.id)
-                    .wait_for_message(&message)
-                    .unwrap(),
-                WaitFor::Duration { length } => {
-                    std::thread::sleep(length);
-                }
-                WaitFor::Nothing => {}
-            }
-        }
-
-        log::debug!("Container {} is now ready!", self.id);
+    pub fn ports(&self) -> Ports {
+        self.ports.clone()
     }
 }
 
@@ -139,8 +116,7 @@ where
     /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
     /// is unlikely to be useful.
     pub fn get_host_port(&self, internal_port: u16) -> u16 {
-        self.docker_client
-            .ports(&self.id)
+        self.ports
             .map_to_host_port(internal_port)
             .unwrap_or_else(|| {
                 panic!(
@@ -160,6 +136,20 @@ where
                 .ip_address,
         )
         .unwrap_or_else(|_| panic!("container {} has missing or invalid bridge IP", self.id))
+    }
+
+    pub fn exec(&self, cmd: ExecCommand) {
+        let ExecCommand {
+            cmd,
+            ready_conditions,
+        } = cmd;
+
+        log::debug!("Executing command {:?}", cmd);
+
+        self.docker_client.exec(self.id(), cmd);
+
+        self.docker_client
+            .block_until_ready(self.id(), ready_conditions);
     }
 
     pub fn stop(&self) {
@@ -209,4 +199,6 @@ pub(crate) trait Docker {
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
+    fn exec(&self, id: &str, cmd: String);
+    fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>);
 }

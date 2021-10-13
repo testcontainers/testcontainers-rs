@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
 
+use super::ports::Ports;
+
 /// Represents a docker image.
 ///
 /// Implementations are required to implement Default. The default instance of an [`Image`]
@@ -81,6 +83,44 @@ where
     fn expose_ports(&self) -> Vec<u16> {
         Default::default()
     }
+
+    /// Returns the commands that needs to be executed after a container is started i.e. commands
+    /// to be run in a running container.
+    ///
+    /// This method is useful when certain re-configuration is required after the start
+    /// of container for the container to be considered ready for use in tests.
+    #[allow(unused_variables)]
+    fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
+        Default::default()
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct ExecCommand {
+    pub cmd: String,
+    pub ready_conditions: Vec<WaitFor>,
+}
+
+#[derive(Debug)]
+pub struct ContainerState {
+    ports: Ports,
+}
+
+impl ContainerState {
+    pub fn new(ports: Ports) -> Self {
+        Self { ports }
+    }
+
+    pub fn host_port(&self, internal_port: u16) -> u16 {
+        self.ports
+            .map_to_host_port(internal_port)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Container does not have a mapped port for {}",
+                    internal_port
+                )
+            })
+    }
 }
 
 pub trait ImageArgs {
@@ -152,6 +192,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn expose_ports(&self) -> Vec<u16> {
         self.image.expose_ports()
+    }
+
+    pub fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
+        self.image.exec_after_start(cs)
     }
 }
 
