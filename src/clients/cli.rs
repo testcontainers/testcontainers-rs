@@ -170,9 +170,14 @@ impl Client {
             command.arg("-P"); // publish all exposed ports
         }
 
+        let image_path = match image.registry_prefix() {
+            Some(prefix) => format!("{}/{}", prefix, image.descriptor()),
+            None => image.descriptor(),
+        };
+
         command
             .arg("-d") // Always run detached
-            .arg(image.descriptor())
+            .arg(image_path)
             .args(image.args().clone().into_iterator())
             .stdout(Stdio::piped());
 
@@ -544,6 +549,18 @@ mod tests {
         assert_eq!(
             format!("{:?}", command),
             r#""docker" "run" "--name=hello_container" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_custom_registry_path() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_registry_prefix("gcr.io/test");
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "gcr.io/test/hello:0.0""#
         );
     }
 
