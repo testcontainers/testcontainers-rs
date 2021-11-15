@@ -45,32 +45,48 @@ fn coblox_bitcoincore_getnewaddress() {
 fn bigtable_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::bigtable());
-    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::BIGTABLE_PORT)));
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::bigtable());
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::BIGTABLE_PORT)));
 }
 
 #[test]
 fn datastore_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::datastore("test"));
-    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::DATASTORE_PORT)));
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::datastore(
+        "test",
+    ));
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::DATASTORE_PORT)));
 }
 
 #[test]
 fn firestore_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::firestore());
-    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::FIRESTORE_PORT)));
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::firestore());
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::FIRESTORE_PORT)));
 }
 
 #[test]
 fn pubsub_emulator_expose_port() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
-    let node = docker.run(images::google_cloud_sdk::CloudSdk::pubsub());
-    assert!(RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk::PUBSUB_PORT)));
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::pubsub());
+    assert!(
+        RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk_emulators::PUBSUB_PORT))
+    );
+}
+
+#[test]
+fn spanner_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::spanner());
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::SPANNER_PORT)));
 }
 
 #[test]

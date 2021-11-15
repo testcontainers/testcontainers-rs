@@ -1,13 +1,14 @@
 use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "google/cloud-sdk";
-const TAG: &str = "353.0.0";
+const TAG: &str = "362.0.0-emulators";
 
 const HOST: &str = "0.0.0.0";
 pub const BIGTABLE_PORT: u16 = 8086;
 pub const DATASTORE_PORT: u16 = 8081;
 pub const FIRESTORE_PORT: u16 = 8080;
 pub const PUBSUB_PORT: u16 = 8085;
+pub const SPANNER_PORT: u16 = 9010;
 
 #[derive(Debug, Clone)]
 pub struct CloudSdkArgs {
@@ -22,6 +23,7 @@ pub enum Emulator {
     Datastore { project: String },
     Firestore,
     PubSub,
+    Spanner,
 }
 
 impl ImageArgs for CloudSdkArgs {
@@ -31,6 +33,7 @@ impl ImageArgs for CloudSdkArgs {
             Emulator::Datastore { project } => ("datastore", Some(project)),
             Emulator::Firestore => ("firestore", None),
             Emulator::PubSub => ("pubsub", None),
+            Emulator::Spanner => ("spanner", None),
         };
         let mut args = vec![
             "gcloud".to_owned(),
@@ -123,6 +126,14 @@ impl CloudSdk {
             PUBSUB_PORT,
             Emulator::PubSub,
             WaitFor::message_on_stderr("[pubsub] INFO: Server started, listening on"),
+        )
+    }
+
+    pub fn spanner() -> (Self, CloudSdkArgs) {
+        Self::new(
+            SPANNER_PORT, // gRPC port
+            Emulator::Spanner,
+            WaitFor::message_on_stderr("Cloud Spanner emulator running"),
         )
     }
 }
