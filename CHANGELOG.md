@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Note: This release also removed the default wallet.
 - `expose_port` functionality to `Image` trait.
 - `Google Cloud SDK` image
+- `RabbitMQ` image
 
 ### Changed
 

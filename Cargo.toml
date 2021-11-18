@@ -28,6 +28,7 @@ experimental = [ ]
 [dev-dependencies]
 bitcoincore-rpc = "0.13"
 json = "0.12"
+lapin = "1.8.0"
 mongodb = "2.0.0-beta"
 orientdb-client = "0.6"
 postgres = "0.19"
@@ -41,4 +42,5 @@ rusoto_dynamodb = "0.46"
 rusoto_sqs = "0.46"
 spectral = "0.6"
 tokio = { version = "1", features = [ "macros" ] }
+tokio-amqp = "1.0.0"
 zookeeper = "0.5"

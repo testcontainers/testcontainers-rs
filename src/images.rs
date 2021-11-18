@@ -9,6 +9,7 @@ pub mod mongo;
 pub mod orientdb;
 pub mod parity_parity;
 pub mod postgres;
+pub mod rabbitmq;
 pub mod redis;
 pub mod trufflesuite_ganachecli;
 pub mod zookeeper;
