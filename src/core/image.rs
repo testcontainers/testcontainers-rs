@@ -138,6 +138,7 @@ pub struct RunnableImage<I: Image> {
     image: I,
     image_args: I::Args,
     image_tag: Option<String>,
+    registry_prefix: Option<String>,
     container_name: Option<String>,
     network: Option<String>,
     env_vars: BTreeMap<String, String>,
@@ -156,6 +157,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn network(&self) -> &Option<String> {
         &self.network
+    }
+
+    pub fn registry_prefix(&self) -> &Option<String> {
+        &self.registry_prefix
     }
 
     pub fn container_name(&self) -> &Option<String> {
@@ -205,6 +210,14 @@ impl<I: Image> RunnableImage<I> {
     pub fn with_tag(self, tag: impl Into<String>) -> Self {
         Self {
             image_tag: Some(tag.into()),
+            ..self
+        }
+    }
+
+    /// Users can use this API to pull image from registries other than Docker Hub.
+    pub fn with_registry_prefix(self, prefix: impl Into<String>) -> Self {
+        Self {
+            registry_prefix: Some(prefix.into()),
             ..self
         }
     }
@@ -262,6 +275,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             image,
             image_args,
             image_tag: None,
+            registry_prefix: None,
             container_name: None,
             network: None,
             env_vars: BTreeMap::default(),

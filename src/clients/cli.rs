@@ -45,7 +45,11 @@ impl Cli {
 
         let output = command.output().expect("Failed to execute docker command");
 
-        assert!(output.status.success(), "failed to start container");
+        if !output.status.success() {
+            log::error!("{}", String::from_utf8_lossy(&output.stderr));
+            panic!("Failed to start container");
+        }
+
         let container_id = String::from_utf8(output.stdout)
             .expect("output is not valid utf8")
             .trim()
@@ -170,9 +174,14 @@ impl Client {
             command.arg("-P"); // publish all exposed ports
         }
 
+        let image_path = match image.registry_prefix() {
+            Some(prefix) => format!("{}/{}", prefix, image.descriptor()),
+            None => image.descriptor(),
+        };
+
         command
             .arg("-d") // Always run detached
-            .arg(image.descriptor())
+            .arg(image_path)
             .args(image.args().clone().into_iterator())
             .stdout(Stdio::piped());
 
@@ -544,6 +553,18 @@ mod tests {
         assert_eq!(
             format!("{:?}", command),
             r#""docker" "run" "--name=hello_container" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_custom_registry_path() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_registry_prefix("gcr.io/test");
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "gcr.io/test/hello:0.0""#
         );
     }
 
