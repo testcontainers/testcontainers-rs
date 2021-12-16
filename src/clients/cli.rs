@@ -562,7 +562,6 @@ mod tests {
             format!("{:?}", command),
             r#""docker" "run" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
         );
-
     }
 
     #[test]
