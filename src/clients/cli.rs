@@ -135,14 +135,11 @@ impl Client {
     }
 
     fn build_run_command<I: Image>(image: &RunnableImage<I>, mut command: Command) -> Command {
-        let mut is_container_networked = false;
         command.arg("run");
 
         if let Some(network) = image.network() {
             command.arg(format!("--network={}", network));
-            is_container_networked = network.starts_with("container:");
         }
-        let is_container_networked = is_container_networked;
 
         if let Some(name) = image.container_name() {
             command.arg(format!("--name={}", name));
@@ -160,6 +157,11 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
+        let is_container_networked = image
+            .network()
+            .as_ref()
+            .map(|network| network.starts_with("container:"))
+            .unwrap_or(false);
         if let Some(ports) = image.ports() {
             for port in ports {
                 command
