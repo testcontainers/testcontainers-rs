@@ -157,13 +157,18 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
+        let is_container_networked = image
+            .network()
+            .as_ref()
+            .map(|network| network.starts_with("container:"))
+            .unwrap_or(false);
         if let Some(ports) = image.ports() {
             for port in ports {
                 command
                     .arg("-p")
                     .arg(format!("{}:{}", port.local, port.internal));
             }
-        } else {
+        } else if !is_container_networked {
             for port in image.expose_ports() {
                 command.arg(format!("--expose={}", port));
             }
@@ -544,6 +549,20 @@ mod tests {
         assert_eq!(
             format!("{:?}", command),
             r#""docker" "run" "--name=hello_container" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_with_container_network_should_not_expose_ports() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image)
+            .with_container_name("hello_container")
+            .with_network("container:the_other_one");
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
         );
     }
 
