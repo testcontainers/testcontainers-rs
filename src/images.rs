@@ -13,3 +13,4 @@ pub mod rabbitmq;
 pub mod redis;
 pub mod trufflesuite_ganachecli;
 pub mod zookeeper;
+pub mod elastic_search;
