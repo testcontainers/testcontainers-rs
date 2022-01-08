@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use crate::core::WaitFor;
-use crate::Image;
+use crate::{core::WaitFor, Image};
 
 const NAME: &str = "docker.elastic.co/elasticsearch/elasticsearch";
 const TAG: &str = "7.16.1";
@@ -47,7 +46,7 @@ impl Image for ElasticSearch {
         vec![WaitFor::message_on_stdout("[YELLOW] to [GREEN]")]
     }
 
-    fn env_vars(&self) -> Box<dyn Iterator<Item=(&String, &String)> + '_> {
+    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
     }
 
