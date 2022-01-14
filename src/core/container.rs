@@ -2,7 +2,7 @@ use crate::{
     core::{env::Command, logs::LogStream, ports::Ports, ExecCommand, WaitFor},
     Image, RunnableImage,
 };
-use shiplift::rep::ContainerDetails;
+use bollard::models::ContainerInspectResponse;
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
@@ -133,7 +133,9 @@ where
                 .docker_client
                 .inspect(&self.id)
                 .network_settings
-                .ip_address,
+                .unwrap_or_default()
+                .ip_address
+                .unwrap_or_default(),
         )
         .unwrap_or_else(|_| panic!("container {} has missing or invalid bridge IP", self.id))
     }
@@ -195,7 +197,7 @@ pub(crate) trait Docker {
     fn stdout_logs(&self, id: &str) -> LogStream;
     fn stderr_logs(&self, id: &str) -> LogStream;
     fn ports(&self, id: &str) -> Ports;
-    fn inspect(&self, id: &str) -> ContainerDetails;
+    fn inspect(&self, id: &str) -> ContainerInspectResponse;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);

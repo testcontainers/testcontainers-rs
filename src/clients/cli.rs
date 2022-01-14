@@ -2,7 +2,7 @@ use crate::{
     core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
     Container, Image, ImageArgs, RunnableImage,
 };
-use shiplift::rep::ContainerDetails;
+use bollard::models::ContainerInspectResponse;
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
@@ -298,12 +298,13 @@ impl Docker for Cli {
     fn ports(&self, id: &str) -> Ports {
         self.inspect(id)
             .network_settings
+            .unwrap_or_default()
             .ports
-            .map(Ports::new)
+            .map(Ports::from)
             .unwrap_or_default()
     }
 
-    fn inspect(&self, id: &str) -> ContainerDetails {
+    fn inspect(&self, id: &str) -> ContainerInspectResponse {
         let child = self
             .inner
             .command()
@@ -315,7 +316,7 @@ impl Docker for Cli {
 
         let stdout = child.stdout.unwrap();
 
-        let mut infos: Vec<ContainerDetails> = serde_json::from_reader(stdout).unwrap();
+        let mut infos: Vec<ContainerInspectResponse> = serde_json::from_reader(stdout).unwrap();
 
         let info = infos.remove(0);
 
