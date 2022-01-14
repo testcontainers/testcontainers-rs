@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::{core::WaitFor, Image};
+use std::collections::HashMap;
 
 const NAME: &str = "docker.elastic.co/elasticsearch/elasticsearch";
 const TAG: &str = "7.16.1";
@@ -19,15 +18,6 @@ impl Default for ElasticSearch {
             env_vars,
             tag: TAG.to_owned(),
         }
-    }
-}
-
-impl ElasticSearch {
-    pub fn with_tag(self, tag: String) -> Self {
-        Self { tag, ..self }
-    }
-    pub fn with_env_vars(self, env_vars: HashMap<String, String>) -> Self {
-        Self { env_vars, ..self }
     }
 }
 
