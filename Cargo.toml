@@ -26,7 +26,7 @@ tokio = { version = "1", features = [ "macros" ] }
 experimental = [ ]
 
 [dev-dependencies]
-bitcoincore-rpc = "0.13"
+bitcoincore-rpc = "0.14"
 json = "0.12"
 lapin = "1.8.0"
 mongodb = "2.0.0-beta"
