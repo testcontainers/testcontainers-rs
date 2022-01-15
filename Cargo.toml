@@ -13,12 +13,12 @@ description = "A library for integration-testing against docker containers from 
 async-trait = "0.1"
 futures = "0.3"
 hex = "0.4"
-hmac = "0.10"
+hmac = "0.12"
 log = "0.4"
 rand = "0.8"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
-sha2 = "0.9"
+sha2 = "0.10"
 shiplift = { version = "0.7", default-features = false, features = [ "chrono", "unix-socket" ] }
 tokio = { version = "1", features = [ "macros" ] }
 
