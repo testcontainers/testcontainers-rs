@@ -43,4 +43,4 @@ rusoto_sqs = "0.47"
 spectral = "0.6"
 tokio = { version = "1", features = [ "macros" ] }
 tokio-amqp = "1.0.0"
-zookeeper = "0.5"
+zookeeper = "0.6"
