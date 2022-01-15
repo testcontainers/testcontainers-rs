@@ -10,7 +10,7 @@ repository = "https://github.com/testcontainers/testcontainers-rs"
 description = "A library for integration-testing against docker containers from within Rust."
 
 [dependencies]
-async-trait = "0.1"
+async-trait = { version = "0.1", optional = true }
 bollard = { version = "0.11", optional = true }
 bollard-stubs = "1.41"
 futures = "0.3"
@@ -24,7 +24,7 @@ sha2 = "0.10"
 tokio = { version = "1", features = [ "macros" ] }
 
 [features]
-experimental = [ "bollard" ]
+experimental = [ "async-trait", "bollard" ]
 
 [dev-dependencies]
 bitcoincore-rpc = "0.14"
