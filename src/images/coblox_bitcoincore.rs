@@ -1,6 +1,6 @@
 use crate::{core::WaitFor, Image, ImageArgs};
 use hex::encode;
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::fmt;
@@ -77,7 +77,7 @@ impl RpcAuth {
     }
 
     fn encode_password(&self) -> String {
-        let mut mac = Hmac::<Sha256>::new_varkey(self.salt.as_bytes()).unwrap();
+        let mut mac = Hmac::<Sha256>::new_from_slice(self.salt.as_bytes()).unwrap();
         mac.update(self.password.as_bytes().as_ref());
 
         let result = mac.finalize().into_bytes();

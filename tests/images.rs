@@ -30,7 +30,7 @@ fn coblox_bitcoincore_getnewaddress() {
         let auth = &node.image_args().rpc_auth;
 
         bitcoincore_rpc::Client::new(
-            url,
+            &url,
             bitcoincore_rpc::Auth::UserPass(auth.username().to_owned(), auth.password().to_owned()),
         )
         .unwrap()
