@@ -2,7 +2,7 @@ use crate::{
     core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
     Container, Image, ImageArgs, RunnableImage,
 };
-use bollard::models::ContainerInspectResponse;
+use bollard_stubs::models::ContainerInspectResponse;
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},

@@ -2,7 +2,7 @@ use crate::{
     core::{env::Command, logs::LogStream, ports::Ports, ExecCommand, WaitFor},
     Image, RunnableImage,
 };
-use bollard::models::ContainerInspectResponse;
+use bollard_stubs::models::ContainerInspectResponse;
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
