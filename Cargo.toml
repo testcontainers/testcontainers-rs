@@ -21,10 +21,10 @@ rand = "0.8"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
 sha2 = "0.10"
-tokio = { version = "1", features = [ "macros" ] }
+tokio = { version = "1", features = [ "macros" ], optional = true }
 
 [features]
-experimental = [ "async-trait", "bollard" ]
+experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]
 bitcoincore-rpc = "0.14"
