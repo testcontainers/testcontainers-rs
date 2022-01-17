@@ -3,14 +3,16 @@ use crate::{
     ContainerAsync, Image, RunnableImage,
 };
 use async_trait::async_trait;
-use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
-use shiplift::{
-    builder::ContainerOptionsBuilder,
-    rep::{ContainerCreateInfo, ContainerDetails},
-    ContainerOptions, Docker, LogsOptions, NetworkCreateOptions, NetworkListOptions, PullOptions,
-    RmContainerOptions,
+use bollard::{
+    container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
+    image::CreateImageOptions,
+    models::{ContainerCreateResponse, ContainerInspectResponse, HostConfig, PortBinding},
+    network::CreateNetworkOptions,
+    Docker,
 };
+use futures::{executor::block_on, stream::StreamExt, TryStreamExt};
 use std::{
+    collections::HashMap,
     fmt, io,
     sync::{Arc, RwLock},
 };
@@ -27,7 +29,7 @@ pub struct Http {
 /// This exists so we don't have to make the outer client clonable and still can have only a single instance around which is important for `Drop` behaviour.
 struct Client {
     command: env::Command,
-    shiplift: Docker,
+    bollard: Docker,
     created_networks: RwLock<Vec<String>>,
 }
 
@@ -47,11 +49,19 @@ impl Default for Http {
 impl Http {
     pub async fn run<I: Image>(&self, image: impl Into<RunnableImage<I>>) -> ContainerAsync<'_, I> {
         let image = image.into();
-        let mut options_builder = ContainerOptions::builder(image.descriptor().as_str());
+        let mut create_options: Option<CreateContainerOptions<String>> = None;
+        let mut config: Config<String> = Config {
+            image: Some(image.descriptor()),
+            host_config: Some(HostConfig::default()),
+            ..Default::default()
+        };
 
         // Create network and add it to container creation
         if let Some(network) = image.network() {
-            options_builder.network_mode(network.as_str());
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.network_mode = Some(network.to_string());
+                host_config
+            });
             if self.create_network_if_not_exists(network).await {
                 let mut guard = self
                     .inner
@@ -64,7 +74,9 @@ impl Http {
 
         // name of the container
         if let Some(name) = image.container_name() {
-            options_builder.name(name.as_str());
+            create_options = Some(CreateContainerOptions {
+                name: name.to_owned(),
+            })
         }
 
         // handle environment variables
@@ -73,64 +85,85 @@ impl Http {
             .into_iter()
             .map(|(k, v)| format!("{}={}", k, v))
             .collect();
-
-        // the fact .env and .volumes takes Vec<&str> instead of AsRef<str> is making
-        // this more difficult than it needs to be
-        let envs_str: Vec<&str> = envs.iter().map(|s| s.as_ref()).collect();
-        options_builder.env(envs_str);
+        config.env = Some(envs);
 
         // volumes
-        let vols: Vec<String> = image
+        let vols: HashMap<String, HashMap<(), ()>> = image
             .volumes()
             .into_iter()
-            .map(|(orig, dest)| format!("{}:{}", orig, dest))
+            .map(|(orig, dest)| (format!("{}:{}", orig, dest), HashMap::new()))
             .collect();
-        let vols_str: Vec<&str> = vols.iter().map(|s| s.as_ref()).collect();
-        options_builder.volumes(vols_str);
+        config.volumes = Some(vols);
 
         // entrypoint
         if let Some(entrypoint) = image.entrypoint() {
-            options_builder.entrypoint(entrypoint.as_str());
+            config.entrypoint = Some(vec![entrypoint]);
         }
 
         // ports
         if let Some(ports) = image.ports() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.port_bindings = Some(HashMap::new());
+                host_config
+            });
+
             for port in ports {
-                // casting u16 to u32
-                options_builder.expose(port.internal as u32, "tcp", port.local as u32);
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.port_bindings =
+                        host_config.port_bindings.map(|mut port_bindings| {
+                            port_bindings.insert(
+                                format!("{}/tcp", port.internal),
+                                Some(vec![PortBinding {
+                                    host_ip: Some(String::from("127.0.0.1")),
+                                    host_port: Some(port.local.to_string()),
+                                }]),
+                            );
+
+                            port_bindings
+                        });
+
+                    host_config
+                });
             }
         } else {
-            options_builder.publish_all_ports();
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.publish_all_ports = Some(true);
+                host_config
+            });
         }
 
         // create the container with options
-        let create_result = self.create_container(&options_builder).await;
+        let create_result = self
+            .create_container(create_options.clone(), config.clone())
+            .await;
         let id = {
             match create_result {
                 Ok(container) => container.id,
-                Err(shiplift::Error::Fault { code, .. }) if code == 404 => {
+                Err(bollard::errors::Error::DockerResponseNotFoundError { message: _ }) => {
                     {
-                        let mut options_builder = PullOptions::builder();
-                        options_builder.image(image.descriptor());
-                        let mut pulling =
-                            self.inner.shiplift.images().pull(&options_builder.build());
+                        let pull_options = Some(CreateImageOptions {
+                            from_image: image.descriptor(),
+                            ..Default::default()
+                        });
+                        let mut pulling = self.inner.bollard.create_image(pull_options, None, None);
                         while let Some(result) = pulling.next().await {
                             if result.is_err() {
                                 result.unwrap();
                             }
                         }
                     }
-                    self.create_container(&options_builder).await.unwrap().id
+                    self.create_container(create_options, config)
+                        .await
+                        .unwrap()
+                        .id
                 }
                 Err(err) => panic!("{}", err),
             }
         };
 
         self.inner
-            .shiplift
-            .containers()
-            .get(&id)
-            .start()
+            .bollard
+            .start_container::<String>(&id, None)
             .await
             .unwrap();
 
@@ -147,18 +180,20 @@ impl Http {
         Http {
             inner: Arc::new(Client {
                 command: env::command::<env::Os>().unwrap_or_default(),
-                shiplift: Docker::new(),
+                bollard: Docker::connect_with_http_defaults().unwrap(),
                 created_networks: RwLock::new(Vec::new()),
             }),
         }
     }
 
     async fn create_network_if_not_exists(&self, network: &str) -> bool {
-        if !network_exists(&self.inner.shiplift, network).await {
+        if !network_exists(&self.inner.bollard, network).await {
             self.inner
-                .shiplift
-                .networks()
-                .create(&NetworkCreateOptions::builder(network).build())
+                .bollard
+                .create_network(CreateNetworkOptions {
+                    name: network.to_owned(),
+                    ..Default::default()
+                })
                 .await
                 .unwrap();
 
@@ -170,28 +205,24 @@ impl Http {
 
     async fn create_container(
         &self,
-        options_builder: &ContainerOptionsBuilder,
-    ) -> shiplift::Result<ContainerCreateInfo> {
-        self.inner
-            .shiplift
-            .containers()
-            .create(&options_builder.build())
-            .await
+        options: Option<CreateContainerOptions<String>>,
+        config: Config<String>,
+    ) -> Result<ContainerCreateResponse, bollard::errors::Error> {
+        self.inner.bollard.create_container(options, config).await
     }
 
-    fn logs(&self, container_id: String, options: LogsOptions) -> LogStreamAsync<'_> {
+    fn logs(&self, container_id: String, options: LogsOptions<String>) -> LogStreamAsync<'_> {
         let stream = self
             .inner
-            .shiplift
-            .containers()
-            .get(container_id)
-            .logs(&options)
+            .bollard
+            .logs(&container_id, Some(options))
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
             .map(|chunk| {
-                let string = String::from_utf8(Vec::from(chunk?))
+                let bytes = chunk?.into_bytes();
+                let str = std::str::from_utf8(bytes.as_ref())
                     .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-                Ok(string)
+                Ok(String::from(str))
             })
             .boxed();
 
@@ -200,13 +231,10 @@ impl Http {
 }
 
 async fn network_exists(client: &Docker, network: &str) -> bool {
-    // There's no public builder for NetworkListOptions yet
-    // might need to add one in shiplift
-    // this is doing unnecessary stuff
-    let network_list_optons = NetworkListOptions::default();
-    let networks = client.networks().list(&network_list_optons).await.unwrap();
-
-    networks.iter().any(|i| i.name == network)
+    let networks = client.list_networks::<String>(None).await.unwrap();
+    networks
+        .iter()
+        .any(|i| matches!(&i.name, Some(name) if name == network))
 }
 
 impl Drop for Client {
@@ -215,14 +243,7 @@ impl Drop for Client {
             env::Command::Remove => {
                 let guard = self.created_networks.read().expect("failed to lock RwLock");
                 for network in guard.iter() {
-                    block_on(async {
-                        self.shiplift
-                            .networks()
-                            .get(network)
-                            .delete()
-                            .await
-                            .unwrap()
-                    });
+                    block_on(async { self.bollard.remove_network(network).await.unwrap() });
                 }
             }
             env::Command::Keep => {}
@@ -235,14 +256,24 @@ impl DockerAsync for Http {
     fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_> {
         self.logs(
             id.to_owned(),
-            LogsOptions::builder().stdout(true).stderr(false).build(),
+            LogsOptions {
+                follow: true,
+                stdout: true,
+                tail: "all".to_owned(),
+                ..Default::default()
+            },
         )
     }
 
     fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_> {
         self.logs(
             id.to_owned(),
-            LogsOptions::builder().stdout(false).stderr(true).build(),
+            LogsOptions {
+                follow: true,
+                stderr: true,
+                tail: "all".to_owned(),
+                ..Default::default()
+            },
         )
     }
 
@@ -250,52 +281,43 @@ impl DockerAsync for Http {
         self.inspect(id)
             .await
             .network_settings
+            .unwrap_or_default()
             .ports
-            .map(Ports::new)
+            .map(Ports::from)
             .unwrap_or_default()
     }
 
-    async fn inspect(&self, id: &str) -> ContainerDetails {
+    async fn inspect(&self, id: &str) -> ContainerInspectResponse {
         self.inner
-            .shiplift
-            .containers()
-            .get(id)
-            .inspect()
+            .bollard
+            .inspect_container(id, None)
             .await
             .unwrap()
     }
 
     async fn rm(&self, id: &str) {
         self.inner
-            .shiplift
-            .containers()
-            .get(id)
-            .remove(
-                RmContainerOptions::builder()
-                    .volumes(true)
-                    .force(true)
-                    .build(),
+            .bollard
+            .remove_container(
+                id,
+                Some(RemoveContainerOptions {
+                    force: true,
+                    v: true,
+                    ..Default::default()
+                }),
             )
             .await
             .unwrap();
     }
 
     async fn stop(&self, id: &str) {
-        self.inner
-            .shiplift
-            .containers()
-            .get(id)
-            .stop(Option::None)
-            .await
-            .unwrap();
+        self.inner.bollard.stop_container(id, None).await.unwrap();
     }
 
     async fn start(&self, id: &str) {
         self.inner
-            .shiplift
-            .containers()
-            .get(id)
-            .start()
+            .bollard
+            .start_container::<String>(id, None)
             .await
             .unwrap();
     }
@@ -305,11 +327,10 @@ impl DockerAsync for Http {
 mod tests {
     use super::*;
     use crate::images::{generic::GenericImage, hello_world::HelloWorld};
-    use shiplift::rep::ContainerDetails;
     use spectral::prelude::*;
 
-    async fn inspect(client: &shiplift::Docker, id: &str) -> ContainerDetails {
-        client.containers().get(id).inspect().await.unwrap()
+    async fn inspect(client: &bollard::Docker, id: &str) -> ContainerInspectResponse {
+        client.inspect_container(id, None).await.unwrap()
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -319,8 +340,9 @@ mod tests {
         let container = docker.run(image).await;
 
         // inspect volume and env
-        let container_details = inspect(&docker.inner.shiplift, container.id()).await;
-        assert_that!(container_details.host_config.publish_all_ports).is_equal_to(true);
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        assert_that!(container_details.host_config.unwrap().publish_all_ports)
+            .is_equal_to(Some(true));
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -332,9 +354,13 @@ mod tests {
             .with_mapped_port((555, 888));
         let container = docker.run(image).await;
 
-        let container_details = inspect(&docker.inner.shiplift, container.id()).await;
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
 
-        let port_bindings = container_details.host_config.port_bindings.unwrap();
+        let port_bindings = container_details
+            .host_config
+            .unwrap()
+            .port_bindings
+            .unwrap();
         assert_that!(&port_bindings).contains_key(&"456/tcp".into());
         assert_that!(&port_bindings).contains_key(&"888/tcp".into());
     }
@@ -346,8 +372,12 @@ mod tests {
         let image = RunnableImage::from(image).with_network("awesome-net-1");
         let container = docker.run(image).await;
 
-        let container_details = inspect(&docker.inner.shiplift, container.id()).await;
-        let networks = container_details.network_settings.networks;
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        let networks = container_details
+            .network_settings
+            .unwrap()
+            .networks
+            .unwrap();
 
         assert!(
             networks.contains_key("awesome-net-1"),
@@ -363,13 +393,13 @@ mod tests {
         let image = RunnableImage::from(image).with_container_name("hello_container");
         let container = docker.run(image).await;
 
-        let container_details = inspect(&docker.inner.shiplift, container.id()).await;
-        assert_that!(container_details.name).ends_with("hello_container");
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        assert_that!(container_details.name.unwrap()).ends_with("hello_container");
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
-        let client = shiplift::Docker::new();
+        let client = bollard::Docker::connect_with_http_defaults().unwrap();
 
         {
             let docker = Http::new();

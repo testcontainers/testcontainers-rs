@@ -3,8 +3,8 @@ use crate::{
     Image, RunnableImage,
 };
 use async_trait::async_trait;
+use bollard::models::ContainerInspectResponse;
 use futures::{executor::block_on, FutureExt};
-use shiplift::rep::ContainerDetails;
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container that has been started using an async client..
@@ -76,8 +76,15 @@ where
     pub async fn get_bridge_ip_address(&self) -> IpAddr {
         self.docker_client
             .inspect(&self.id)
-            .map(|details: ContainerDetails| {
-                IpAddr::from_str(&details.network_settings.ip_address).unwrap_or_else(|_| {
+            .map(|details| {
+                IpAddr::from_str(
+                    &details
+                        .network_settings
+                        .unwrap_or_default()
+                        .ip_address
+                        .unwrap_or_default(),
+                )
+                .unwrap_or_else(|_| {
                     panic!("container {} has missing or invalid bridge IP", self.id)
                 })
             })
@@ -132,7 +139,7 @@ where
     fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_>;
     fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_>;
     async fn ports(&self, id: &str) -> Ports;
-    async fn inspect(&self, id: &str) -> ContainerDetails;
+    async fn inspect(&self, id: &str) -> ContainerInspectResponse;
     async fn rm(&self, id: &str);
     async fn stop(&self, id: &str);
     async fn start(&self, id: &str);

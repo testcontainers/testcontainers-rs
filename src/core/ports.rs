@@ -1,3 +1,4 @@
+use bollard_stubs::models::{PortBinding, PortMap};
 use std::collections::HashMap;
 
 /// The exposed ports of a running container.
@@ -8,18 +9,47 @@ pub struct Ports {
 
 impl Ports {
     pub fn new(ports: HashMap<String, Option<Vec<HashMap<String, String>>>>) -> Self {
+        let port_binding = ports
+            .into_iter()
+            .filter_map(|(internal, external)| {
+                Some((
+                    internal,
+                    Some(
+                        external?
+                            .into_iter()
+                            .map(|external| PortBinding {
+                                host_ip: external.get("HostIp").cloned(),
+                                host_port: external.get("HostPort").cloned(),
+                            })
+                            .collect(),
+                    ),
+                ))
+            })
+            .collect::<HashMap<_, _>>();
+
+        Self::from(port_binding)
+    }
+
+    /// Returns the host port for the given internal port.
+    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
+        self.mapping.get(&internal_port).cloned()
+    }
+}
+
+impl From<PortMap> for Ports {
+    fn from(ports: PortMap) -> Self {
         let mapping = ports
             .into_iter()
             .filter_map(|(internal, external)| {
                 // internal is '8332/tcp', split off the protocol ...
                 let internal = internal.split('/').next()?;
 
-                // external is a an optional list of maps: [ { "HostIp": "0.0.0.0", "HostPort": "33078" } ]
                 // get the first entry and get the value of the `HostPort` field
-                let external = external?.first()?.get("HostPort").cloned()?;
+                let external = external?;
+                let external_port = external.first()?.host_port.as_ref()?;
 
                 let internal = parse_port(internal);
-                let external = parse_port(&external);
+                let external = parse_port(external_port);
 
                 log::debug!("Registering port mapping: {} -> {}", internal, external);
 
@@ -28,11 +58,6 @@ impl Ports {
             .collect::<HashMap<_, _>>();
 
         Self { mapping }
-    }
-
-    /// Returns the host port for the given internal port.
-    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
-        self.mapping.get(&internal_port).cloned()
     }
 }
 
@@ -44,11 +69,11 @@ fn parse_port(port: &str) -> u16 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shiplift::rep::ContainerDetails;
+    use bollard_stubs::models::ContainerInspectResponse;
 
     #[test]
     fn can_deserialize_docker_inspect_response_into_api_ports() {
-        let container_details = serde_json::from_str::<ContainerDetails>(
+        let container_details = serde_json::from_str::<ContainerInspectResponse>(
             r#"{
   "Id": "1233c36b54a5bac19efbf92728aa33b2faf67f3364f24db506d90fd46a5d0e8c",
   "Created": "2021-02-19T04:57:38.081442827Z",
@@ -276,8 +301,9 @@ mod tests {
 
         let parsed_ports = container_details
             .network_settings
+            .unwrap_or_default()
             .ports
-            .map(Ports::new)
+            .map(Ports::from)
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();

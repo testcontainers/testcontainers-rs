@@ -1,6 +1,5 @@
 #![cfg(feature = "experimental")]
 
-use shiplift::ImageListOptions;
 use std::time::Duration;
 use testcontainers::{
     core::WaitFor,
@@ -9,7 +8,7 @@ use testcontainers::{
 };
 
 #[tokio::test(flavor = "multi_thread")]
-async fn shiplift_can_run_hello_world() {
+async fn bollard_can_run_hello_world() {
     let _ = pretty_env_logger::try_init();
 
     let docker = clients::Http::default();
@@ -18,23 +17,25 @@ async fn shiplift_can_run_hello_world() {
 }
 
 async fn cleanup_hello_world_image() {
-    let docker = shiplift::Docker::new();
+    let docker = bollard::Docker::connect_with_http_defaults().unwrap();
     futures::future::join_all(
         docker
-            .images()
-            .list(&ImageListOptions::builder().build())
+            .list_images::<String>(None)
             .await
             .unwrap()
             .into_iter()
-            .flat_map(|image| image.repo_tags.into_iter().flatten())
+            .flat_map(|image| image.repo_tags.into_iter())
             .filter(|tag| tag.starts_with("hello-world"))
-            .map(|tag| async { docker.images().get(tag).delete().await }),
+            .map(|tag| async {
+                let tag_captured = tag;
+                docker.remove_image(&tag_captured, None, None).await
+            }),
     )
     .await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn shiplift_pull_missing_image_hello_world() {
+async fn bollard_pull_missing_image_hello_world() {
     let _ = pretty_env_logger::try_init();
     cleanup_hello_world_image().await;
     let docker = clients::Http::default();
