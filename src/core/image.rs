@@ -133,6 +133,7 @@ impl ImageArgs for () {
     }
 }
 
+#[must_use]
 #[derive(Debug)]
 pub struct RunnableImage<I: Image> {
     image: I,
