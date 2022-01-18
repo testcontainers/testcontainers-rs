@@ -2,7 +2,7 @@ use crate::{
     core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
     Container, Image, ImageArgs, RunnableImage,
 };
-use bollard_stubs::models::ContainerInspectResponse;
+use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
@@ -400,6 +400,25 @@ impl Docker for Cli {
                 WaitFor::Duration { length } => {
                     std::thread::sleep(length);
                 }
+                WaitFor::Healthcheck => loop {
+                    use HealthStatusEnum::*;
+
+                    let health_status = self
+                        .inspect(id)
+                        .state
+                        .unwrap_or_else(|| panic!("Container state not available"))
+                        .health
+                        .unwrap_or_else(|| panic!("Health state not available"))
+                        .status;
+
+                    match health_status {
+                        Some(HEALTHY) => break,
+                        None | Some(EMPTY) | Some(NONE) => {
+                            panic!("Healthcheck not configured for container")
+                        }
+                        Some(STARTING) | Some(UNHEALTHY) => sleep(Duration::from_millis(100)),
+                    }
+                },
                 WaitFor::Nothing => {}
             }
         }

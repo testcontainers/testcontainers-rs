@@ -3,9 +3,12 @@ use crate::{
     Image, RunnableImage,
 };
 use async_trait::async_trait;
-use bollard::models::ContainerInspectResponse;
+use bollard::models::{
+    ContainerInspectResponse, ContainerState as BollardContainerState, HealthStatusEnum,
+};
 use futures::{executor::block_on, FutureExt};
-use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
+use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr, time::Duration};
+use tokio::time::sleep;
 
 /// Represents a running docker container that has been started using an async client..
 ///
@@ -190,6 +193,28 @@ where
                 WaitFor::Duration { length } => {
                     tokio::time::sleep(length).await;
                 }
+                WaitFor::Healthcheck => loop {
+                    use HealthStatusEnum::*;
+
+                    let health_status = self
+                        .docker_client
+                        .inspect(&self.id)
+                        .await
+                        .state
+                        .unwrap_or_else(|| panic!("Container state not available"))
+                        .health
+                        .unwrap_or_else(|| panic!("Health state not available"))
+                        .status;
+
+                    match health_status {
+                        Some(HEALTHY) => break,
+                        None | Some(EMPTY) | Some(NONE) => {
+                            panic!("Healthcheck not configured for container")
+                        }
+                        Some(STARTING) | Some(UNHEALTHY) => sleep(Duration::from_millis(100)).await,
+                    }
+                    panic!("Healthcheck for the container is not configured");
+                },
                 WaitFor::Nothing => {}
             }
         }
