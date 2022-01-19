@@ -7,6 +7,7 @@ impl ImageArgs for Vec<String> {
     }
 }
 
+#[must_use]
 #[derive(Debug, Clone)]
 pub struct GenericImage {
     name: String,
