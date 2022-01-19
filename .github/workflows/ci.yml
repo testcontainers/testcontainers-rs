@@ -8,11 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Get current MSRV from Cargo.toml
+        id: current_msrv
+        run: |
+          msrv=$(cat Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
+          echo "::set-output name=msrv::$msrv"
       - uses: actions-rs/toolchain@v1
         id: toolchain
         with:
           profile: minimal
-          toolchain: 1.46.0
+          toolchain: ${{steps.current_msrv.outputs.msrv}}
           override: true
       - uses: Swatinem/rust-cache@v1.3.0
       - run: cargo build
