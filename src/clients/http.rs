@@ -1,6 +1,6 @@
 use crate::{
     core::{env, logs::LogStreamAsync, ports::Ports, DockerAsync},
-    ContainerAsync, Image, RunnableImage,
+    ContainerAsync, Image, ImageArgs, RunnableImage,
 };
 use async_trait::async_trait;
 use bollard::{
@@ -130,6 +130,15 @@ impl Http {
                 host_config.publish_all_ports = Some(true);
                 host_config
             });
+        }
+
+        let args = image
+            .args()
+            .clone()
+            .into_iterator()
+            .collect::<Vec<String>>();
+        if !args.is_empty() {
+            config.cmd = Some(args);
         }
 
         // create the container with options
