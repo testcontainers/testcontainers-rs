@@ -290,6 +290,8 @@ pub enum WaitFor {
     StdErrMessage { message: String },
     /// Wait for a certain amount of time.
     Duration { length: Duration },
+    /// Wait for the container's status to become `healthy`.
+    Healthcheck,
 }
 
 impl WaitFor {
