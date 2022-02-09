@@ -1,5 +1,6 @@
 pub mod coblox_bitcoincore;
 pub mod dynamodb_local;
+pub mod elastic_search;
 pub mod elasticmq;
 pub mod generic;
 pub mod google_cloud_sdk_emulators;
