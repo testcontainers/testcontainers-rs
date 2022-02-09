@@ -30,7 +30,7 @@ experimental = [ "async-trait", "bollard", "tokio" ]
 [dev-dependencies]
 bitcoincore-rpc = "0.14"
 json = "0.12"
-lapin = "1.8.0"
+lapin = "2.0.1"
 mongodb = "2.0.0-beta"
 orientdb-client = "0.6"
 postgres = "0.19"
