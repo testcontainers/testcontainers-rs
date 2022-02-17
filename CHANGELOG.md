@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Google Cloud SDK` image
 - `RabbitMQ` image
 - `WaitFor::Healthcheck` container ready condition, which corresponds with the [healthcheck](https://docs.docker.com/engine/reference/builder/#healthcheck) status.
+- `MinIO` image
 
 ### Changed
 
