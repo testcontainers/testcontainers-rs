@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image};
 
 const NAME: &str = "mongo";
-const TAG: &str = "4.0.17";
+const TAG: &str = "5.0.6";
 
 #[derive(Default, Debug)]
 pub struct Mongo;
@@ -18,8 +18,6 @@ impl Image for Mongo {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout(
-            "waiting for connections on port",
-        )]
+        vec![WaitFor::message_on_stdout("Waiting for connections")]
     }
 }
