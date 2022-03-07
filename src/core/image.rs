@@ -2,6 +2,70 @@ use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
 
 use super::ports::Ports;
 
+#[derive(Clone, Default, Debug)]
+pub struct Healthcheck {
+    pub(crate) cmd: Option<Vec<String>>,
+    pub(crate) interval: Option<Duration>,
+    pub(crate) timeout: Option<Duration>,
+    pub(crate) start_period: Option<Duration>,
+    pub(crate) retries: Option<usize>,
+}
+
+impl Healthcheck {
+    fn check_duration(name: &str, duration: Duration) {
+        assert!(
+            duration.as_secs() > 0,
+            "health check {} must greater than 0s",
+            name
+        );
+    }
+
+    pub fn with_cmd<Iter, Item>(self, cmd: Iter) -> Self
+    where
+        Item: ToString,
+        Iter: Iterator<Item = Item>,
+    {
+        let cmd: Vec<_> = cmd.map(|s| s.to_string()).collect();
+        assert!(!cmd.is_empty(), "health check command must not be empty");
+        Healthcheck {
+            cmd: Some(cmd),
+            ..self
+        }
+    }
+
+    pub fn with_interval(self, interval: Duration) -> Self {
+        Self::check_duration("interval", interval);
+        Healthcheck {
+            interval: Some(interval),
+            ..self
+        }
+    }
+
+    pub fn with_timeout(self, timeout: Duration) -> Self {
+        Self::check_duration("timeout", timeout);
+        Healthcheck {
+            timeout: Some(timeout),
+            ..self
+        }
+    }
+
+    pub fn with_start_period(self, start_period: Duration) -> Self {
+        Self::check_duration("start_period", start_period);
+        Healthcheck {
+            start_period: Some(start_period),
+            ..self
+        }
+    }
+
+    pub fn with_retries(self, retries: usize) -> Self {
+        assert!(retries > 0, "retries must greater than 0");
+        Healthcheck {
+            retries: Some(retries),
+            ..self
+        }
+    }
+}
+
 /// Represents a docker image.
 ///
 /// Implementations are required to implement Default. The default instance of an [`Image`]
@@ -76,6 +140,13 @@ where
         None
     }
 
+    /// Returns the [Healthcheck] this instance was created with.
+    ///
+    /// See also [WaitFor::Healthcheck].
+    fn healthcheck(&self) -> Option<Healthcheck> {
+        None
+    }
+
     /// Returns the ports that needs to be exposed when a container is created.
     ///
     /// This method is useful when there is a need to expose some ports, but there is
@@ -140,6 +211,7 @@ pub struct RunnableImage<I: Image> {
     image_args: I::Args,
     image_tag: Option<String>,
     container_name: Option<String>,
+    healthcheck: Option<Healthcheck>,
     network: Option<String>,
     env_vars: BTreeMap<String, String>,
     volumes: BTreeMap<String, String>,
@@ -177,6 +249,12 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn entrypoint(&self) -> Option<String> {
         self.image.entrypoint()
+    }
+
+    pub fn healthcheck(&self) -> Option<Healthcheck> {
+        self.healthcheck
+            .clone()
+            .or_else(|| self.image.healthcheck())
     }
 
     pub fn descriptor(&self) -> String {
@@ -245,6 +323,13 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    pub fn with_healthcheck(self, healthcheck: Healthcheck) -> Self {
+        Self {
+            healthcheck: Some(healthcheck),
+            ..self
+        }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -264,6 +349,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             image_args,
             image_tag: None,
             container_name: None,
+            healthcheck: None,
             network: None,
             env_vars: BTreeMap::default(),
             volumes: BTreeMap::default(),
@@ -336,5 +422,55 @@ impl WaitFor {
 impl From<(u16, u16)> for Port {
     fn from((local, internal): (u16, u16)) -> Self {
         Port { local, internal }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    #[should_panic]
+    fn healthcheck_invalid_cmd() {
+        let cmd: Vec<String> = Vec::new();
+        Healthcheck::default().with_cmd(cmd.iter());
+    }
+
+    #[test]
+    #[should_panic]
+    fn healthcheck_invalid_interval() {
+        Healthcheck::default().with_interval(Duration::from_millis(999));
+    }
+
+    #[test]
+    #[should_panic]
+    fn healthcheck_invalid_timeout() {
+        Healthcheck::default().with_timeout(Duration::from_millis(999));
+    }
+
+    #[test]
+    #[should_panic]
+    fn healthcheck_invalid_start_period() {
+        Healthcheck::default().with_start_period(Duration::from_millis(999));
+    }
+
+    #[test]
+    #[should_panic]
+    fn healthcheck_invalid_retries() {
+        Healthcheck::default().with_retries(0);
+    }
+
+    #[test]
+    fn healthcheck_construction() {
+        let healthcheck = Healthcheck::default()
+            .with_interval(Duration::from_secs(11))
+            .with_timeout(Duration::from_secs(12))
+            .with_start_period(Duration::from_secs(13))
+            .with_retries(9);
+        assert_eq!(healthcheck.interval, Some(Duration::from_secs(11)));
+        assert_eq!(healthcheck.timeout, Some(Duration::from_secs(12)));
+        assert_eq!(healthcheck.start_period, Some(Duration::from_secs(13)));
+        assert_eq!(healthcheck.retries, Some(9));
     }
 }

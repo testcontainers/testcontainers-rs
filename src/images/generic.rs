@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image, ImageArgs};
+use crate::{core::Healthcheck, core::WaitFor, Image, ImageArgs};
 use std::collections::BTreeMap;
 
 impl ImageArgs for Vec<String> {
@@ -16,6 +16,7 @@ pub struct GenericImage {
     env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
+    healthcheck: Option<Healthcheck>,
 }
 
 impl Default for GenericImage {
@@ -27,6 +28,7 @@ impl Default for GenericImage {
             env_vars: BTreeMap::new(),
             wait_for: Vec::new(),
             entrypoint: None,
+            healthcheck: None,
         }
     }
 }
@@ -59,6 +61,11 @@ impl GenericImage {
         self.entrypoint = Some(entrypoint.to_string());
         self
     }
+
+    pub fn with_healthcheck(mut self, healthcheck: Healthcheck) -> Self {
+        self.healthcheck = Some(healthcheck);
+        self
+    }
 }
 
 impl Image for GenericImage {
@@ -86,6 +93,10 @@ impl Image for GenericImage {
 
     fn entrypoint(&self) -> Option<String> {
         self.entrypoint.clone()
+    }
+
+    fn healthcheck(&self) -> Option<Healthcheck> {
+        self.healthcheck.clone()
     }
 }
 

@@ -12,7 +12,7 @@ use spectral::prelude::*;
 use std::{ops::Range, time::Duration};
 use zookeeper::{Acl, CreateMode, ZooKeeper};
 
-use testcontainers::{core::WaitFor, *};
+use testcontainers::{core::Healthcheck, core::WaitFor, *};
 
 const RANDOM_PORTS: Range<u16> = 32768..61000;
 
@@ -311,6 +311,38 @@ fn generic_image_with_custom_entrypoint() {
             .text()
             .unwrap()
     );
+}
+
+#[test]
+fn healthcheck_custom() {
+    let docker = clients::Cli::default();
+    let healthcheck = Healthcheck::default()
+        .with_cmd(["ls", "."].iter())
+        .with_interval(Duration::from_secs(5))
+        .with_timeout(Duration::from_secs(6))
+        .with_start_period(Duration::from_secs(7))
+        .with_retries(40);
+    let image = images::generic::GenericImage::new("alpine", "3.15.0")
+        .with_healthcheck(healthcheck)
+        .with_wait_for(WaitFor::Healthcheck);
+    let args = vec!["sleep".to_string(), "3600".to_string()];
+    docker.run(RunnableImage::from((image, args)));
+}
+
+#[test]
+#[ignore] // See https://github.com/testcontainers/testcontainers-rs/pull/341
+#[should_panic(expected = "Healthcheck reports unhealthy")]
+fn healthcheck_unhealthy() {
+    let docker = clients::Cli::default();
+    let healthcheck = Healthcheck::default()
+        .with_cmd(["ls", "/abc"].iter())
+        .with_interval(Duration::from_secs(5))
+        .with_retries(40);
+    let image = images::generic::GenericImage::new("alpine", "3.15.0")
+        .with_healthcheck(healthcheck)
+        .with_wait_for(WaitFor::Healthcheck);
+    let args = vec!["sleep".to_string(), "3600".to_string()];
+    docker.run(RunnableImage::from((image, args)));
 }
 
 fn build_sqs_client(host_port: u16) -> SqsClient {

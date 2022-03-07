@@ -157,6 +157,30 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
+        if let Some(healthcheck) = image.healthcheck() {
+            if let Some(cmd) = healthcheck.cmd {
+                command.arg("--health-cmd").arg(cmd.join(" "));
+            }
+            if let Some(interval) = healthcheck.interval {
+                command
+                    .arg("--health-interval")
+                    .arg(interval.as_secs().to_string() + "s");
+            }
+            if let Some(timeout) = healthcheck.timeout {
+                command
+                    .arg("--health-timeout")
+                    .arg(timeout.as_secs().to_string() + "s");
+            }
+            if let Some(start_period) = healthcheck.start_period {
+                command
+                    .arg("--health-start-period")
+                    .arg(start_period.as_secs().to_string() + "s");
+            }
+            if let Some(retries) = healthcheck.retries {
+                command.arg("--health-retries").arg(retries.to_string());
+            }
+        }
+
         let is_container_networked = image
             .network()
             .as_ref()

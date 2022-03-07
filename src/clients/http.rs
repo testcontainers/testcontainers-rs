@@ -6,7 +6,9 @@ use async_trait::async_trait;
 use bollard::{
     container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
     image::CreateImageOptions,
-    models::{ContainerCreateResponse, ContainerInspectResponse, HostConfig, PortBinding},
+    models::{
+        ContainerCreateResponse, ContainerInspectResponse, HealthConfig, HostConfig, PortBinding,
+    },
     network::CreateNetworkOptions,
     Docker,
 };
@@ -98,6 +100,18 @@ impl Http {
         // entrypoint
         if let Some(entrypoint) = image.entrypoint() {
             config.entrypoint = Some(vec![entrypoint]);
+        }
+
+        // healthcheck
+        if let Some(healthcheck) = image.healthcheck() {
+            let health_config = HealthConfig {
+                test: healthcheck.cmd,
+                interval: healthcheck.interval.map(|d| d.as_secs() as i64),
+                timeout: healthcheck.timeout.map(|d| d.as_secs() as i64),
+                start_period: healthcheck.start_period.map(|d| d.as_secs() as i64),
+                retries: healthcheck.retries.map(|n| n as i64),
+            };
+            config.healthcheck = Some(health_config);
         }
 
         // ports
