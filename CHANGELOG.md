@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This reduces the API surface of the crate which allows for fewer breaking changes in the future.
   All functionality from `Docker` (start, stop, rm, and ports) is available on a container directly.
 - `descriptor` is broken down into `name` and `tag` within `Image` trait.
+- Bump `MongoDB`-image default version to `5.0.6`.
 
 ### Removed
 
