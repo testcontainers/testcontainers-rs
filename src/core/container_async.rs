@@ -211,7 +211,8 @@ where
                         None | Some(EMPTY) | Some(NONE) => {
                             panic!("Healthcheck not configured for container")
                         }
-                        Some(STARTING) | Some(UNHEALTHY) => sleep(Duration::from_millis(100)).await,
+                        Some(UNHEALTHY) => panic!("Healthcheck reports unhealthy"),
+                        Some(STARTING) => sleep(Duration::from_millis(100)).await,
                     }
                     panic!("Healthcheck for the container is not configured");
                 },

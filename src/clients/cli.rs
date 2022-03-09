@@ -305,18 +305,22 @@ impl Docker for Cli {
     }
 
     fn inspect(&self, id: &str) -> ContainerInspectResponse {
-        let child = self
+        let output = self
             .inner
             .command()
             .arg("inspect")
             .arg(id)
             .stdout(Stdio::piped())
-            .spawn()
+            .output()
             .expect("Failed to execute docker command");
+        assert!(
+            output.status.success(),
+            "Failed to inspect docker container"
+        );
 
-        let stdout = child.stdout.unwrap();
+        let stdout = output.stdout;
 
-        let mut infos: Vec<ContainerInspectResponse> = serde_json::from_reader(stdout).unwrap();
+        let mut infos: Vec<ContainerInspectResponse> = serde_json::from_slice(&stdout).unwrap();
 
         let info = infos.remove(0);
 
@@ -416,7 +420,8 @@ impl Docker for Cli {
                         None | Some(EMPTY) | Some(NONE) => {
                             panic!("Healthcheck not configured for container")
                         }
-                        Some(STARTING) | Some(UNHEALTHY) => sleep(Duration::from_millis(100)),
+                        Some(UNHEALTHY) => panic!("Healthcheck reports unhealthy"),
+                        Some(STARTING) => sleep(Duration::from_millis(100)),
                     }
                 },
                 WaitFor::Nothing => {}
