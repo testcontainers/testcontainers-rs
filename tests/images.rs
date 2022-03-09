@@ -7,6 +7,7 @@ use rusoto_dynamodb::{
     AttributeDefinition, CreateTableInput, DynamoDb, DynamoDbClient, KeySchemaElement,
     ProvisionedThroughput,
 };
+use rusoto_s3::{CreateBucketRequest, S3Client, S3};
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
 use std::{ops::Range, time::Duration};
@@ -387,6 +388,49 @@ fn postgres_custom_version() {
     let first_row = &rows[0];
     let first_column: String = first_row.get(0);
     assert!(first_column.contains("13"));
+}
+
+#[tokio::test]
+async fn minio_buckets() {
+    let docker = clients::Cli::default();
+    let minio = images::minio::MinIO::default();
+    let node = docker.run(minio);
+
+    let endpoint = format!("http://localhost:{}", node.get_host_port(9000));
+
+    let region = Region::Custom {
+        name: "us-east-1".to_owned(),
+        endpoint: endpoint.to_owned(),
+    };
+
+    // Default MinIO credentials (Can be overridden by ENV container variables)
+    let credentials =
+        StaticProvider::new("minioadmin".to_owned(), "minioadmin".to_owned(), None, None);
+    let client = S3Client::new_with(
+        rusoto_core::request::HttpClient::new().expect("Failed to creat HTTP client"),
+        credentials,
+        region,
+    );
+
+    let bucket_name = "test-bucket";
+    let create_bucket_req = CreateBucketRequest {
+        bucket: bucket_name.to_owned(),
+        ..Default::default()
+    };
+
+    client
+        .create_bucket(create_bucket_req)
+        .await
+        .expect("Failed to create test bucket");
+
+    let buckets = client
+        .list_buckets()
+        .await
+        .expect("Failed to get list of buckets")
+        .buckets
+        .unwrap();
+    assert_eq!(1, buckets.len());
+    assert_eq!(bucket_name, buckets[0].name.as_ref().unwrap());
 }
 
 /// Returns an available localhost port
