@@ -6,6 +6,7 @@ pub mod generic;
 pub mod google_cloud_sdk_emulators;
 pub mod hello_world;
 pub mod kafka;
+pub mod localstack;
 pub mod minio;
 pub mod mongo;
 pub mod orientdb;

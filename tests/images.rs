@@ -8,7 +8,8 @@ use rusoto_dynamodb::{
     ProvisionedThroughput,
 };
 use rusoto_s3::{CreateBucketRequest, S3Client, S3};
-use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
+use rusoto_sns::{CreateTopicInput, Sns, SnsClient};
+use rusoto_sqs::{CreateQueueRequest, ListQueuesRequest, SendMessageRequest, Sqs, SqsClient};
 use spectral::prelude::*;
 use std::{ops::Range, time::Duration};
 use zookeeper::{Acl, CreateMode, ZooKeeper};
@@ -170,23 +171,36 @@ async fn dynamodb_local_create_table() {
         ..Default::default()
     };
 
-    let dynamodb = build_dynamodb_client(host_port);
+    let dynamodb = build_dynamodb_client(host_port, "dynamodb-local".to_string());
     let result = dynamodb.create_table(create_tables_input).await;
     assert_that(&result).is_ok();
 }
 
-fn build_dynamodb_client(host_port: u16) -> DynamoDbClient {
+fn build_dynamodb_client(host_port: u16, region_name: String) -> DynamoDbClient {
     let credentials_provider =
         StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
 
     let dispatcher = HttpClient::new().expect("could not create http client");
 
     let region = Region::Custom {
-        name: "dynamodb-local".to_string(),
+        name: region_name,
         endpoint: format!("http://localhost:{}", host_port),
     };
 
     DynamoDbClient::new_with(dispatcher, credentials_provider, region)
+}
+
+fn build_sns_client(host_port: u16, region_name: String) -> SnsClient {
+    let credentials_provider =
+        StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
+
+    let dispatcher = HttpClient::new().expect("could not create http client");
+    let region = Region::Custom {
+        name: region_name,
+        endpoint: format!("http://localhost:{}", host_port),
+    };
+
+    SnsClient::new_with(dispatcher, credentials_provider, region)
 }
 
 #[test]
@@ -238,7 +252,7 @@ async fn sqs_list_queues() {
     let docker = clients::Cli::default();
     let node = docker.run(images::elasticmq::ElasticMq::default());
     let host_port = node.get_host_port(9324);
-    let client = build_sqs_client(host_port);
+    let client = build_sqs_client(host_port, "sqs-local".to_owned());
 
     let request = ListQueuesRequest::default();
     let result = client.list_queues(request).await.unwrap();
@@ -314,12 +328,12 @@ fn generic_image_with_custom_entrypoint() {
     );
 }
 
-fn build_sqs_client(host_port: u16) -> SqsClient {
+fn build_sqs_client(host_port: u16, region_name: String) -> SqsClient {
     let dispatcher = HttpClient::new().expect("could not create http client");
     let credentials_provider =
         StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
     let region = Region::Custom {
-        name: "sqs-local".to_string(),
+        name: region_name,
         endpoint: format!("http://localhost:{}", host_port),
     };
 
@@ -431,6 +445,97 @@ async fn minio_buckets() {
         .unwrap();
     assert_eq!(1, buckets.len());
     assert_eq!(bucket_name, buckets[0].name.as_ref().unwrap());
+}
+
+#[tokio::test]
+async fn localstack_dynamodb() {
+    let docker = clients::Cli::default();
+    let image = RunnableImage::from(
+        images::localstack::LocalStack::default().with_services("dynamodb".to_owned()),
+    );
+    let node = docker.run(image);
+
+    let host_port = node.get_host_port(4566);
+    let create_tables_input = CreateTableInput {
+        table_name: "character".to_string(),
+        key_schema: vec![KeySchemaElement {
+            key_type: "HASH".to_string(),
+            attribute_name: "id".to_string(),
+        }],
+        attribute_definitions: vec![AttributeDefinition {
+            attribute_name: "id".to_string(),
+            attribute_type: "S".to_string(),
+        }],
+        provisioned_throughput: Some(ProvisionedThroughput {
+            read_capacity_units: 5,
+            write_capacity_units: 5,
+        }),
+        ..Default::default()
+    };
+
+    let dynamodb = build_dynamodb_client(host_port, "us-east-1".to_owned());
+    let result = dynamodb.create_table(create_tables_input).await;
+    assert_that(&result).is_ok();
+}
+
+#[tokio::test]
+async fn localstack_sns() {
+    let docker = clients::Cli::default();
+    let image = RunnableImage::from(
+        images::localstack::LocalStack::default().with_services("sns".to_owned()),
+    );
+    let node = docker.run(image);
+    let host_port = node.get_host_port(4566);
+
+    let sns = build_sns_client(host_port, "us-east-1".to_owned());
+    let create_topic_input = CreateTopicInput {
+        attributes: None,
+        name: "dummy_topic".to_string(),
+        tags: None,
+    };
+    let create_topic_result = sns.create_topic(create_topic_input).await;
+    assert_that(&create_topic_result).is_ok();
+}
+
+#[tokio::test]
+async fn localstack_sqs() {
+    let docker = clients::Cli::default();
+    let image = RunnableImage::from(
+        images::localstack::LocalStack::default().with_services("sqs".to_owned()),
+    );
+    let node = docker.run(image);
+    let host_port = node.get_host_port(4566);
+
+    let sqs = build_sqs_client(host_port, "us-east-1".to_owned());
+
+    let queue_name = "dummy_queue";
+    let create_queue_request = CreateQueueRequest {
+        attributes: None,
+        queue_name: queue_name.to_string(),
+        tags: None,
+    };
+    let create_queue_result = sqs.create_queue(create_queue_request).await;
+    assert!(create_queue_result.is_ok());
+
+    let queue_url = create_queue_result.unwrap().queue_url.unwrap();
+    let expected_queue_url = format!(
+        "http://localhost:{}/000000000000/{}",
+        host_port.to_string(),
+        queue_name.to_string()
+    );
+    assert_eq!(queue_url, expected_queue_url);
+
+    let send_message_request = SendMessageRequest {
+        delay_seconds: None,
+        message_attributes: None,
+        message_body: "dummy_message".to_string(),
+        message_deduplication_id: None,
+        message_group_id: None,
+        message_system_attributes: None,
+        queue_url,
+    };
+    let send_message_result = sqs.send_message(send_message_request).await;
+    assert!(send_message_result.is_ok());
 }
 
 /// Returns an available localhost port
