@@ -314,6 +314,46 @@ fn generic_image_with_custom_entrypoint() {
     );
 }
 
+#[test]
+fn generic_image_exposed_ports() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::docker();
+
+    let target_port = 8080;
+
+    // This server does not EXPOSE ports in its image.
+    let generic_server = images::generic::GenericImage::new("no_expose_port", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"))
+        // Explicitly expose the port, which otherwise would not be available.
+        .with_exposed_port(target_port);
+
+    let node = docker.run(generic_server);
+    let port = node.get_host_port(target_port);
+    assert!(
+        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+            .unwrap()
+            .status()
+            .is_success()
+    );
+}
+
+#[test]
+#[should_panic]
+fn generic_image_port_not_exposed() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::docker();
+
+    let target_port = 8080;
+
+    // This image binds to 0.0.0.0:8080, does not EXPOSE ports in its dockerfile.
+    let generic_server = images::generic::GenericImage::new("no_expose_port", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"));
+    let node = docker.run(generic_server);
+
+    // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.
+    node.get_host_port(target_port);
+}
+
 fn build_sqs_client(host_port: u16) -> SqsClient {
     let dispatcher = HttpClient::new().expect("could not create http client");
     let credentials_provider =

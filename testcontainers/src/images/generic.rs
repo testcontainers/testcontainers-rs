@@ -16,6 +16,7 @@ pub struct GenericImage {
     env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
+    exposed_ports: Vec<u16>,
 }
 
 impl Default for GenericImage {
@@ -27,6 +28,7 @@ impl Default for GenericImage {
             env_vars: BTreeMap::new(),
             wait_for: Vec::new(),
             entrypoint: None,
+            exposed_ports: Vec::new(),
         }
     }
 }
@@ -59,6 +61,11 @@ impl GenericImage {
         self.entrypoint = Some(entrypoint.to_string());
         self
     }
+
+    pub fn with_exposed_port(mut self, port: u16) -> Self {
+        self.exposed_ports.push(port);
+        self
+    }
 }
 
 impl Image for GenericImage {
@@ -86,6 +93,10 @@ impl Image for GenericImage {
 
     fn entrypoint(&self) -> Option<String> {
         self.entrypoint.clone()
+    }
+
+    fn expose_ports(&self) -> Vec<u16> {
+        self.exposed_ports.clone()
     }
 }
 

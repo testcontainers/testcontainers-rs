@@ -9,17 +9,17 @@ fn main() -> Result<()> {
     let output = Command::new("docker")
         .arg("build")
         .arg("--file")
-        .arg(&format!("{cwd}/src/dockerfiles/expose_port.dockerfile"))
+        .arg(&format!("{cwd}/src/dockerfiles/no_expose_port.dockerfile"))
         .arg("--force-rm")
         .arg("--tag")
-        .arg("expose_port:latest")
+        .arg("no_expose_port:latest")
         .arg(".")
         .output()?;
     if !output.status.success() {
         eprintln!("stderr: {}", String::from_utf8(output.stderr)?);
-        bail!("unable to build expose_port:latest");
+        bail!("unable to build no_expose_port:latest");
     }
-    eprintln!("Built expose_port:latest");
+    eprintln!("Built no_expose_port:latest");
 
     // trigger recompilation when dockerfiles are modified
     println!("cargo:rerun-if-changed=src/dockerfiles");

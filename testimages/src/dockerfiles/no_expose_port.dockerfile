@@ -13,7 +13,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 # Build our project
-RUN cargo build -v --release --bin expose_port
+RUN cargo build -v --release --bin no_expose_port
 
 FROM debian:bullseye-slim AS runtime
 WORKDIR /app
@@ -23,5 +23,5 @@ RUN apt-get update -y \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/expose_port expose_port
-ENTRYPOINT ["./expose_port"]
+COPY --from=builder /app/target/release/no_expose_port no_expose_port
+ENTRYPOINT ["./no_expose_port"]

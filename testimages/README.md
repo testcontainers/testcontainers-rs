@@ -13,4 +13,4 @@ Images are implemented in Rust. New images can be added by:
    build small, minimal images.
 3. Finally, a new docker command should be added to `build.rs` to actually build the new image.
 
-See the `expose_port` image as an example.
+See the `no_expose_port` image as an example.

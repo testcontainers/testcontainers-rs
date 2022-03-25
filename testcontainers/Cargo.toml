@@ -44,6 +44,7 @@ rusoto_dynamodb = "0.47"
 rusoto_s3 = "0.47"
 rusoto_sqs = "0.47"
 spectral = "0.6"
+testimages = { path = "../testimages" }
 tokio = { version = "1", features = [ "macros" ] }
 tokio-amqp = "1.0.0"
 zookeeper = "0.6"
