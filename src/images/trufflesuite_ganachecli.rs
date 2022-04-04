@@ -1,26 +1,16 @@
-use crate::{Container, Docker, Image, WaitForMessage};
-use std::collections::HashMap;
+use crate::{core::WaitFor, Image, ImageArgs};
 
-#[derive(Debug)]
-pub struct GanacheCli {
-    tag: String,
-    arguments: GanacheCliArgs,
-}
+const NAME: &str = "trufflesuite/ganache-cli";
+const TAG: &str = "v6.1.3";
+
+#[derive(Debug, Default)]
+pub struct GanacheCli;
 
 #[derive(Debug, Clone)]
 pub struct GanacheCliArgs {
     pub network_id: u32,
     pub number_of_accounts: u32,
     pub mnemonic: String,
-}
-
-impl Default for GanacheCli {
-    fn default() -> Self {
-        GanacheCli {
-            tag: "v6.1.3".into(),
-            arguments: GanacheCliArgs::default(),
-        }
-    }
 }
 
 impl Default for GanacheCliArgs {
@@ -33,11 +23,8 @@ impl Default for GanacheCliArgs {
     }
 }
 
-impl IntoIterator for GanacheCliArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+impl ImageArgs for GanacheCliArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
         let mut args = Vec::new();
 
         if !self.mnemonic.is_empty() {
@@ -50,41 +37,22 @@ impl IntoIterator for GanacheCliArgs {
         args.push("-i".to_string());
         args.push(self.network_id.to_string());
 
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 
 impl Image for GanacheCli {
     type Args = GanacheCliArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
 
-    fn descriptor(&self) -> String {
-        format!("trufflesuite/ganache-cli:{}", self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Listening on localhost:")
-            .unwrap();
+    fn tag(&self) -> String {
+        TAG.to_owned()
     }
 
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        GanacheCli { arguments, ..self }
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout("Listening on localhost:")]
     }
 }

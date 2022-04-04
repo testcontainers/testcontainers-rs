@@ -1,82 +1,40 @@
-use crate::{Container, Docker, Image, WaitForMessage};
-use std::collections::HashMap;
+use crate::{core::WaitFor, Image, ImageArgs};
 
-const CONTAINER_IDENTIFIER: &str = "parity/parity";
-const DEFAULT_TAG: &str = "v2.5.0";
+const NAME: &str = "parity/parity";
+const TAG: &str = "v2.5.0";
 
-#[derive(Debug)]
-pub struct ParityEthereum {
-    arguments: ParityEthereumArgs,
-    tag: String,
-}
+#[derive(Debug, Default)]
+pub struct ParityEthereum;
 
-#[derive(Default, Debug, Clone)]
-pub struct ParityEthereumArgs {}
+#[derive(Debug, Default, Clone)]
+pub struct ParityEthereumArgs;
 
-impl IntoIterator for ParityEthereumArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        vec![
-            "--config=dev".to_string(),
-            "--jsonrpc-apis=all".to_string(),
-            "--unsafe-expose".to_string(),
-            "--tracing=on".to_string(),
-        ]
-        .into_iter()
-    }
-}
-
-impl Default for ParityEthereum {
-    fn default() -> Self {
-        ParityEthereum {
-            arguments: ParityEthereumArgs {},
-            tag: DEFAULT_TAG.to_string(),
-        }
+impl ImageArgs for ParityEthereumArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(
+            vec![
+                "--config=dev".to_string(),
+                "--jsonrpc-apis=all".to_string(),
+                "--unsafe-expose".to_string(),
+                "--tracing=on".to_string(),
+            ]
+            .into_iter(),
+        )
     }
 }
 
 impl Image for ParityEthereum {
     type Args = ParityEthereumArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
 
-    fn descriptor(&self) -> String {
-        format!("{}:{}", CONTAINER_IDENTIFIER, &self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stderr
-            .wait_for_message("Public node URL:")
-            .unwrap();
+    fn tag(&self) -> String {
+        TAG.to_owned()
     }
 
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
-    }
-}
-
-impl ParityEthereum {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        ParityEthereum {
-            tag: tag_str.to_string(),
-            ..self
-        }
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stderr("Public node URL:")]
     }
 }

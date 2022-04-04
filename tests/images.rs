@@ -1,8 +1,3 @@
-#![deny(unused_mut)]
-extern crate env_logger;
-extern crate log;
-extern crate zookeeper;
-
 use bitcoincore_rpc::RpcApi;
 use mongodb::{bson, Client};
 use redis::Commands;
@@ -12,12 +7,15 @@ use rusoto_dynamodb::{
     AttributeDefinition, CreateTableInput, DynamoDb, DynamoDbClient, KeySchemaElement,
     ProvisionedThroughput,
 };
+use rusoto_s3::{CreateBucketRequest, S3Client, S3};
 use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
-use std::time::Duration;
+use std::{ops::Range, time::Duration};
 use zookeeper::{Acl, CreateMode, ZooKeeper};
 
-use testcontainers::*;
+use testcontainers::{core::WaitFor, *};
+
+const RANDOM_PORTS: Range<u16> = 32768..61000;
 
 #[test]
 fn coblox_bitcoincore_getnewaddress() {
@@ -26,20 +24,70 @@ fn coblox_bitcoincore_getnewaddress() {
     let node = docker.run(images::coblox_bitcoincore::BitcoinCore::default());
 
     let client = {
-        let host_port = node.get_host_port(18443).unwrap();
+        let host_port = node.get_host_port(18443);
 
         let url = format!("http://localhost:{}", host_port);
 
-        let auth = node.image().auth();
+        let auth = &node.image_args().rpc_auth;
 
         bitcoincore_rpc::Client::new(
-            url,
+            &url,
             bitcoincore_rpc::Auth::UserPass(auth.username().to_owned(), auth.password().to_owned()),
         )
         .unwrap()
     };
 
+    assert_that(&client.create_wallet("miner", None, None, None, None)).is_ok();
+
     assert_that(&client.get_new_address(None, None)).is_ok();
+}
+
+#[test]
+fn bigtable_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::bigtable());
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::BIGTABLE_PORT)));
+}
+
+#[test]
+fn datastore_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::datastore(
+        "test",
+    ));
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::DATASTORE_PORT)));
+}
+
+#[test]
+fn firestore_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::firestore());
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::FIRESTORE_PORT)));
+}
+
+#[test]
+fn pubsub_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::pubsub());
+    assert!(
+        RANDOM_PORTS.contains(&node.get_host_port(images::google_cloud_sdk_emulators::PUBSUB_PORT))
+    );
+}
+
+#[test]
+fn spanner_emulator_expose_port() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::spanner());
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port(images::google_cloud_sdk_emulators::SPANNER_PORT)));
 }
 
 #[test]
@@ -47,7 +95,7 @@ fn parity_parity_net_version() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::parity_parity::ParityEthereum::default());
-    let host_port = node.get_host_port(8545).unwrap();
+    let host_port = node.get_host_port(8545);
 
     let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
@@ -75,7 +123,7 @@ fn trufflesuite_ganachecli_listaccounts() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::trufflesuite_ganachecli::GanacheCli::default());
-    let host_port = node.get_host_port(8545).unwrap();
+    let host_port = node.get_host_port(8545);
 
     let response = reqwest::blocking::Client::new()
         .post(&format!("http://localhost:{}", host_port))
@@ -103,7 +151,7 @@ async fn dynamodb_local_create_table() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::dynamodb_local::DynamoDb::default());
-    let host_port = node.get_host_port(8000).unwrap();
+    let host_port = node.get_host_port(8000);
 
     let create_tables_input = CreateTableInput {
         table_name: "books".to_string(),
@@ -146,7 +194,7 @@ fn redis_fetch_an_integer() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::redis::Redis::default());
-    let host_port = node.get_host_port(6379).unwrap();
+    let host_port = node.get_host_port(6379);
     let url = format!("redis://localhost:{}", host_port);
 
     let client = redis::Client::open(url.as_ref()).unwrap();
@@ -162,10 +210,10 @@ async fn mongo_fetch_document() {
     let _ = pretty_env_logger::try_init();
     let docker = clients::Cli::default();
     let node = docker.run(images::mongo::Mongo::default());
-    let host_port = node.get_host_port(27017).unwrap();
+    let host_port = node.get_host_port(27017);
     let url = format!("mongodb://localhost:{}/", host_port);
 
-    let client: Client = Client::with_uri_str(url.as_ref()).await.unwrap();
+    let client: Client = Client::with_uri_str(&url).await.unwrap();
     let db = client.database("some_db");
     let coll = db.collection("some-coll");
 
@@ -188,8 +236,8 @@ async fn mongo_fetch_document() {
 #[tokio::test]
 async fn sqs_list_queues() {
     let docker = clients::Cli::default();
-    let node = docker.run(images::elasticmq::ElasticMQ::default());
-    let host_port = node.get_host_port(9324).unwrap();
+    let node = docker.run(images::elasticmq::ElasticMq::default());
+    let host_port = node.get_host_port(9324);
     let client = build_sqs_client(host_port);
 
     let request = ListQueuesRequest::default();
@@ -206,8 +254,8 @@ fn generic_image() {
     let user = "postgres-user-test";
     let password = "postgres-password-test";
 
-    let generic_postgres = images::generic::GenericImage::new("postgres:9.6-alpine")
-        .with_wait_for(images::generic::WaitFor::message_on_stderr(
+    let generic_postgres = images::generic::GenericImage::new("postgres", "9.6-alpine")
+        .with_wait_for(WaitFor::message_on_stderr(
             "database system is ready to accept connections",
         ))
         .with_env_var("POSTGRES_DB", db)
@@ -220,7 +268,7 @@ fn generic_image() {
         "postgres://{}:{}@localhost:{}/{}",
         user,
         password,
-        node.get_host_port(5432).unwrap(),
+        node.get_host_port(5432),
         db
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
@@ -236,13 +284,13 @@ fn generic_image() {
 #[test]
 fn generic_image_with_custom_entrypoint() {
     let docker = clients::Cli::default();
-    let msg = images::generic::WaitFor::message_on_stdout("server is ready");
+    let msg = WaitFor::message_on_stdout("server is ready");
 
-    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server", "latest")
         .with_wait_for(msg.clone());
 
     let node = docker.run(generic);
-    let port = node.get_host_port(80).unwrap();
+    let port = node.get_host_port(80);
     assert_eq!(
         "foo",
         reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
@@ -251,12 +299,12 @@ fn generic_image_with_custom_entrypoint() {
             .unwrap()
     );
 
-    let generic = images::generic::GenericImage::new("tumdum/simple_web_server:latest")
+    let generic = images::generic::GenericImage::new("tumdum/simple_web_server", "latest")
         .with_wait_for(msg)
         .with_entrypoint("/bar");
 
     let node = docker.run(generic);
-    let port = node.get_host_port(80).unwrap();
+    let port = node.get_host_port(80);
     assert_eq!(
         "bar",
         reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
@@ -286,7 +334,7 @@ fn postgres_one_plus_one() {
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",
-        node.get_host_port(5432).unwrap()
+        node.get_host_port(5432)
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
@@ -304,8 +352,9 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let free_local_port = free_local_port().unwrap();
 
     let docker = clients::Cli::default();
-    let run_args = RunArgs::default().with_mapped_port((free_local_port, 5432));
-    let _node = docker.run_with_args(images::postgres::Postgres::default(), run_args);
+    let image = RunnableImage::from(images::postgres::Postgres::default())
+        .with_mapped_port((free_local_port, 5432));
+    let _node = docker.run(image);
 
     let mut conn = postgres::Client::connect(
         &format!(
@@ -324,12 +373,12 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
 #[test]
 fn postgres_custom_version() {
     let docker = clients::Cli::default();
-    let postgres_image = images::postgres::Postgres::default().with_version(13);
-    let node = docker.run(postgres_image);
+    let image = RunnableImage::from(images::postgres::Postgres::default()).with_tag("13-alpine");
+    let node = docker.run(image);
 
     let connection_string = &format!(
         "postgres://postgres:postgres@localhost:{}/postgres",
-        node.get_host_port(5432).unwrap()
+        node.get_host_port(5432)
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
@@ -339,6 +388,49 @@ fn postgres_custom_version() {
     let first_row = &rows[0];
     let first_column: String = first_row.get(0);
     assert!(first_column.contains("13"));
+}
+
+#[tokio::test]
+async fn minio_buckets() {
+    let docker = clients::Cli::default();
+    let minio = images::minio::MinIO::default();
+    let node = docker.run(minio);
+
+    let endpoint = format!("http://localhost:{}", node.get_host_port(9000));
+
+    let region = Region::Custom {
+        name: "us-east-1".to_owned(),
+        endpoint: endpoint.to_owned(),
+    };
+
+    // Default MinIO credentials (Can be overridden by ENV container variables)
+    let credentials =
+        StaticProvider::new("minioadmin".to_owned(), "minioadmin".to_owned(), None, None);
+    let client = S3Client::new_with(
+        rusoto_core::request::HttpClient::new().expect("Failed to creat HTTP client"),
+        credentials,
+        region,
+    );
+
+    let bucket_name = "test-bucket";
+    let create_bucket_req = CreateBucketRequest {
+        bucket: bucket_name.to_owned(),
+        ..Default::default()
+    };
+
+    client
+        .create_bucket(create_bucket_req)
+        .await
+        .expect("Failed to create test bucket");
+
+    let buckets = client
+        .list_buckets()
+        .await
+        .expect("Failed to get list of buckets")
+        .buckets
+        .unwrap();
+    assert_eq!(1, buckets.len());
+    assert_eq!(bucket_name, buckets[0].name.as_ref().unwrap());
 }
 
 /// Returns an available localhost port
@@ -351,43 +443,39 @@ pub fn free_local_port() -> Option<u16> {
 }
 
 #[test]
+#[ignore]
 fn zookeeper_check_directories_existence() {
+    let _ = pretty_env_logger::try_init();
+
     let docker = clients::Cli::default();
     let image = images::zookeeper::Zookeeper::default();
     let node = docker.run(image);
 
-    let host_port = node.get_host_port(2181).unwrap();
+    let host_port = node.get_host_port(2181);
     let zk_urls = format!("localhost:{}", host_port);
     let zk = ZooKeeper::connect(&*zk_urls, Duration::from_secs(15), |_| ()).unwrap();
 
-    let path = zk.create(
+    zk.create(
         "/test",
         vec![1, 2],
         Acl::open_unsafe().clone(),
         CreateMode::Ephemeral,
-    );
-    let check_created_path = path
-        .and_then(|_| zk.exists("/test", false))
-        .map(|_| Some(()))
-        .unwrap_or(None);
-    let check_another_path = zk
-        .exists("/test2", false)
-        .map(|op| op.map(|_| ()))
-        .unwrap_or(None);
+    )
+    .unwrap();
 
-    assert_eq!(check_created_path, Some(()));
-    assert_eq!(check_another_path, None)
+    assert!(matches!(zk.exists("/test", false).unwrap(), Some(_)));
+    assert!(matches!(zk.exists("/test2", false).unwrap(), None));
 }
 
 #[test]
+#[ignore]
 fn orientdb_exists_database() {
     let docker = clients::Cli::default();
-    let orientdb_image = images::orientdb::OrientDB::default();
+    let orientdb_image = images::orientdb::OrientDb::default();
     let node = docker.run(orientdb_image);
 
     let client =
-        orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424).unwrap()))
-            .unwrap();
+        orientdb_client::OrientDB::connect(("localhost", node.get_host_port(2424))).unwrap();
 
     let exists = client
         .exist_database(

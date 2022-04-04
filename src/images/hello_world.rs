@@ -1,23 +1,20 @@
 use crate::{core::WaitFor, Image};
 
-const NAME: &str = "redis";
-const TAG: &str = "5.0";
-
 #[derive(Debug, Default)]
-pub struct Redis;
+pub struct HelloWorld;
 
-impl Image for Redis {
+impl Image for HelloWorld {
     type Args = ();
 
     fn name(&self) -> String {
-        NAME.to_owned()
+        "hello-world".to_owned()
     }
 
     fn tag(&self) -> String {
-        TAG.to_owned()
+        "latest".to_owned()
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Ready to accept connections")]
+        vec![WaitFor::message_on_stdout("Hello from Docker!")]
     }
 }

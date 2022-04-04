@@ -1,11 +1,15 @@
-use crate::core::{self, Container, Docker, Image, Logs, RunArgs};
-use std::collections::HashMap;
-use std::sync::RwLock;
-use std::time::Instant;
+use crate::{
+    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
+    Container, Image, ImageArgs, RunnableImage,
+};
+use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
 use std::{
+    collections::HashMap,
+    ffi::{OsStr, OsString},
     process::{Command, Stdio},
+    sync::{Arc, RwLock},
     thread::sleep,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
@@ -14,8 +18,61 @@ const ZERO: Duration = Duration::from_secs(0);
 /// Implementation of the Docker client API using the docker cli.
 ///
 /// This (fairly naive) implementation of the Docker client API simply creates `Command`s to the `docker` CLI. It thereby assumes that the `docker` CLI is installed and that it is in the PATH of the current execution environment.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Cli {
+    inner: Arc<Client>,
+}
+
+impl Cli {
+    pub fn run<I: Image>(&self, image: impl Into<RunnableImage<I>>) -> Container<'_, I> {
+        let image = image.into();
+
+        if let Some(network) = image.network() {
+            if self.inner.create_network_if_not_exists(network) {
+                let mut guard = self
+                    .inner
+                    .created_networks
+                    .write()
+                    .expect("failed to lock RwLock");
+
+                guard.push(network.to_owned());
+            }
+        }
+
+        let mut command = Client::build_run_command(&image, self.inner.command());
+
+        log::debug!("Executing command: {:?}", command);
+
+        let output = command.output().expect("Failed to execute docker command");
+
+        assert!(output.status.success(), "failed to start container");
+        let container_id = String::from_utf8(output.stdout)
+            .expect("output is not valid utf8")
+            .trim()
+            .to_string();
+        self.inner.register_container_started(container_id.clone());
+
+        self.block_until_ready(&container_id, image.ready_conditions());
+
+        let client = Cli {
+            inner: self.inner.clone(),
+        };
+
+        let container = Container::new(container_id, client, image, self.inner.command);
+
+        for cmd in container
+            .image()
+            .exec_after_start(ContainerState::new(container.ports()))
+        {
+            container.exec(cmd);
+        }
+
+        container
+    }
+}
+
+#[derive(Debug)]
+struct Client {
     /// The docker CLI has an issue that if you request logs for a container
     /// too quickly after it was started up, the resulting stream will never
     /// emit any data, even if the container is already emitting logs.
@@ -25,9 +82,15 @@ pub struct Cli {
     /// directly fetch the logs of a container.
     container_startup_timestamps: RwLock<HashMap<String, Instant>>,
     created_networks: RwLock<Vec<String>>,
+    binary: OsString,
+    command: env::Command,
 }
 
-impl Cli {
+impl Client {
+    fn command(&self) -> Command {
+        Command::new(self.binary.clone())
+    }
+
     fn register_container_started(&self, id: String) {
         let mut lock_guard = match self.container_startup_timestamps.write() {
             Ok(lock_guard) => lock_guard,
@@ -66,23 +129,19 @@ impl Cli {
     fn wait_at_least_one_second_after_container_was_started(&self, id: &str) {
         if let Some(duration) = self.time_since_container_was_started(id) {
             if duration < ONE_SECOND {
-                sleep(ONE_SECOND.checked_sub(duration).unwrap_or_else(|| ZERO))
+                sleep(ONE_SECOND.checked_sub(duration).unwrap_or(ZERO))
             }
         }
     }
 
-    fn build_run_command<'a, I: Image>(
-        image: &I,
-        command: &'a mut Command,
-        run_args: &RunArgs,
-    ) -> &'a mut Command {
+    fn build_run_command<I: Image>(image: &RunnableImage<I>, mut command: Command) -> Command {
         command.arg("run");
 
-        if let Some(network) = run_args.network() {
+        if let Some(network) = image.network() {
             command.arg(format!("--network={}", network));
         }
 
-        if let Some(name) = run_args.name() {
+        if let Some(name) = image.container_name() {
             command.arg(format!("--name={}", name));
         }
 
@@ -98,110 +157,202 @@ impl Cli {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
-        if let Some(ports) = run_args.ports() {
-            for port in &ports {
+        let is_container_networked = image
+            .network()
+            .as_ref()
+            .map(|network| network.starts_with("container:"))
+            .unwrap_or(false);
+        if let Some(ports) = image.ports() {
+            for port in ports {
                 command
                     .arg("-p")
                     .arg(format!("{}:{}", port.local, port.internal));
             }
-        } else {
-            command.arg("-P"); // expose all ports
+        } else if !is_container_networked {
+            for port in image.expose_ports() {
+                command.arg(format!("--expose={}", port));
+            }
+            command.arg("-P"); // publish all exposed ports
         }
 
         command
             .arg("-d") // Always run detached
             .arg(image.descriptor())
-            .args(image.args())
-            .stdout(Stdio::piped())
+            .args(image.args().clone().into_iterator())
+            .stdout(Stdio::piped());
+
+        command
+    }
+
+    fn create_network_if_not_exists(&self, name: &str) -> bool {
+        if self.network_exists(name) {
+            return false;
+        }
+
+        let mut docker = self.command();
+        docker.args(&["network", "create", name]);
+
+        let output = docker.output().expect("failed to create docker network");
+        assert!(output.status.success(), "failed to create docker network");
+
+        true
+    }
+
+    fn network_exists(&self, name: &str) -> bool {
+        let mut docker = self.command();
+        docker.args(&["network", "ls", "--format", "{{.Name}}"]);
+
+        let output = docker.output().expect("failed to list docker networks");
+        let output = String::from_utf8(output.stdout).expect("output is not valid utf-8");
+
+        output.lines().any(|network| network == name)
+    }
+
+    fn delete_networks<I, S>(&self, networks: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let mut docker = self.command();
+        docker.args(&["network", "rm"]);
+        docker.args(networks);
+
+        let output = docker.output().expect("failed to delete docker networks");
+
+        assert!(
+            output.status.success(),
+            "failed to delete docker networks: {}",
+            String::from_utf8(output.stderr).unwrap()
+        )
+    }
+}
+
+impl Default for Cli {
+    fn default() -> Self {
+        Self::docker()
+    }
+}
+
+impl Cli {
+    /// Create a new client, using the `docker` binary.
+    pub fn docker() -> Self {
+        Self::new::<env::Os, _>("docker")
+    }
+
+    /// Create a new client, using the `podman` binary.
+    pub fn podman() -> Self {
+        Self::new::<env::Os, _>("podman")
+    }
+
+    fn new<E, S>(binary: S) -> Self
+    where
+        S: Into<OsString>,
+        E: GetEnvValue,
+    {
+        Self {
+            inner: Arc::new(Client {
+                container_startup_timestamps: Default::default(),
+                created_networks: Default::default(),
+                binary: binary.into(),
+                command: env::command::<E>().unwrap_or_default(),
+            }),
+        }
     }
 }
 
 impl Docker for Cli {
-    fn run<I: Image>(&self, image: I) -> Container<'_, Cli, I> {
-        let empty_args = RunArgs::default();
-        self.run_with_args(image, empty_args)
-    }
+    fn stdout_logs(&self, id: &str) -> LogStream {
+        self.inner
+            .wait_at_least_one_second_after_container_was_started(id);
 
-    fn run_with_args<I: Image>(&self, image: I, run_args: RunArgs) -> Container<'_, Cli, I> {
-        let mut docker = Command::new("docker");
-
-        if let Some(network) = run_args.network() {
-            if create_network_if_not_exists(&network) {
-                let mut guard = self
-                    .created_networks
-                    .write()
-                    .expect("failed to lock RwLock");
-
-                guard.push(network);
-            }
-        }
-
-        let command = Cli::build_run_command(&image, &mut docker, &run_args);
-
-        log::debug!("Executing command: {:?}", command);
-
-        let output = command.output().expect("Failed to execute docker command");
-
-        assert!(output.status.success(), "failed to start container");
-        let container_id = String::from_utf8(output.stdout)
-            .expect("output is not valid utf8")
-            .trim()
-            .to_string();
-        self.register_container_started(container_id.clone());
-
-        Container::new(container_id, self, image)
-    }
-
-    fn logs(&self, id: &str) -> Logs {
-        self.wait_at_least_one_second_after_container_was_started(id);
-
-        let child = Command::new("docker")
+        let child = self
+            .inner
+            .command()
             .arg("logs")
             .arg("-f")
             .arg(id)
             .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command");
+
+        LogStream::new(child.stdout.expect("stdout to be captured"))
+    }
+
+    fn stderr_logs(&self, id: &str) -> LogStream {
+        self.inner
+            .wait_at_least_one_second_after_container_was_started(id);
+
+        let child = self
+            .inner
+            .command()
+            .arg("logs")
+            .arg("-f")
+            .arg(id)
             .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to execute docker command");
 
-        Logs {
-            stdout: Box::new(child.stdout.unwrap()),
-            stderr: Box::new(child.stderr.unwrap()),
-        }
+        LogStream::new(child.stderr.expect("stderr to be captured"))
     }
 
-    fn ports(&self, id: &str) -> crate::core::Ports {
-        let child = Command::new("docker")
+    fn ports(&self, id: &str) -> Ports {
+        self.inspect(id)
+            .network_settings
+            .unwrap_or_default()
+            .ports
+            .map(Ports::from)
+            .unwrap_or_default()
+    }
+
+    fn inspect(&self, id: &str) -> ContainerInspectResponse {
+        let output = self
+            .inner
+            .command()
             .arg("inspect")
             .arg(id)
             .stdout(Stdio::piped())
-            .spawn()
+            .output()
             .expect("Failed to execute docker command");
+        assert!(
+            output.status.success(),
+            "Failed to inspect docker container"
+        );
 
-        let stdout = child.stdout.unwrap();
+        let stdout = output.stdout;
 
-        let mut infos: Vec<ContainerInfo> = serde_json::from_reader(stdout).unwrap();
+        let mut infos: Vec<ContainerInspectResponse> = serde_json::from_slice(&stdout).unwrap();
 
         let info = infos.remove(0);
 
         log::trace!("Fetched container info: {:#?}", info);
-
-        info.network_settings.ports.into_ports()
+        info
     }
 
     fn rm(&self, id: &str) {
-        let output = Command::new("docker")
+        let output = self
+            .inner
+            .command()
             .arg("rm")
             .arg("-f")
             .arg("-v") // Also remove volumes
             .arg(id)
             .output()
             .expect("Failed to execute docker command");
-        assert!(output.status.success(), "Failed to remove docker container");
+        let error_msg = "Failed to remove docker container";
+        assert!(output.status.success(), "{}", error_msg);
+        // The container's id is printed on stdout if it was removed successfully.
+        assert!(
+            String::from_utf8(output.stdout)
+                .expect("Could not decode daemon's response.")
+                .contains(id),
+            "{}",
+            error_msg
+        );
     }
 
     fn stop(&self, id: &str) {
-        let _ = Command::new("docker")
+        self.inner
+            .command()
             .arg("stop")
             .arg(id)
             .stdout(Stdio::piped())
@@ -212,7 +363,8 @@ impl Docker for Cli {
     }
 
     fn start(&self, id: &str) {
-        Command::new("docker")
+        self.inner
+            .command()
             .arg("start")
             .arg(id)
             .stdout(Stdio::piped())
@@ -221,259 +373,175 @@ impl Docker for Cli {
             .wait()
             .expect("Failed to start docker container");
     }
-}
 
-impl Drop for Cli {
-    fn drop(&mut self) {
-        let guard = self.created_networks.read().expect("failed to lock RwLock");
-
-        if guard.len() > 0 {
-            let mut docker = Command::new("docker");
-            docker.args(&["network", "rm"]);
-
-            for network in guard.iter() {
-                docker.arg(network);
-            }
-
-            let output = docker.output().expect("failed to delete docker networks");
-
-            assert!(
-                output.status.success(),
-                "failed to delete docker networks: {}",
-                String::from_utf8(output.stderr).unwrap()
-            )
-        }
-    }
-}
-
-fn create_network_if_not_exists(name: &str) -> bool {
-    if network_exists(name) {
-        return false;
+    fn exec(&self, id: &str, cmd: String) {
+        self.inner
+            .command()
+            .arg("exec")
+            .arg("-d")
+            .arg(id)
+            .arg("sh")
+            .arg("-c")
+            .arg(cmd)
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command")
+            .wait()
+            .expect("Failed to exec in a docker container");
     }
 
-    let mut docker = Command::new("docker");
-    docker.args(&["network", "create", name]);
+    fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>) {
+        log::debug!("Waiting for container {} to be ready", id);
 
-    let output = docker.output().expect("failed to create docker network");
-    assert!(output.status.success(), "failed to create docker network");
-
-    true
-}
-
-fn network_exists(name: &str) -> bool {
-    let mut docker = Command::new("docker");
-    docker.args(&["network", "ls", "--format", "{{.Name}}"]);
-
-    let output = docker.output().expect("failed to list docker networks");
-    let output = String::from_utf8(output.stdout).expect("output is not valid utf-8");
-
-    output.lines().any(|network| network == name)
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct NetworkSettings {
-    #[serde(rename = "Ports")]
-    ports: Ports,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct PortMapping {
-    #[serde(rename = "HostIp")]
-    ip: String,
-    #[serde(rename = "HostPort")]
-    port: String,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct ContainerInfo {
-    #[serde(rename = "Id")]
-    id: String,
-    #[serde(rename = "NetworkSettings")]
-    network_settings: NetworkSettings,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct Ports(HashMap<String, Option<Vec<PortMapping>>>);
-
-impl Ports {
-    pub fn into_ports(self) -> core::Ports {
-        let mut ports = core::Ports::default();
-
-        for (internal, external) in self.0 {
-            let external = match external.and_then(|mut m| m.pop()).map(|m| m.port) {
-                Some(port) => port,
-                None => {
-                    log::debug!("Port {} is not mapped to host machine, skipping.", internal);
-                    continue;
+        for condition in ready_conditions {
+            match condition {
+                WaitFor::StdOutMessage { message } => {
+                    self.stdout_logs(id).wait_for_message(&message).unwrap()
                 }
-            };
+                WaitFor::StdErrMessage { message } => {
+                    self.stderr_logs(id).wait_for_message(&message).unwrap()
+                }
+                WaitFor::Duration { length } => {
+                    std::thread::sleep(length);
+                }
+                WaitFor::Healthcheck => loop {
+                    use HealthStatusEnum::*;
 
-            let port = internal.split('/').next().unwrap();
+                    let health_status = self
+                        .inspect(id)
+                        .state
+                        .unwrap_or_else(|| panic!("Container state not available"))
+                        .health
+                        .unwrap_or_else(|| panic!("Health state not available"))
+                        .status;
 
-            let internal = Self::parse_port(port);
-            let external = Self::parse_port(&external);
-
-            ports.add_mapping(internal, external);
+                    match health_status {
+                        Some(HEALTHY) => break,
+                        None | Some(EMPTY) | Some(NONE) => {
+                            panic!("Healthcheck not configured for container")
+                        }
+                        Some(UNHEALTHY) => panic!("Healthcheck reports unhealthy"),
+                        Some(STARTING) => sleep(Duration::from_millis(100)),
+                    }
+                },
+                WaitFor::Nothing => {}
+            }
         }
 
-        ports
+        log::debug!("Container {} is now ready!", id);
     }
+}
 
-    fn parse_port(port: &str) -> u16 {
-        port.parse()
-            .unwrap_or_else(|e| panic!("Failed to parse {} as u16 because {}", port, e))
+impl Drop for Client {
+    fn drop(&mut self) {
+        let networks = self.created_networks.read().expect("failed to lock RwLock");
+        let created_networks = networks.len() > 0;
+
+        match self.command {
+            env::Command::Remove if created_networks => {
+                self.delete_networks(networks.iter());
+            }
+            env::Command::Remove => {
+                // nothing to do
+            }
+            env::Command::Keep => {
+                let networks = networks.join(",");
+
+                log::warn!(
+                    "networks '{}' will not be automatically removed due to `TESTCONTAINERS` command",
+                    networks
+                );
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::images::generic::GenericImage;
-    use crate::{Container, Docker, Image};
-
     use super::*;
-
-    #[test]
-    fn can_deserialize_docker_inspect_response_into_api_ports() {
-        let info = serde_json::from_str::<ContainerInfo>(
-            r#"{
-  "Id": "fd2e896b883052dae31202b065a06dc5374a214ae348b7a8f8da3734f690d010",
-  "NetworkSettings": {
-    "Ports": {
-      "18332/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33076"
-        }
-      ],
-      "18333/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33075"
-        }
-      ],
-      "18443/tcp": null,
-      "18444/tcp": null,
-      "8332/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33078"
-        }
-      ],
-      "8333/tcp": [
-        {
-          "HostIp": "0.0.0.0",
-          "HostPort": "33077"
-        }
-      ]
-    }
-  }
-}"#,
-        )
-        .unwrap();
-
-        let parsed_ports = info.network_settings.ports.into_ports();
-        let mut expected_ports = core::Ports::default();
-
-        expected_ports
-            .add_mapping(18332, 33076)
-            .add_mapping(18333, 33075)
-            .add_mapping(8332, 33078)
-            .add_mapping(8333, 33077);
-
-        assert_eq!(parsed_ports, expected_ports)
-    }
+    use crate::{core::WaitFor, images::generic::GenericImage, Image};
+    use spectral::prelude::*;
+    use std::collections::BTreeMap;
 
     #[derive(Default)]
     struct HelloWorld {
-        volumes: HashMap<String, String>,
-        env_vars: HashMap<String, String>,
+        volumes: BTreeMap<String, String>,
+        env_vars: BTreeMap<String, String>,
     }
 
     impl Image for HelloWorld {
-        type Args = Vec<String>;
-        type EnvVars = HashMap<String, String>;
-        type Volumes = HashMap<String, String>;
-        type EntryPoint = std::convert::Infallible;
+        type Args = ();
 
-        fn descriptor(&self) -> String {
-            String::from("hello-world")
+        fn name(&self) -> String {
+            "hello-world".to_owned()
         }
 
-        fn wait_until_ready<D: Docker>(&self, _container: &Container<'_, D, Self>) {}
-
-        fn args(&self) -> <Self as Image>::Args {
-            vec![]
+        fn tag(&self) -> String {
+            "latest".to_owned()
         }
 
-        fn volumes(&self) -> Self::Volumes {
-            self.volumes.clone()
+        fn ready_conditions(&self) -> Vec<WaitFor> {
+            vec![WaitFor::message_on_stdout("Hello from Docker!")]
         }
 
-        fn env_vars(&self) -> Self::EnvVars {
-            self.env_vars.clone()
+        fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+            Box::new(self.env_vars.iter())
         }
 
-        fn with_args(self, _arguments: <Self as Image>::Args) -> Self {
-            self
+        fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+            Box::new(self.volumes.iter())
         }
     }
 
     #[test]
     fn cli_run_command_should_include_env_vars() {
-        let mut volumes = HashMap::new();
+        let mut volumes = BTreeMap::new();
         volumes.insert("one-from".to_owned(), "one-dest".to_owned());
         volumes.insert("two-from".to_owned(), "two-dest".to_owned());
 
-        let mut env_vars = HashMap::new();
+        let mut env_vars = BTreeMap::new();
         env_vars.insert("one-key".to_owned(), "one-value".to_owned());
         env_vars.insert("two-key".to_owned(), "two-value".to_owned());
 
         let image = HelloWorld { volumes, env_vars };
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default();
-        let command = Cli::build_run_command(&image, &mut docker, &run_args);
+        let command =
+            Client::build_run_command(&RunnableImage::from(image), Command::new("docker"));
 
         println!("Executing command: {:?}", command);
 
-        assert!(format!("{:?}", command).contains(r#"-d"#));
-        assert!(format!("{:?}", command).contains(r#"-P"#));
-        assert!(format!("{:?}", command).contains(r#""-v" "one-from:one-dest"#));
-        assert!(format!("{:?}", command).contains(r#""-v" "two-from:two-dest"#));
-        assert!(format!("{:?}", command).contains(r#""-e" "one-key=one-value""#));
-        assert!(format!("{:?}", command).contains(r#""-e" "two-key=two-value""#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-e" "one-key=one-value" "-e" "two-key=two-value" "-v" "one-from:one-dest" "-v" "two-from:two-dest" "-P" "-d" "hello-world:latest""#
+        );
     }
 
     #[test]
     fn cli_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
-        let image = GenericImage::new("hello");
+        let image = GenericImage::new("hello", "0.0");
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default();
-        let command = Cli::build_run_command(&image, &mut docker, &run_args);
+        let command =
+            Client::build_run_command(&RunnableImage::from(image), Command::new("docker"));
 
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"-d"#));
-        assert!(format!("{:?}", command).contains(r#"-P"#));
-        assert!(!format!("{:?}", command).contains(r#"-p"#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "hello:0.0""#
+        );
     }
 
     #[test]
-    fn cli_run_command_should_expose_only_requested_ports() {
-        let image = GenericImage::new("hello");
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default()
+    fn cli_run_command_should_expose_requested_ports() {
+        let image = GenericImage::new("hello", "0.0");
+
+        let image = RunnableImage::from(image)
             .with_mapped_port((123, 456))
             .with_mapped_port((555, 888));
-        let command = Cli::build_run_command(&image, &mut docker, &run_args);
+        let command = Client::build_run_command(&image, Command::new("docker"));
 
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"-d"#));
-        assert!(!format!("{:?}", command).contains(r#"-P"#));
-        assert!(format!("{:?}", command).contains(r#""-p" "123:456""#));
-        assert!(format!("{:?}", command).contains(r#""-p" "555:888""#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-p" "123:456" "-p" "555:888" "-d" "hello:0.0""#
+        );
     }
 
     #[test]
@@ -486,28 +554,41 @@ mod tests {
 
     #[test]
     fn cli_run_command_should_include_network() {
-        let image = GenericImage::new("hello");
+        let image = GenericImage::new("hello", "0.0");
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default().with_network("awesome-net");
-        let command = Cli::build_run_command(&image, &mut docker, &run_args);
+        let image = RunnableImage::from(image).with_network("awesome-net");
+        let command = Client::build_run_command(&image, Command::new("docker"));
 
-        println!("Executing command: {:?}", command);
-
-        assert!(format!("{:?}", command).contains(r#"--network=awesome-net"#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--network=awesome-net" "-P" "-d" "hello:0.0""#
+        );
     }
 
     #[test]
     fn cli_run_command_should_include_name() {
-        let image = GenericImage::new("hello");
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_container_name("hello_container");
+        let command = Client::build_run_command(&image, Command::new("docker"));
 
-        let mut docker = Command::new("docker");
-        let run_args = RunArgs::default().with_name("hello_container");
-        let command = Cli::build_run_command(&image, &mut docker, &run_args);
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--name=hello_container" "-P" "-d" "hello:0.0""#
+        );
+    }
 
-        println!("Executing command: {:?}", command);
+    #[test]
+    fn cli_run_command_with_container_network_should_not_expose_ports() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image)
+            .with_container_name("hello_container")
+            .with_network("container:the_other_one");
+        let command = Client::build_run_command(&image, Command::new("docker"));
 
-        assert!(format!("{:?}", command).contains(r#"--name=hello_container"#));
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
+        );
     }
 
     #[test]
@@ -515,23 +596,73 @@ mod tests {
         {
             let docker = Cli::default();
 
-            assert!(!network_exists("awesome-net"));
+            assert!(!docker.inner.network_exists("awesome-net"));
 
             // creating the first container creates the network
-            let _container1 = docker.run_with_args(
-                HelloWorld::default(),
-                RunArgs::default().with_network("awesome-net"),
-            );
+            let _container1 =
+                docker.run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net"));
             // creating a 2nd container doesn't fail because check if the network exists already
-            let _container2 = docker.run_with_args(
-                HelloWorld::default(),
-                RunArgs::default().with_network("awesome-net"),
-            );
+            let _container2 =
+                docker.run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net"));
 
-            assert!(network_exists("awesome-net"));
+            assert!(docker.inner.network_exists("awesome-net"));
         }
 
-        // client has been dropped, should clean up networks
-        assert!(!network_exists("awesome-net"))
+        {
+            let docker = Cli::default();
+            // original client has been dropped, should clean up networks
+            assert!(!docker.inner.network_exists("awesome-net"))
+        }
+    }
+
+    struct FakeEnvAlwaysKeep;
+
+    impl GetEnvValue for FakeEnvAlwaysKeep {
+        fn get_env_value(_: &str) -> Option<String> {
+            Some("keep".to_owned())
+        }
+    }
+
+    #[test]
+    fn should_not_delete_network_if_command_is_keep() {
+        let network_name = "foobar-net";
+
+        {
+            let docker = Cli::new::<FakeEnvAlwaysKeep, _>("docker");
+
+            assert!(!docker.inner.network_exists(network_name));
+
+            // creating the first container creates the network
+            let _container1 =
+                docker.run(RunnableImage::from(HelloWorld::default()).with_network(network_name));
+
+            assert!(docker.inner.network_exists(network_name));
+        }
+
+        let docker = Cli::docker();
+
+        assert!(
+            docker.inner.network_exists(network_name),
+            "network should still exist after client is dropped"
+        );
+
+        docker.inner.delete_networks(vec![network_name]);
+    }
+
+    #[test]
+    fn should_wait_for_at_least_one_second_before_fetching_logs() {
+        let _ = pretty_env_logger::try_init();
+        let docker = Cli::default();
+
+        let before_run = Instant::now();
+        let container = docker.run(HelloWorld::default());
+        let after_run = Instant::now();
+
+        let before_logs = Instant::now();
+        docker.stdout_logs(container.id());
+        let after_logs = Instant::now();
+
+        assert_that(&(after_run - before_run)).is_greater_than(Duration::from_secs(1));
+        assert_that(&(after_logs - before_logs)).is_less_than(Duration::from_secs(1));
     }
 }

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://dprint.dev/schemas/v0.json",
+  "projectType": "openSource",
+  "incremental": true,
+  "markdown": {
+  },
+  "rustfmt": {
+    "merge_imports": true
+  },
+  "includes": ["**/*.{md,rs,toml}"],
+  "excludes": [
+    "**/target"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/markdown-0.5.1.wasm",
+    "https://plugins.dprint.dev/rustfmt-0.3.0.wasm",
+    "https://github.com/thomaseizinger/dprint-plugin-cargo-toml/releases/download/0.1.0/cargo-toml-0.1.0.wasm"
+  ]
+}

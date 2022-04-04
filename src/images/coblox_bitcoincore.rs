@@ -1,22 +1,16 @@
-use crate::core::{Container, Docker, Image, WaitForMessage};
+use crate::{core::WaitFor, Image, ImageArgs};
 use hex::encode;
-use hmac::{Hmac, Mac, NewMac};
+use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::fmt;
-use std::{collections::HashMap, env::var, thread::sleep, time::Duration};
 
-#[derive(Debug)]
-pub struct BitcoinCore {
-    tag: String,
-    arguments: BitcoinCoreImageArgs,
-}
+const NAME: &str = "coblox/bitcoin-core";
+const TAG: &str = "0.21.0";
+const BITCOIND_STARTUP_MESSAGE: &str = "bitcoind startup sequence completed.";
 
-impl BitcoinCore {
-    pub fn auth(&self) -> &RpcAuth {
-        &self.arguments.rpc_auth
-    }
-}
+#[derive(Debug, Default)]
+pub struct BitcoinCore;
 
 #[derive(Debug, Clone)]
 pub enum Network {
@@ -83,7 +77,7 @@ impl RpcAuth {
     }
 
     fn encode_password(&self) -> String {
-        let mut mac = Hmac::<Sha256>::new_varkey(self.salt.as_bytes()).unwrap();
+        let mut mac = Hmac::<Sha256>::new_from_slice(self.salt.as_bytes()).unwrap();
         mac.update(self.password.as_bytes().as_ref());
 
         let result = mac.finalize().into_bytes();
@@ -129,14 +123,14 @@ impl Default for BitcoinCoreImageArgs {
     }
 }
 
-impl IntoIterator for BitcoinCoreImageArgs {
-    type Item = String;
-    type IntoIter = ::std::vec::IntoIter<String>;
-
-    fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-        let mut args = Vec::new();
-
-        args.push(format!("-rpcauth={}", self.rpc_auth.encode()));
+impl ImageArgs for BitcoinCoreImageArgs {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        let mut args = vec![
+            format!("-rpcauth={}", self.rpc_auth.encode()),
+            // Will print a message when bitcoind is fully started
+            format!("-startupnotify='echo \'{}\''", BITCOIND_STARTUP_MESSAGE),
+            format!("-addresstype={}", self.address_type),
+        ];
 
         if self.server {
             args.push("-server".to_string())
@@ -180,79 +174,26 @@ impl IntoIterator for BitcoinCoreImageArgs {
             args.push(format!("-fallbackfee={}", fallback_fee));
         }
 
-        args.push("-debug".into()); // Needed for message "Flushed wallet.dat"
-
-        args.push(format!("-addresstype={}", self.address_type));
-
-        args.into_iter()
+        Box::new(args.into_iter())
     }
 }
 
 impl Image for BitcoinCore {
     type Args = BitcoinCoreImageArgs;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = std::convert::Infallible;
 
-    fn descriptor(&self) -> String {
-        format!("coblox/bitcoin-core:{}", self.tag)
+    fn name(&self) -> String {
+        NAME.to_owned()
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        container
-            .logs()
-            .stdout
-            .wait_for_message("Flushed wallet.dat")
-            .unwrap();
-
-        let additional_sleep_period =
-            var("BITCOIND_ADDITIONAL_SLEEP_PERIOD").map(|value| value.parse());
-
-        if let Ok(Ok(sleep_period)) = additional_sleep_period {
-            let sleep_period = Duration::from_millis(sleep_period);
-
-            log::trace!(
-                "Waiting for an additional {:?} for container {}.",
-                sleep_period,
-                container.id()
-            );
-
-            sleep(sleep_period)
-        }
+    fn tag(&self) -> String {
+        TAG.to_owned()
     }
 
-    fn args(&self) -> <Self as Image>::Args {
-        self.arguments.clone()
-    }
-
-    fn volumes(&self) -> Self::Volumes {
-        HashMap::new()
-    }
-
-    fn env_vars(&self) -> Self::EnvVars {
-        HashMap::new()
-    }
-
-    fn with_args(self, arguments: <Self as Image>::Args) -> Self {
-        BitcoinCore { arguments, ..self }
-    }
-}
-
-impl Default for BitcoinCore {
-    fn default() -> Self {
-        BitcoinCore {
-            tag: "0.20.0".into(),
-            arguments: BitcoinCoreImageArgs::default(),
-        }
-    }
-}
-
-impl BitcoinCore {
-    pub fn with_tag(self, tag_str: &str) -> Self {
-        BitcoinCore {
-            tag: tag_str.to_string(),
-            ..self
-        }
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![
+            WaitFor::message_on_stdout(BITCOIND_STARTUP_MESSAGE),
+            WaitFor::millis_in_env_var("BITCOIND_ADDITIONAL_SLEEP_PERIOD"),
+        ]
     }
 }
 

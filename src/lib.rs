@@ -35,13 +35,10 @@
 //! [`Client`]: trait.Docker.html#implementors
 //! [`Images`]: trait.Image.html#implementors
 //! [`Container`]: struct.Container.html
+pub use crate::core::{Container, Image, ImageArgs, RunnableImage};
 
-pub use crate::core::Container;
-pub use crate::core::Docker;
-pub use crate::core::Image;
-pub use crate::core::RunArgs;
-pub use crate::core::WaitError;
-pub use crate::core::WaitForMessage;
+#[cfg(feature = "experimental")]
+pub use crate::core::ContainerAsync;
 
 /// All available Docker clients.
 pub mod clients;

@@ -1,71 +1,41 @@
-use crate::{Container, Docker, Image, WaitError, WaitForMessage};
-use std::collections::HashMap;
+use crate::{core::WaitFor, Image, ImageArgs};
+use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum WaitFor {
-    Nothing,
-    LogMessage { message: String, stream: Stream },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Stream {
-    StdOut,
-    StdErr,
-}
-
-impl WaitFor {
-    pub fn message_on_stdout<S: Into<String>>(message: S) -> WaitFor {
-        WaitFor::LogMessage {
-            message: message.into(),
-            stream: Stream::StdOut,
-        }
-    }
-
-    pub fn message_on_stderr<S: Into<String>>(message: S) -> WaitFor {
-        WaitFor::LogMessage {
-            message: message.into(),
-            stream: Stream::StdErr,
-        }
-    }
-
-    fn wait<D: Docker, I: Image>(&self, container: &Container<'_, D, I>) -> Result<(), WaitError> {
-        match self {
-            WaitFor::Nothing => Ok(()),
-            WaitFor::LogMessage { message, stream } => match stream {
-                Stream::StdOut => container.logs().stdout.wait_for_message(message),
-                Stream::StdErr => container.logs().stderr.wait_for_message(message),
-            },
-        }
+impl ImageArgs for Vec<String> {
+    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+        Box::new(self.into_iter())
     }
 }
 
-#[derive(Debug)]
+#[must_use]
+#[derive(Debug, Clone)]
 pub struct GenericImage {
-    descriptor: String,
-    arguments: Vec<String>,
-    volumes: HashMap<String, String>,
-    env_vars: HashMap<String, String>,
-    wait_for: WaitFor,
+    name: String,
+    tag: String,
+    volumes: BTreeMap<String, String>,
+    env_vars: BTreeMap<String, String>,
+    wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
 }
 
 impl Default for GenericImage {
     fn default() -> Self {
         Self {
-            descriptor: "".to_owned(),
-            arguments: vec![],
-            volumes: HashMap::new(),
-            env_vars: HashMap::new(),
-            wait_for: WaitFor::Nothing,
+            name: "".to_owned(),
+            tag: "".to_owned(),
+            volumes: BTreeMap::new(),
+            env_vars: BTreeMap::new(),
+            wait_for: Vec::new(),
             entrypoint: None,
         }
     }
 }
 
 impl GenericImage {
-    pub fn new<S: Into<String>>(descriptor: S) -> GenericImage {
+    pub fn new<S: Into<String>>(name: S, tag: S) -> GenericImage {
         Self {
-            descriptor: descriptor.into(),
+            name: name.into(),
+            tag: tag.into(),
             ..Default::default()
         }
     }
@@ -81,46 +51,37 @@ impl GenericImage {
     }
 
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
-        self.wait_for = wait_for;
+        self.wait_for.push(wait_for);
+        self
+    }
+
+    pub fn with_entrypoint(mut self, entrypoint: &str) -> Self {
+        self.entrypoint = Some(entrypoint.to_string());
         self
     }
 }
 
 impl Image for GenericImage {
     type Args = Vec<String>;
-    type EnvVars = HashMap<String, String>;
-    type Volumes = HashMap<String, String>;
-    type EntryPoint = str;
 
-    fn descriptor(&self) -> String {
-        self.descriptor.to_owned()
+    fn name(&self) -> String {
+        self.name.clone()
     }
 
-    fn wait_until_ready<D: Docker>(&self, container: &Container<'_, D, Self>) {
-        self.wait_for.wait(container).unwrap();
+    fn tag(&self) -> String {
+        self.tag.clone()
     }
 
-    fn args(&self) -> Self::Args {
-        self.arguments.clone()
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        self.wait_for.clone()
     }
 
-    fn volumes(&self) -> Self::Volumes {
-        self.volumes.clone()
+    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.env_vars.iter())
     }
 
-    fn env_vars(&self) -> Self::EnvVars {
-        self.env_vars.clone()
-    }
-
-    fn with_args(self, arguments: Self::Args) -> Self {
-        Self { arguments, ..self }
-    }
-
-    fn with_entrypoint(self, entrypoint: &Self::EntryPoint) -> Self {
-        Self {
-            entrypoint: Some(entrypoint.to_string()),
-            ..self
-        }
+    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.volumes.iter())
     }
 
     fn entrypoint(&self) -> Option<String> {
@@ -134,13 +95,17 @@ mod tests {
 
     #[test]
     fn should_return_env_vars() {
-        let image = GenericImage::new("hello")
+        let image = GenericImage::new("hello-world", "latest")
             .with_env_var("one-key", "one-value")
             .with_env_var("two-key", "two-value");
 
-        let env_vars = image.env_vars();
-        assert_eq!(2, env_vars.len());
-        assert_eq!("one-value", env_vars.get("one-key").unwrap());
-        assert_eq!("two-value", env_vars.get("two-key").unwrap());
+        let mut env_vars = image.env_vars();
+        let (first_key, first_value) = env_vars.next().unwrap();
+        let (second_key, second_value) = env_vars.next().unwrap();
+
+        assert_eq!(first_key, "one-key");
+        assert_eq!(first_value, "one-value");
+        assert_eq!(second_key, "two-key");
+        assert_eq!(second_value, "two-value");
     }
 }
