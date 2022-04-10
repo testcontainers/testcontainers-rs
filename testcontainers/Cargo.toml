@@ -3,11 +3,11 @@ name = "testcontainers"
 version = "0.13.0"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 categories = [ "development-tools::testing" ]
-edition = "2018"
+edition = "2021"
 keywords = [ "docker", "testcontainers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/testcontainers/testcontainers-rs"
-rust-version = "1.46.0"
+rust-version = "1.60.0"
 description = "A library for integration-testing against docker containers from within Rust."
 
 [dependencies]
