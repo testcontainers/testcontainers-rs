@@ -39,7 +39,7 @@ rdkafka = "0.28"
 redis = "0.21"
 reqwest = { version = "0.11", features = [ "blocking" ] }
 rusoto_core = "0.47"
-rusoto_credential = "0.47"
+rusoto_credential = "0.48"
 rusoto_dynamodb = "0.47"
 rusoto_s3 = "0.47"
 rusoto_sqs = "0.47"
