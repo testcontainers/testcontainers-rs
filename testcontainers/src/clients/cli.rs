@@ -50,6 +50,12 @@ impl Cli {
             .expect("output is not valid utf8")
             .trim()
             .to_string();
+
+        #[cfg(feature = "watchdog")]
+        if self.inner.command == env::Command::Remove {
+            crate::watchdog::register(container_id.clone());
+        }
+
         self.inner.register_container_started(container_id.clone());
 
         self.block_until_ready(&container_id, image.ready_conditions());

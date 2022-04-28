@@ -170,6 +170,11 @@ impl Http {
             }
         };
 
+        #[cfg(feature = "watchdog")]
+        if self.inner.command == env::Command::Remove {
+            crate::watchdog::Watchdog::register(container_id.clone());
+        }
+
         self.inner
             .bollard
             .start_container::<String>(&id, None)
