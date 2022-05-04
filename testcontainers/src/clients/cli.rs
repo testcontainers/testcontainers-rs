@@ -272,6 +272,7 @@ impl Docker for Cli {
             .arg("-f")
             .arg(id)
             .stdout(Stdio::piped())
+            .stderr(Stdio::null())
             .spawn()
             .expect("Failed to execute docker command");
 
@@ -288,6 +289,7 @@ impl Docker for Cli {
             .arg("logs")
             .arg("-f")
             .arg(id)
+            .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
             .expect("Failed to execute docker command");
