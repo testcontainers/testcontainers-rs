@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Introduced `Container::get_host_port_ipv4` `Container::get_host_port_ipv6`,
+  `ContainerState::host_port_ipv4` and `ContainerState::host_port_ipv6` to better handle
+  automatically assigned ports. Docker may bind the same exposed container port to different
+  host ports on `0.0.0.0` and `::`, depending on influences from the environment.
+
+### Changed
+
+- `Container::get_host_port` and `ContainerState::host_port` are now deprecated in favor of the new
+  IPv4- and IPv6-specific methods.
+
 ## [0.13.0] - 2022-04-04
 
 ### Added

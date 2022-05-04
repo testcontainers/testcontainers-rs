@@ -105,7 +105,8 @@ where
         &self.id
     }
 
-    /// Returns the mapped host port for an internal port of this docker container.
+    /// Returns the mapped host port for an internal port of this docker container, on the host's
+    /// IPv4 interfaces.
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method will panic.
@@ -115,9 +116,50 @@ where
     /// This method panics if the given port is not mapped.
     /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
     /// is unlikely to be useful.
+    #[deprecated(
+        since = "0.13.1",
+        note = "Use `get_host_port_ipv4()` or `get_host_port_ipv6()` instead."
+    )]
     pub fn get_host_port(&self, internal_port: u16) -> u16 {
+        self.get_host_port_ipv4(internal_port)
+    }
+
+    /// Returns the mapped host port for an internal port of this docker container, on the host's
+    /// IPv4 interfaces.
+    ///
+    /// This method does **not** magically expose the given port, it simply performs a mapping on
+    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the given port is not mapped.
+    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
+    /// is unlikely to be useful.
+    pub fn get_host_port_ipv4(&self, internal_port: u16) -> u16 {
         self.ports
-            .map_to_host_port(internal_port)
+            .map_to_host_port_ipv4(internal_port)
+            .unwrap_or_else(|| {
+                panic!(
+                    "container {} does not expose port {}",
+                    self.id, internal_port
+                )
+            })
+    }
+
+    /// Returns the mapped host port for an internal port of this docker container, on the host's
+    /// IPv6 interfaces.
+    ///
+    /// This method does **not** magically expose the given port, it simply performs a mapping on
+    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the given port is not mapped.
+    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
+    /// is unlikely to be useful.
+    pub fn get_host_port_ipv6(&self, internal_port: u16) -> u16 {
+        self.ports
+            .map_to_host_port_ipv6(internal_port)
             .unwrap_or_else(|| {
                 panic!(
                     "container {} does not expose port {}",

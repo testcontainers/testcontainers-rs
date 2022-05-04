@@ -104,8 +104,8 @@ impl Image for Kafka {
     fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
         let mut commands = vec![];
         let cmd = format!(
-            "kafka-configs --alter --bootstrap-server 0.0.0.0:9092 --entity-type brokers --entity-name 1 --add-config advertised.listeners=[PLAINTEXT://localhost:{},BROKER://localhost:9092]",
-            cs.host_port(KAFKA_PORT)
+            "kafka-configs --alter --bootstrap-server 0.0.0.0:9092 --entity-type brokers --entity-name 1 --add-config advertised.listeners=[PLAINTEXT://127.0.0.1:{},BROKER://localhost:9092]",
+            cs.host_port_ipv4(KAFKA_PORT)
         );
         let ready_conditions = vec![WaitFor::message_on_stdout(
             "Checking need to trigger auto leader balancing",
