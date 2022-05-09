@@ -285,7 +285,7 @@ fn generic_image_with_custom_entrypoint() {
     let docker = clients::Cli::default();
     let msg = WaitFor::message_on_stdout("server is ready");
 
-    let generic = images::generic::GenericImage::new("tumdum/simple_web_server", "latest")
+    let generic = images::generic::GenericImage::new("simple_web_server", "latest")
         .with_wait_for(msg.clone());
 
     let node = docker.run(generic);
@@ -298,9 +298,9 @@ fn generic_image_with_custom_entrypoint() {
             .unwrap()
     );
 
-    let generic = images::generic::GenericImage::new("tumdum/simple_web_server", "latest")
+    let generic = images::generic::GenericImage::new("simple_web_server", "latest")
         .with_wait_for(msg)
-        .with_entrypoint("/bar");
+        .with_entrypoint("./bar");
 
     let node = docker.run(generic);
     let port = node.get_host_port_ipv4(80);

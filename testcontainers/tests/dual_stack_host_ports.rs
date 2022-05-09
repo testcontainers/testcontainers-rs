@@ -9,8 +9,7 @@ async fn test_ipv4_ipv6_host_ports() {
     let docker = clients::Cli::default();
 
     let wait_for = WaitFor::message_on_stdout("server is ready");
-    let image =
-        GenericImage::new("tumdum/simple_web_server", "latest").with_wait_for(wait_for.clone());
+    let image = GenericImage::new("simple_web_server", "latest").with_wait_for(wait_for.clone());
 
     // Run one container, and check what ephemeral ports it uses. Perform test HTTP requests to
     // both bound ports.
