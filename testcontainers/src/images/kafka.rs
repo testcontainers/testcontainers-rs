@@ -1,5 +1,5 @@
 use crate::{
-    core::{ContainerState, ExecCommand, WaitFor},
+    core::{image::ContainerState, ExecCommand, WaitFor},
     Image, ImageArgs,
 };
 use std::collections::HashMap;

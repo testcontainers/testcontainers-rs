@@ -4,7 +4,7 @@ pub(crate) use container_async::DockerAsync;
 
 pub use self::{
     container::Container,
-    image::{ContainerState, ExecCommand, Image, ImageArgs, Port, RunnableImage, WaitFor},
+    image::{ExecCommand, Image, ImageArgs, Port, RunnableImage, WaitFor},
 };
 
 #[cfg(feature = "experimental")]
@@ -14,7 +14,7 @@ mod container;
 #[cfg(feature = "experimental")]
 mod container_async;
 pub mod env;
-mod image;
+pub(crate) mod image;
 
 pub(crate) mod logs;
 pub(crate) mod ports;

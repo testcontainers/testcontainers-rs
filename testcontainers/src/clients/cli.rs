@@ -1,5 +1,8 @@
 use crate::{
-    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
+    core::{
+        env, env::GetEnvValue, image::ContainerState, logs::LogStream, ports::Ports, Docker,
+        WaitFor,
+    },
     Container, Image, ImageArgs, RunnableImage,
 };
 use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
