@@ -32,15 +32,6 @@ impl Ports {
     }
 
     /// Returns the host port for the given internal port, on the host's IPv4 interfaces.
-    #[deprecated(
-        since = "0.13.1",
-        note = "Use `map_to_host_port_ipv4()` or `map_to_host_port_ipv6()` instead."
-    )]
-    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
-        self.map_to_host_port_ipv4(internal_port)
-    }
-
-    /// Returns the host port for the given internal port, on the host's IPv4 interfaces.
     pub fn map_to_host_port_ipv4(&self, internal_port: u16) -> Option<u16> {
         self.ipv4_mapping.get(&internal_port).cloned()
     }
