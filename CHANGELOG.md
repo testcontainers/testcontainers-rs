@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `watchdog` feature that spawns a background thread keeping track of docker containers that are started by the test suite and removes them in the case of a `CTRL+C` or `kill` of the test process.
-- Introduced `Container::get_host_port_ipv4` `Container::get_host_port_ipv6`, `ContainerState::host_port_ipv4` and `ContainerState::host_port_ipv6` to better handle automatically assigned ports.
+- Introduced `Container::get_host_port_ipv4`, `Container::get_host_port_ipv6`, `ContainerState::host_port_ipv4`, and `ContainerState::host_port_ipv6` to better handle automatically assigned ports.
   Docker may bind the same exposed container port to different host ports on `0.0.0.0` and `::`, depending on influences from the environment.
 
 ### Changed
