@@ -228,6 +228,8 @@ where
             Command::Keep => {}
             Command::Remove => self.rm(),
         }
+        #[cfg(feature = "watchdog")]
+        crate::watchdog::unregister(self.id());
     }
 }
 

@@ -40,6 +40,9 @@ pub use crate::core::{Container, Image, ImageArgs, RunnableImage};
 #[cfg(feature = "experimental")]
 pub use crate::core::ContainerAsync;
 
+#[cfg(feature = "watchdog")]
+pub(crate) mod watchdog;
+
 /// All available Docker clients.
 pub mod clients;
 pub mod core;

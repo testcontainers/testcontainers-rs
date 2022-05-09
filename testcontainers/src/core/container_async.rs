@@ -157,6 +157,8 @@ where
             env::Command::Remove => self.docker_client.rm(&self.id).await,
             env::Command::Keep => {}
         }
+        #[cfg(feature = "watchdog")]
+        crate::watchdog::unregister(self.id());
     }
 }
 
