@@ -32,7 +32,7 @@ watchdog = [ "signal-hook", "conquer-once" ]
 experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]
-bitcoincore-rpc = "0.14"
+bitcoincore-rpc = "0.15"
 json = "0.12"
 lapin = "1.8.0"
 mongodb = "2.1.0"
