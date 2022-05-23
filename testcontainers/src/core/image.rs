@@ -111,9 +111,28 @@ impl ContainerState {
         Self { ports }
     }
 
+    #[deprecated(
+        since = "0.13.1",
+        note = "Use `host_port_ipv4()` or `host_port_ipv6()` instead."
+    )]
     pub fn host_port(&self, internal_port: u16) -> u16 {
+        self.host_port_ipv4(internal_port)
+    }
+
+    pub fn host_port_ipv4(&self, internal_port: u16) -> u16 {
         self.ports
-            .map_to_host_port(internal_port)
+            .map_to_host_port_ipv4(internal_port)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Container does not have a mapped port for {}",
+                    internal_port
+                )
+            })
+    }
+
+    pub fn host_port_ipv6(&self, internal_port: u16) -> u16 {
+        self.ports
+            .map_to_host_port_ipv6(internal_port)
             .unwrap_or_else(|| {
                 panic!(
                     "Container does not have a mapped port for {}",

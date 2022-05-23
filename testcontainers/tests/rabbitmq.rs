@@ -17,7 +17,7 @@ async fn rabbitmq_produce_and_consume_messages() {
     let docker = clients::Cli::default();
     let rabbit_node = docker.run(rabbitmq::RabbitMq::default());
 
-    let amqp_url = format!("amqp://localhost:{}", rabbit_node.get_host_port(5672));
+    let amqp_url = format!("amqp://127.0.0.1:{}", rabbit_node.get_host_port_ipv4(5672));
 
     let connection = Connection::connect(
         amqp_url.as_str(),
