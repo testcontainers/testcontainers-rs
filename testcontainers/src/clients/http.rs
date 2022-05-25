@@ -56,6 +56,10 @@ impl Http {
             ..Default::default()
         };
 
+        if image.tty() {
+            config.tty = Some(true)
+        }
+
         // Create network and add it to container creation
         if let Some(network) = image.network() {
             config.host_config = config.host_config.map(|mut host_config| {
@@ -345,6 +349,17 @@ mod tests {
 
     async fn inspect(client: &bollard::Docker, id: &str) -> ContainerInspectResponse {
         client.inspect_container(id, None).await.unwrap()
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn http_run_command_should_include_tty() {
+        let docker = Http::new();
+        let image = RunnableImage::from(HelloWorld::default());
+
+        let container = docker.run(image).await;
+
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        assert_eq!(container_details.config.unwrap().tty, Some(true));
     }
 
     #[tokio::test(flavor = "multi_thread")]

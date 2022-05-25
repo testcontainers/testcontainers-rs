@@ -143,6 +143,10 @@ impl Client {
     fn build_run_command<I: Image>(image: &RunnableImage<I>, mut command: Command) -> Command {
         command.arg("run");
 
+        if image.tty() {
+            command.arg("-t");
+        }
+
         if image.privileged() {
             command.arg("--privileged");
         }
@@ -503,6 +507,19 @@ mod tests {
         fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
             Box::new(self.volumes.iter())
         }
+    }
+
+    #[test]
+    fn cli_run_command_should_include_tty() {
+        let image = GenericImage::new("hello", "0.0");
+
+        let command =
+            Client::build_run_command(&RunnableImage::from(image), Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-t" "-P" "-d" "hello:0.0""#
+        );
     }
 
     #[test]
