@@ -37,7 +37,7 @@ jobs:
         run: cargo test --release
 
       - name: Publish package
-        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish --package testcontainers --token ${{ secrets.CRATES_IO_TOKEN }}
 
       - name: Create Release
         id: create-release
