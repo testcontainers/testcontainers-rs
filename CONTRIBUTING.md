@@ -34,3 +34,7 @@ To ensure every commit is properly formatted, you can opt into pre-defined `git`
 ```bash
 git config core.hookspath .githooks
 ```
+
+## Contact
+
+Feel free to drop by in our Matrix chat room: https://matrix.to/#/#testcontainers-rs:matrix.org

@@ -1,10 +1,11 @@
 use bollard_stubs::models::{PortBinding, PortMap};
-use std::collections::HashMap;
+use std::{collections::HashMap, net::IpAddr};
 
 /// The exposed ports of a running container.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Ports {
-    mapping: HashMap<u16, u16>,
+    ipv4_mapping: HashMap<u16, u16>,
+    ipv6_mapping: HashMap<u16, u16>,
 }
 
 impl Ports {
@@ -30,34 +31,66 @@ impl Ports {
         Self::from(port_binding)
     }
 
-    /// Returns the host port for the given internal port.
-    pub fn map_to_host_port(&self, internal_port: u16) -> Option<u16> {
-        self.mapping.get(&internal_port).cloned()
+    /// Returns the host port for the given internal port, on the host's IPv4 interfaces.
+    pub fn map_to_host_port_ipv4(&self, internal_port: u16) -> Option<u16> {
+        self.ipv4_mapping.get(&internal_port).cloned()
+    }
+
+    /// Returns the host port for the given internal port, on the host's IPv6 interfaces.
+    pub fn map_to_host_port_ipv6(&self, internal_port: u16) -> Option<u16> {
+        self.ipv6_mapping.get(&internal_port).cloned()
     }
 }
 
 impl From<PortMap> for Ports {
     fn from(ports: PortMap) -> Self {
-        let mapping = ports
-            .into_iter()
-            .filter_map(|(internal, external)| {
-                // internal is '8332/tcp', split off the protocol ...
-                let internal = internal.split('/').next()?;
+        let mut ipv4_mapping = HashMap::new();
+        let mut ipv6_mapping = HashMap::new();
+        for (internal, external) in ports {
+            // internal is of the form '8332/tcp', split off the protocol ...
+            let internal_port = if let Some(internal) = internal.split('/').next() {
+                parse_port(internal)
+            } else {
+                continue;
+            };
 
-                // get the first entry and get the value of the `HostPort` field
-                let external = external?;
-                let external_port = external.first()?.host_port.as_ref()?;
+            // get the `HostPort` of each external port binding
+            for binding in external.into_iter().flatten() {
+                if let Some(external_port) = binding.host_port.as_ref() {
+                    let external_port = parse_port(external_port);
 
-                let internal = parse_port(internal);
-                let external = parse_port(external_port);
+                    // switch on the IP version of the `HostIp`
+                    let mapping = match binding.host_ip.map(|ip| ip.parse()) {
+                        Some(Ok(IpAddr::V4(_))) => {
+                            log::debug!(
+                                "Registering IPv4 port mapping: {} -> {}",
+                                internal_port,
+                                external_port
+                            );
+                            &mut ipv4_mapping
+                        }
+                        Some(Ok(IpAddr::V6(_))) => {
+                            log::debug!(
+                                "Registering IPv6 port mapping: {} -> {}",
+                                internal_port,
+                                external_port
+                            );
+                            &mut ipv6_mapping
+                        }
+                        Some(Err(_)) | None => continue,
+                    };
 
-                log::debug!("Registering port mapping: {} -> {}", internal, external);
+                    mapping.insert(internal_port, external_port);
+                } else {
+                    continue;
+                }
+            }
+        }
 
-                Some((internal, external))
-            })
-            .collect::<HashMap<_, _>>();
-
-        Self { mapping }
+        Self {
+            ipv4_mapping,
+            ipv6_mapping,
+        }
     }
 }
 
@@ -262,6 +295,10 @@ mod tests {
         {
           "HostIp": "0.0.0.0",
           "HostPort": "33077"
+        },
+        {
+          "HostIp": "::",
+          "HostPort": "49718"
         }
       ]
     }
@@ -307,10 +344,11 @@ mod tests {
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();
-        expected_ports.mapping.insert(18332, 33076);
-        expected_ports.mapping.insert(18333, 33075);
-        expected_ports.mapping.insert(8332, 33078);
-        expected_ports.mapping.insert(8333, 33077);
+        expected_ports.ipv4_mapping.insert(18332, 33076);
+        expected_ports.ipv4_mapping.insert(18333, 33075);
+        expected_ports.ipv4_mapping.insert(8332, 33078);
+        expected_ports.ipv4_mapping.insert(8333, 33077);
+        expected_ports.ipv6_mapping.insert(8333, 49718);
 
         assert_eq!(parsed_ports, expected_ports)
     }

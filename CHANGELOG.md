@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2022-05-30
+
+### Added
+
+- Added `watchdog` feature that spawns a background thread keeping track of docker containers that are started by the test suite and removes them in the case of a `CTRL+C` or `kill` of the test process.
+- Introduced `Container::get_host_port_ipv4`, `Container::get_host_port_ipv6`, `ContainerState::host_port_ipv4`, and `ContainerState::host_port_ipv6` to better handle automatically assigned ports.
+  Docker may bind the same exposed container port to different host ports on `0.0.0.0` and `::`, depending on influences from the environment.
+
+### Changed
+
+- `Container::get_host_port` and `ContainerState::host_port` are now deprecated in favor of the new IPv4- and IPv6-specific methods.
+- MSRV is now 1.60.
+
 ## [0.13.0] - 2022-04-04
 
 ### Added
@@ -127,8 +140,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Provide a default password for the postgres image.
   There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
-[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.13.0...HEAD
-[0.13.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.12.0...0.13.0
+[Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.14.0...HEAD
+[0.14.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.13...0.14.0
+[0.13.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.12.0...0.13
 [0.12.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...0.12.0
 [0.11.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.10.0...0.11.0
 [0.10.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...0.10.0

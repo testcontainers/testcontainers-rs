@@ -14,7 +14,10 @@ async fn produce_and_consume_messages() {
     let docker = clients::Cli::default();
     let kafka_node = docker.run(kafka::Kafka::default());
 
-    let bootstrap_servers = format!("localhost:{}", kafka_node.get_host_port(kafka::KAFKA_PORT));
+    let bootstrap_servers = format!(
+        "127.0.0.1:{}",
+        kafka_node.get_host_port_ipv4(kafka::KAFKA_PORT)
+    );
 
     let producer = ClientConfig::new()
         .set("bootstrap.servers", &bootstrap_servers)

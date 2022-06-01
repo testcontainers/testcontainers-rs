@@ -11,7 +11,7 @@ jobs:
       - name: Get current MSRV from Cargo.toml
         id: current_msrv
         run: |
-          msrv=$(cat Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
+          msrv=$(cat testcontainers/Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
           echo "::set-output name=msrv::$msrv"
       - uses: actions-rs/toolchain@v1
         id: toolchain
@@ -19,7 +19,7 @@ jobs:
           profile: minimal
           toolchain: ${{steps.current_msrv.outputs.msrv}}
           override: true
-      - uses: Swatinem/rust-cache@v1.3.0
+      - uses: Swatinem/rust-cache@v1.4.0
       - run: cargo build
   test:
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1.3.0
+      - uses: Swatinem/rust-cache@v1.4.0
       - run: cargo test
   style:
     runs-on: ubuntu-latest
@@ -49,5 +49,5 @@ jobs:
           toolchain: stable
           override: true
           components: clippy
-      - uses: Swatinem/rust-cache@v1.3.0
+      - uses: Swatinem/rust-cache@v1.4.0
       - run: cargo clippy --all-targets -- -D warnings
