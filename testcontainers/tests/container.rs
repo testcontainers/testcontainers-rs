@@ -1,17 +1,16 @@
-use testcontainers::clients::Cli;
-use testcontainers::images::hello_world::HelloWorld;
+use testcontainers::{clients::Cli, images::hello_world::HelloWorld};
 
 #[test]
 fn container_should_be_send() {
     let docker = Cli::default();
-    let node = docker.run(HelloWorld{});
+    let node = docker.run(HelloWorld {});
     need_send(node);
 }
 
 #[test]
 fn container_should_be_sync() {
     let docker = Cli::default();
-    let node = docker.run(HelloWorld{});
+    let node = docker.run(HelloWorld {});
     need_sync(node);
 }
 
