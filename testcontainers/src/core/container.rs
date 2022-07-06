@@ -237,7 +237,7 @@ where
 ///
 /// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
 /// All functionality of this trait is available on [`Container`]s directly.
-pub(crate) trait Docker {
+pub(crate) trait Docker: Sync + Send {
     fn stdout_logs(&self, id: &str) -> LogStream;
     fn stderr_logs(&self, id: &str) -> LogStream;
     fn ports(&self, id: &str) -> Ports;
