@@ -248,3 +248,17 @@ pub(crate) trait Docker: Sync + Send {
     fn exec(&self, id: &str, cmd: String);
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>);
 }
+
+#[cfg(test)]
+mod test {
+
+    use super::Container;
+    use crate::images::hello_world::HelloWorld;
+
+    #[test]
+    fn container_should_be_send_and_sync() {
+        assert_send_and_sync::<Container<'_, HelloWorld>>();
+    }
+
+    fn assert_send_and_sync<T: Send + Sync>() {}
+}
