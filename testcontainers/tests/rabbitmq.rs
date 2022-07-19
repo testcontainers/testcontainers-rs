@@ -13,7 +13,7 @@ use tokio_amqp::LapinTokioExt;
 
 #[tokio::test]
 async fn rabbitmq_produce_and_consume_messages() {
-    let _ = pretty_env_logger::try_init().unwrap();
+    pretty_env_logger::try_init().unwrap();
     let docker = clients::Cli::default();
     let rabbit_node = docker.run(rabbitmq::RabbitMq::default());
 
