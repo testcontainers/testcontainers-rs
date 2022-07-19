@@ -237,7 +237,7 @@ where
 ///
 /// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
 /// All functionality of this trait is available on [`Container`]s directly.
-pub(crate) trait Docker {
+pub(crate) trait Docker: Sync + Send {
     fn stdout_logs(&self, id: &str) -> LogStream;
     fn stderr_logs(&self, id: &str) -> LogStream;
     fn ports(&self, id: &str) -> Ports;
@@ -247,4 +247,18 @@ pub(crate) trait Docker {
     fn start(&self, id: &str);
     fn exec(&self, id: &str, cmd: String);
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>);
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::Container;
+    use crate::images::hello_world::HelloWorld;
+
+    #[test]
+    fn container_should_be_send_and_sync() {
+        assert_send_and_sync::<Container<'_, HelloWorld>>();
+    }
+
+    fn assert_send_and_sync<T: Send + Sync>() {}
 }
