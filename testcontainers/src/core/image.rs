@@ -292,14 +292,14 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Port {
     pub local: u16,
     pub internal: u16,
 }
 
 /// Represents a condition that needs to be met before a container is considered ready.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum WaitFor {
     /// An empty condition. Useful for default cases or fallbacks.
     Nothing,
