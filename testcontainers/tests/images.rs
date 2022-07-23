@@ -492,7 +492,7 @@ fn zookeeper_check_directories_existence() {
 
     let host_port = node.get_host_port_ipv4(2181);
     let zk_urls = format!("127.0.0.1:{}", host_port);
-    let zk = ZooKeeper::connect(&*zk_urls, Duration::from_secs(15), |_| ()).unwrap();
+    let zk = ZooKeeper::connect(&zk_urls, Duration::from_secs(15), |_| ()).unwrap();
 
     zk.create(
         "/test",

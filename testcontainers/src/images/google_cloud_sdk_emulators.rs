@@ -17,7 +17,7 @@ pub struct CloudSdkArgs {
     pub emulator: Emulator,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Emulator {
     Bigtable,
     Datastore { project: String },

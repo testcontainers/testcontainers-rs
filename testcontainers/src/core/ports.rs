@@ -2,7 +2,7 @@ use bollard_stubs::models::{PortBinding, PortMap};
 use std::{collections::HashMap, net::IpAddr};
 
 /// The exposed ports of a running container.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Ports {
     ipv4_mapping: HashMap<u16, u16>,
     ipv6_mapping: HashMap<u16, u16>,
