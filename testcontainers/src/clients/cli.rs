@@ -143,6 +143,10 @@ impl Client {
     fn build_run_command<I: Image>(image: &RunnableImage<I>, mut command: Command) -> Command {
         command.arg("run");
 
+        if image.privileged() {
+            command.arg("--privileged");
+        }
+
         if let Some(network) = image.network() {
             command.arg(format!("--network={}", network));
         }
@@ -596,6 +600,18 @@ mod tests {
         assert_eq!(
             format!("{:?}", command),
             r#""docker" "run" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_privileged() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_privileged(true);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--privileged" "-P" "-d" "hello:0.0""#
         );
     }
 

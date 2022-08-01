@@ -163,6 +163,7 @@ pub struct RunnableImage<I: Image> {
     env_vars: BTreeMap<String, String>,
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
+    privileged: bool,
 }
 
 impl<I: Image> RunnableImage<I> {
@@ -192,6 +193,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn ports(&self) -> &Option<Vec<Port>> {
         &self.ports
+    }
+
+    pub fn privileged(&self) -> bool {
+        self.privileged
     }
 
     pub fn entrypoint(&self) -> Option<String> {
@@ -264,6 +269,10 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    pub fn with_privileged(self, privileged: bool) -> Self {
+        Self { privileged, ..self }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -287,6 +296,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             env_vars: BTreeMap::default(),
             volumes: BTreeMap::default(),
             ports: None,
+            privileged: false,
         }
     }
 }
