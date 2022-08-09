@@ -541,7 +541,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "-e" "one-key=one-value" "-e" "two-key=two-value" "-v" "one-from:one-dest" "-v" "two-from:two-dest" "-P" "-d" "hello-world:latest""#
+            r#""docker" "run" "-t" "-e" "one-key=one-value" "-e" "two-key=two-value" "-v" "one-from:one-dest" "-v" "two-from:two-dest" "-P" "-d" "hello-world:latest""#
         );
     }
 
@@ -554,7 +554,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "-P" "-d" "hello:0.0""#
+            r#""docker" "run" "-t" "-P" "-d" "hello:0.0""#
         );
     }
 
@@ -569,7 +569,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "-p" "123:456" "-p" "555:888" "-d" "hello:0.0""#
+            r#""docker" "run" "-t" "-p" "123:456" "-p" "555:888" "-d" "hello:0.0""#
         );
     }
 
@@ -590,7 +590,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "--network=awesome-net" "-P" "-d" "hello:0.0""#
+            r#""docker" "run" "-t" "--network=awesome-net" "-P" "-d" "hello:0.0""#
         );
     }
 
@@ -602,7 +602,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "--name=hello_container" "-P" "-d" "hello:0.0""#
+            r#""docker" "run" "-t" "--name=hello_container" "-P" "-d" "hello:0.0""#
         );
     }
 
@@ -616,7 +616,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
+            r#""docker" "run" "-t" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
         );
     }
 
@@ -628,7 +628,7 @@ mod tests {
 
         assert_eq!(
             format!("{:?}", command),
-            r#""docker" "run" "--privileged" "-P" "-d" "hello:0.0""#
+            r#""docker" "run" "-t" "--privileged" "-P" "-d" "hello:0.0""#
         );
     }
 
