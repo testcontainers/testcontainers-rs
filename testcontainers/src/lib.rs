@@ -48,3 +48,8 @@ pub mod clients;
 pub mod core;
 /// All available Docker images.
 pub mod images;
+
+#[cfg(feature = "compose")]
+/// Using docker compose
+/// Require enabling the `compose` feature.
+pub mod compose;

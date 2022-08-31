@@ -1,0 +1,21 @@
+---
+version: "2"
+services:
+  web1:
+    image: simple_web_server
+    ports:
+      - "8081:80"
+
+  web2:
+    profiles:
+      - test1
+    image: simple_web_server
+    ports:
+      - "8082:80"
+
+  web3:
+    profiles:
+      - test2
+    image: simple_web_server
+    ports:
+      - "8083:80"
