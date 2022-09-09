@@ -147,6 +147,10 @@ impl Client {
             command.arg("--privileged");
         }
 
+        if let Some(bytes) = image.shm_size() {
+            command.arg(format!("--shm-size={}", bytes));
+        }
+
         if let Some(network) = image.network() {
             command.arg(format!("--network={}", network));
         }
@@ -612,6 +616,18 @@ mod tests {
         assert_eq!(
             format!("{:?}", command),
             r#""docker" "run" "--privileged" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_shm_size() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_shm_size(1_000_000);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--shm-size=1000000" "-P" "-d" "hello:0.0""#
         );
     }
 
