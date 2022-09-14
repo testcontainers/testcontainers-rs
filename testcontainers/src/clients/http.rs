@@ -145,7 +145,7 @@ impl Http {
         let create_result = self
             .create_container(create_options.clone(), config.clone())
             .await;
-        let id = {
+        let container_id = {
             match create_result {
                 Ok(container) => container.id,
                 Err(bollard::errors::Error::DockerResponseNotFoundError { message: _ }) => {
@@ -177,7 +177,7 @@ impl Http {
 
         self.inner
             .bollard
-            .start_container::<String>(&id, None)
+            .start_container::<String>(&container_id, None)
             .await
             .unwrap();
 
@@ -185,7 +185,7 @@ impl Http {
             inner: self.inner.clone(),
         };
 
-        ContainerAsync::new(id, client, image, self.inner.command).await
+        ContainerAsync::new(container_id, client, image, self.inner.command).await
     }
 }
 
