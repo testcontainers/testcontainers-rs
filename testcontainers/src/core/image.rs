@@ -93,6 +93,11 @@ where
     fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
         Default::default()
     }
+
+    /// Whether or not a pseudo-tty should be allocated within the container.
+    fn tty(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Default, Debug)]
@@ -173,6 +178,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn args(&self) -> &I::Args {
         &self.image_args
+    }
+
+    pub fn tty(&self) -> bool {
+        self.image.tty()
     }
 
     pub fn network(&self) -> &Option<String> {

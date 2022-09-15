@@ -353,6 +353,25 @@ fn generic_image_port_not_exposed() {
     node.get_host_port_ipv4(target_port);
 }
 
+#[test]
+fn generic_image_tty_allocated() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::docker();
+
+    // This image responds with status code 200 in the event that stdout is attached to TTY through docker.
+    let tty_img = images::generic::GenericImage::new("tty", "latest");
+
+    let node = docker.run(tty_img);
+    let port = node.get_host_port_ipv4(8080);
+
+    assert!(
+        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+            .unwrap()
+            .status()
+            .is_success()
+    );
+}
+
 fn build_sqs_client(host_port: u16) -> SqsClient {
     let dispatcher = HttpClient::new().expect("could not create http client");
     let credentials_provider =

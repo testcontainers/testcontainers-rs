@@ -38,6 +38,21 @@ fn main() -> Result<()> {
     }
     eprintln!("Built simple_web_server:latest");
 
+    let output = Command::new("docker")
+        .arg("build")
+        .arg("--file")
+        .arg(&format!("{cwd}/src/dockerfiles/tty.dockerfile"))
+        .arg("--force-rm")
+        .arg("--tag")
+        .arg("tty:latest")
+        .arg(".")
+        .output()?;
+    if !output.status.success() {
+        eprintln!("stderr: {}", String::from_utf8(output.stderr)?);
+        bail!("unable to build tty:latest");
+    }
+    println!("Built tty:latest");
+
     // trigger recompilation when dockerfiles are modified
     println!("cargo:rerun-if-changed=src/dockerfiles");
     println!("cargo:rerun-if-changed=.dockerignore");
