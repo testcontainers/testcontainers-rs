@@ -1,11 +1,20 @@
 name: Continuous Integration
+
 on:
   pull_request:
   push:
     branches: [master, dev, trying, staging]
+
 jobs:
   msrv:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cargo-cmd:
+          - build
+          - build --all-features
+          - build --no-default-features
     steps:
       - uses: actions/checkout@v3
       - name: Get current MSRV from Cargo.toml
@@ -20,7 +29,8 @@ jobs:
           toolchain: ${{steps.current_msrv.outputs.msrv}}
           override: true
       - uses: Swatinem/rust-cache@v2.0.0
-      - run: cargo build
+      - run: cargo ${{ matrix['cargo-cmd'] }}
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -38,6 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dprint/check@v2.1
+
   lint:
     runs-on: ubuntu-latest
     steps:
