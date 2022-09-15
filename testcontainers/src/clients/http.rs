@@ -148,7 +148,9 @@ impl Http {
         let container_id = {
             match create_result {
                 Ok(container) => container.id,
-                Err(bollard::errors::Error::DockerResponseServerError { status_code: 404, .. }) => {
+                Err(bollard::errors::Error::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {
                     {
                         let pull_options = Some(CreateImageOptions {
                             from_image: image.descriptor(),
