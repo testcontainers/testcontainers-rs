@@ -56,7 +56,15 @@ impl Http {
             ..Default::default()
         };
 
-        // Create network and add it to container creation
+        // shared memory
+        if let Some(bytes) = image.shm_size() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.shm_size = Some(bytes as i64);
+                host_config
+            });
+        }
+
+        // create network and add it to container creation
         if let Some(network) = image.network() {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.network_mode = Some(network.to_string());
@@ -436,5 +444,18 @@ mod tests {
 
         // client has been dropped, should clean up networks
         assert!(!network_exists(&client, "awesome-net-2").await)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn http_run_command_should_set_shared_memory_size() {
+        let docker = Http::new();
+        let image = GenericImage::new("hello-world", "latest");
+        let image = RunnableImage::from(image).with_shm_size(1_000_000);
+        let container = docker.run(image).await;
+
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        let shm_size = container_details.host_config.unwrap().shm_size.unwrap();
+
+        assert_eq!(shm_size, 1_000_000);
     }
 }

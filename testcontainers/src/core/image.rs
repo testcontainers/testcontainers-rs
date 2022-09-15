@@ -164,6 +164,7 @@ pub struct RunnableImage<I: Image> {
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
     privileged: bool,
+    shm_size: Option<u64>,
 }
 
 impl<I: Image> RunnableImage<I> {
@@ -197,6 +198,11 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn privileged(&self) -> bool {
         self.privileged
+    }
+
+    /// Shared memory size in bytes
+    pub fn shm_size(&self) -> Option<u64> {
+        self.shm_size
     }
 
     pub fn entrypoint(&self) -> Option<String> {
@@ -273,6 +279,13 @@ impl<I: Image> RunnableImage<I> {
     pub fn with_privileged(self, privileged: bool) -> Self {
         Self { privileged, ..self }
     }
+
+    pub fn with_shm_size(self, bytes: u64) -> Self {
+        Self {
+            shm_size: Some(bytes),
+            ..self
+        }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -297,6 +310,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             volumes: BTreeMap::default(),
             ports: None,
             privileged: false,
+            shm_size: None,
         }
     }
 }
