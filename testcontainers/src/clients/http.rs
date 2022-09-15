@@ -145,10 +145,12 @@ impl Http {
         let create_result = self
             .create_container(create_options.clone(), config.clone())
             .await;
-        let id = {
+        let container_id = {
             match create_result {
                 Ok(container) => container.id,
-                Err(bollard::errors::Error::DockerResponseNotFoundError { message: _ }) => {
+                Err(bollard::errors::Error::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {
                     {
                         let pull_options = Some(CreateImageOptions {
                             from_image: image.descriptor(),
@@ -172,12 +174,12 @@ impl Http {
 
         #[cfg(feature = "watchdog")]
         if self.inner.command == env::Command::Remove {
-            crate::watchdog::Watchdog::register(container_id.clone());
+            crate::watchdog::register(container_id.clone());
         }
 
         self.inner
             .bollard
-            .start_container::<String>(&id, None)
+            .start_container::<String>(&container_id, None)
             .await
             .unwrap();
 
@@ -185,7 +187,7 @@ impl Http {
             inner: self.inner.clone(),
         };
 
-        ContainerAsync::new(id, client, image, self.inner.command).await
+        ContainerAsync::new(container_id, client, image, self.inner.command).await
     }
 }
 
