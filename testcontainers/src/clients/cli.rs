@@ -204,7 +204,7 @@ impl Client {
         }
 
         let mut docker = self.command();
-        docker.args(&["network", "create", name]);
+        docker.args(["network", "create", name]);
 
         let output = docker.output().expect("failed to create docker network");
         assert!(output.status.success(), "failed to create docker network");
@@ -214,7 +214,7 @@ impl Client {
 
     fn network_exists(&self, name: &str) -> bool {
         let mut docker = self.command();
-        docker.args(&["network", "ls", "--format", "{{.Name}}"]);
+        docker.args(["network", "ls", "--format", "{{.Name}}"]);
 
         let output = docker.output().expect("failed to list docker networks");
         let output = String::from_utf8(output.stdout).expect("output is not valid utf-8");
@@ -228,7 +228,7 @@ impl Client {
         S: AsRef<OsStr>,
     {
         let mut docker = self.command();
-        docker.args(&["network", "rm"]);
+        docker.args(["network", "rm"]);
         docker.args(networks);
 
         let output = docker.output().expect("failed to delete docker networks");
