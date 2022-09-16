@@ -5,7 +5,7 @@ use crate::{
 use async_trait::async_trait;
 use bollard::models::{ContainerInspectResponse, HealthStatusEnum};
 use futures::{executor::block_on, FutureExt};
-use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr, time::Duration};
+use std::{fmt, net::IpAddr, str::FromStr, time::Duration};
 use tokio::time::sleep;
 
 /// Represents a running docker container that has been started using an async client..
@@ -31,17 +31,14 @@ use tokio::time::sleep;
 /// ```
 ///
 /// [drop_impl]: struct.ContainerAsync.html#impl-Drop
-pub struct ContainerAsync<'d, I: Image> {
+pub struct ContainerAsync<I: Image> {
     id: String,
     docker_client: Box<dyn DockerAsync>,
     image: RunnableImage<I>,
     command: Command,
-
-    /// Tracks the lifetime of the client to make sure the container is dropped before the client.
-    client_lifetime: PhantomData<&'d ()>,
 }
 
-impl<'d, I> ContainerAsync<'d, I>
+impl<I> ContainerAsync<I>
 where
     I: Image,
 {
@@ -162,7 +159,7 @@ where
     }
 }
 
-impl<'d, I> fmt::Debug for ContainerAsync<'d, I>
+impl<I> fmt::Debug for ContainerAsync<I>
 where
     I: fmt::Debug + Image,
 {
@@ -192,7 +189,7 @@ where
     async fn start(&self, id: &str);
 }
 
-impl<'d, I> ContainerAsync<'d, I>
+impl<I> ContainerAsync<I>
 where
     I: Image,
 {
@@ -203,13 +200,12 @@ where
         docker_client: impl DockerAsync + 'static,
         image: RunnableImage<I>,
         command: env::Command,
-    ) -> ContainerAsync<'d, I> {
+    ) -> ContainerAsync<I> {
         let container = ContainerAsync {
             id,
             docker_client: Box::new(docker_client),
             image,
             command,
-            client_lifetime: PhantomData,
         };
 
         container.block_until_ready().await;
@@ -268,7 +264,7 @@ where
     }
 }
 
-impl<'d, I> Drop for ContainerAsync<'d, I>
+impl<I> Drop for ContainerAsync<I>
 where
     I: Image,
 {
