@@ -257,6 +257,7 @@ where
                     panic!("Healthcheck for the container is not configured");
                 },
                 WaitFor::Nothing => {}
+                _ => unimplemented!("WaitFor since not yet supported for async container"),
             }
         }
 

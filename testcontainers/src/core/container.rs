@@ -3,7 +3,8 @@ use crate::{
     Image, RunnableImage,
 };
 use bollard_stubs::models::ContainerInspectResponse;
-use std::{fmt, net::IpAddr, str::FromStr};
+use chrono::{DateTime, FixedOffset};
+use std::{fmt, io, net::IpAddr, process::Output, str::FromStr};
 
 /// Represents a running docker container.
 ///
@@ -189,7 +190,11 @@ where
         self.docker_client.exec(self.id(), cmd);
 
         self.docker_client
-            .block_until_ready(self.id(), ready_conditions);
+            .block_until_ready(self.id(), ready_conditions)
+    }
+
+    pub fn exec_blocking(&self, cmd: String) -> Result<Output, io::Error> {
+        self.docker_client.exec_no_spawn(self.id(), cmd)
     }
 
     pub fn stop(&self) {
@@ -235,13 +240,16 @@ where
 /// All functionality of this trait is available on [`Container`]s directly.
 pub(crate) trait Docker: Sync + Send {
     fn stdout_logs(&self, id: &str) -> LogStream;
+    fn stdout_logs_since(&self, id: &str, since: &DateTime<FixedOffset>) -> LogStream;
     fn stderr_logs(&self, id: &str) -> LogStream;
+    fn stderr_logs_since(&self, id: &str, since: &DateTime<FixedOffset>) -> LogStream;
     fn ports(&self, id: &str) -> Ports;
     fn inspect(&self, id: &str) -> ContainerInspectResponse;
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
     fn exec(&self, id: &str, cmd: String);
+    fn exec_no_spawn(&self, id: &str, cmd: String) -> Result<Output, io::Error>;
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>);
 }
 

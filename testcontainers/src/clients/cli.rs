@@ -3,10 +3,12 @@ use crate::{
     Container, Image, ImageArgs, RunnableImage,
 };
 use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
+use chrono::{DateTime, FixedOffset, SecondsFormat::Nanos};
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
-    process::{Command, Stdio},
+    io,
+    process::{Command, Output, Stdio},
     sync::{Arc, RwLock},
     thread::sleep,
     time::{Duration, Instant},
@@ -293,6 +295,26 @@ impl Docker for Cli {
         LogStream::new(child.stdout.expect("stdout to be captured"))
     }
 
+    fn stdout_logs_since(&self, id: &str, since: &DateTime<FixedOffset>) -> LogStream {
+        self.inner
+            .wait_at_least_one_second_after_container_was_started(id);
+
+        let child = self
+            .inner
+            .command()
+            .arg("logs")
+            .arg("-f")
+            .arg("--since")
+            .arg(since.to_rfc3339_opts(Nanos, true))
+            .arg(id)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("Failed to execute docker command");
+
+        LogStream::new(child.stdout.expect("stdout to be captured"))
+    }
+
     fn stderr_logs(&self, id: &str) -> LogStream {
         self.inner
             .wait_at_least_one_second_after_container_was_started(id);
@@ -309,6 +331,26 @@ impl Docker for Cli {
             .expect("Failed to execute docker command");
 
         LogStream::new(child.stderr.expect("stderr to be captured"))
+    }
+
+    fn stderr_logs_since(&self, id: &str, since: &DateTime<FixedOffset>) -> LogStream {
+        self.inner
+            .wait_at_least_one_second_after_container_was_started(id);
+
+        let child = self
+            .inner
+            .command()
+            .arg("logs")
+            .arg("-f")
+            .arg("--since")
+            .arg(since.to_rfc3339_opts(Nanos, true))
+            .arg(id)
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute docker command");
+
+        LogStream::new(child.stdout.expect("stdout to be captured"))
     }
 
     fn ports(&self, id: &str) -> Ports {
@@ -406,6 +448,17 @@ impl Docker for Cli {
             .expect("Failed to exec in a docker container");
     }
 
+    fn exec_no_spawn(&self, id: &str, cmd: String) -> Result<Output, io::Error> {
+        self.inner
+            .command()
+            .arg("exec")
+            .arg(id)
+            .arg("sh")
+            .arg("-c")
+            .arg(cmd)
+            .output()
+    }
+
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>) {
         log::debug!("Waiting for container {} to be ready", id);
 
@@ -414,9 +467,17 @@ impl Docker for Cli {
                 WaitFor::StdOutMessage { message } => {
                     self.stdout_logs(id).wait_for_message(&message).unwrap()
                 }
+                WaitFor::StdOutMessageSince { message, since } => self
+                    .stdout_logs_since(id, &since)
+                    .wait_for_message(&message)
+                    .unwrap(),
                 WaitFor::StdErrMessage { message } => {
                     self.stderr_logs(id).wait_for_message(&message).unwrap()
                 }
+                WaitFor::StdErrMessageSince { message, since } => self
+                    .stderr_logs_since(id, &since)
+                    .wait_for_message(&message)
+                    .unwrap(),
                 WaitFor::Duration { length } => {
                     std::thread::sleep(length);
                 }

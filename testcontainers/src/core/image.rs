@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
 
+use chrono::{DateTime, FixedOffset};
+
 use super::ports::Ports;
 
 /// Represents a docker image.
@@ -329,8 +331,18 @@ pub enum WaitFor {
     Nothing,
     /// Wait for a message on the stdout stream of the container's logs.
     StdOutMessage { message: String },
+    /// Wait for a message on the stdout stream of the container's logs older than `since`.
+    StdOutMessageSince {
+        message: String,
+        since: DateTime<FixedOffset>,
+    },
     /// Wait for a message on the stderr stream of the container's logs.
     StdErrMessage { message: String },
+    /// Wait for a message on the stderr stream of the container's logs older than `since.
+    StdErrMessageSince {
+        message: String,
+        since: DateTime<FixedOffset>,
+    },
     /// Wait for a certain amount of time.
     Duration { length: Duration },
     /// Wait for the container's status to become `healthy`.
@@ -344,9 +356,29 @@ impl WaitFor {
         }
     }
 
+    pub fn message_on_stdout_since<S: Into<String>>(
+        message: S,
+        since: DateTime<FixedOffset>,
+    ) -> WaitFor {
+        WaitFor::StdOutMessageSince {
+            message: message.into(),
+            since,
+        }
+    }
+
     pub fn message_on_stderr<S: Into<String>>(message: S) -> WaitFor {
         WaitFor::StdErrMessage {
             message: message.into(),
+        }
+    }
+
+    pub fn message_on_stderr_since<S: Into<String>>(
+        message: S,
+        since: DateTime<FixedOffset>,
+    ) -> WaitFor {
+        WaitFor::StdErrMessageSince {
+            message: message.into(),
+            since,
         }
     }
 
