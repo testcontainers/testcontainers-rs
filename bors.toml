@@ -1,8 +1,6 @@
 status = [
-    "msrv (build)",
     "msrv (build --all-features)",
     "msrv (build --no-default-features)",
-    "test (test)",
     "test (test --all-features)",
     "test (test --no-default-features)",
     "style",
