@@ -41,7 +41,7 @@ impl fmt::Debug for Http {
 
 impl Default for Http {
     fn default() -> Self {
-        Self::new()
+        Self::new(Docker::connect_with_http_defaults().unwrap())
     }
 }
 
@@ -200,11 +200,11 @@ impl Http {
 }
 
 impl Http {
-    fn new() -> Self {
+    pub fn new(bollard: Docker) -> Self {
         Http {
             inner: Arc::new(Client {
                 command: env::command::<env::Os>().unwrap_or_default(),
-                bollard: Docker::connect_with_http_defaults().unwrap(),
+                bollard,
                 created_networks: RwLock::new(Vec::new()),
             }),
         }
