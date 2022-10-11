@@ -168,18 +168,32 @@ where
             })
     }
 
-    /// Returns the bridge ip address of docker container as specified in NetworkSettings.IPAddress
+    /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
     pub fn get_bridge_ip_address(&self) -> IpAddr {
-        IpAddr::from_str(
-            &self
-                .docker_client
-                .inspect(&self.id)
-                .network_settings
-                .unwrap_or_default()
-                .ip_address
-                .unwrap_or_default(),
-        )
-        .unwrap_or_else(|_| panic!("container {} has missing or invalid bridge IP", self.id))
+        let settings = self
+            .docker_client
+            .inspect(&self.id)
+            .network_settings
+            .unwrap_or_else(|| panic!("container {} has no network settings", self.id));
+
+        let mut networks = settings
+            .networks
+            .unwrap_or_else(|| panic!("container {} has no any networks", self.id));
+
+        let bridge_name = self
+            .image
+            .network()
+            .clone()
+            .or(settings.bridge)
+            .unwrap_or_else(|| panic!("container {} has missing bridge name", self.id));
+
+        let ip = networks
+            .remove(&bridge_name)
+            .and_then(|network| network.ip_address)
+            .unwrap_or_else(|| panic!("container {} has missing bridge IP", self.id));
+
+        IpAddr::from_str(&ip)
+            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
     }
 
     pub fn exec(&self, cmd: ExecCommand) {
