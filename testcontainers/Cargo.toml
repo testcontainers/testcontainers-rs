@@ -51,4 +51,4 @@ spectral = "0.6"
 testimages = { path = "../testimages" }
 tokio = { version = "1", features = [ "macros" ] }
 tokio-amqp = "1.0.0"
-zookeeper = "0.6"
+zookeeper = "0.7"
