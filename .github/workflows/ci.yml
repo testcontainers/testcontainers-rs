@@ -39,15 +39,14 @@ jobs:
           - test --all-features
           - test --no-default-features
     steps:
+      - uses: actions/checkout@v3
       - name: Enable Docker Remote API on Localhost
         shell: bash
         run: |
-          sudo sed -i \
-            's#ExecStart=/usr/bin/dockerd#ExecStart=/usr/bin/dockerd -H tcp://127.0.0.1:2375#g' \
-            /lib/systemd/system/docker.service
+          sudo mkdir -p /etc/systemd/system/docker.service.d/
+          sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
           sudo systemctl daemon-reload
           sudo systemctl restart docker
-      - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         id: toolchain
         with:
