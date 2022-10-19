@@ -8,6 +8,7 @@ pub mod hello_world;
 pub mod kafka;
 pub mod minio;
 pub mod mongo;
+pub mod mysql;
 pub mod orientdb;
 pub mod parity_parity;
 pub mod postgres;

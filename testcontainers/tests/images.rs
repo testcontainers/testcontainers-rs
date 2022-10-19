@@ -1,5 +1,6 @@
 use bitcoincore_rpc::RpcApi;
 use mongodb::{bson, Client};
+use mysql::{prelude::Queryable, Row};
 use redis::Commands;
 use rusoto_core::{HttpClient, Region};
 use rusoto_credential::StaticProvider;
@@ -427,6 +428,75 @@ fn postgres_custom_version() {
     let first_row = &rows[0];
     let first_column: String = first_row.get(0);
     assert!(first_column.contains("13"));
+}
+
+#[test]
+fn mysql_one_plus_one() {
+    let docker = clients::Cli::default();
+    let mysql_image = images::mysql::MySql::default();
+    let node = docker.run(mysql_image);
+
+    let connection_string = &format!(
+        "mysql://root:test@127.0.0.1:{}/test",
+        node.get_host_port_ipv4(3306)
+    );
+    let mut conn = mysql::Pool::new(connection_string)
+        .unwrap()
+        .get_conn()
+        .unwrap();
+
+    let rows: Vec<Row> = conn.query("SELECT 1 + 1").unwrap();
+    assert_eq!(rows.len(), 1);
+
+    let first_row = &rows[0];
+    let first_column: i32 = first_row.get(0);
+    assert_eq!(first_column, 2);
+}
+
+#[test]
+fn mysql_one_plus_one_with_custom_mapped_port() {
+    let _ = pretty_env_logger::try_init();
+    let free_local_port = free_local_port().unwrap();
+
+    let docker = clients::Cli::default();
+    let image = RunnableImage::from(images::mysql::MySql::default())
+        .with_mapped_port((free_local_port, 3306));
+    let _node = docker.run(image);
+
+    let connection_string = &format!("mysql://root:test@127.0.0.1:{}/test", free_local_port);
+
+    let mut conn = mysql::Pool::new(connection_string)
+        .unwrap()
+        .get_conn()
+        .unwrap();
+
+    let rows: Vec<Row> = conn.query("SELECT 1+1 AS result;").unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].get::<_, i32>("result"), 2);
+}
+
+#[test]
+fn mysql_custom_version() {
+    let docker = clients::Cli::default();
+    let image = RunnableImage::from(images::mysql::MySql::default()).with_tag("8.0-debian");
+    let node = docker.run(image);
+
+    let connection_string = &format!(
+        "mysql://root:test@127.0.0.1:{}/test",
+        node.get_host_port_ipv4(3306)
+    );
+    let mut conn = mysql::Pool::new(connection_string)
+        .unwrap()
+        .get_conn()
+        .unwrap();
+
+    let rows: Vec<Row> = conn.query("SELECT VERSION()").unwrap();
+    assert_eq!(rows.len(), 1);
+
+    let first_row = &rows[0];
+    let first_column: String = first_row.get(0);
+    assert!(first_column.contains("debian"));
 }
 
 #[tokio::test]
