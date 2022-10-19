@@ -42,11 +42,13 @@ jobs:
       - name: Enable Docker Remote API on Localhost
         shell: bash
         run: |
-          sudo sed -i \
-            's#ExecStart=/usr/bin/dockerd#ExecStart=/usr/bin/dockerd -H tcp://127.0.0.1:2375#g' \
-            /lib/systemd/system/docker.service
-          sudo systemctl daemon-reload
-          sudo systemctl restart docker
+          docker run -d \
+            --privileged \
+            --publish 127.0.0.1:2375:2375 \
+            --entrypoint dockerd \
+            docker:20.10-dind \
+              --host=tcp://0.0.0.0:2375 \
+              --tls=false
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
         id: toolchain
@@ -75,4 +77,4 @@ jobs:
           override: true
           components: clippy
       - uses: Swatinem/rust-cache@v2.0.0
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --all-features --all-targets -- -D warnings
