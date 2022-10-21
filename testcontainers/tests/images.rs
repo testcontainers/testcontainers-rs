@@ -473,7 +473,7 @@ fn mysql_one_plus_one_with_custom_mapped_port() {
 #[test]
 fn mysql_custom_version() {
     let docker = clients::Cli::default();
-    let image = RunnableImage::from(images::mysql::MySql::default()).with_tag("8.0.30");
+    let image = RunnableImage::from(images::mysql::MySql::default()).with_tag("5.7.40");
     let node = docker.run(image);
 
     let connection_string = &format!(
@@ -487,7 +487,7 @@ fn mysql_custom_version() {
 
     let first_row = &rows[0];
     let first_column: String = first_row.get(0).unwrap();
-    assert_eq!(first_column, "8.0.30");
+    assert_eq!(first_column, "5.7.40");
 }
 
 #[tokio::test]
