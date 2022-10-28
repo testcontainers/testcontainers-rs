@@ -24,3 +24,9 @@ We strive to make `testcontainers` as reliable as possible and try to control as
 One consequence of this decision is that the container _tag_ is typically not configurable for images that ship with `testcontainers`.
 Whilst an image behind a tag can also change, image authors tend to preserve compatibility there.
 If we were to allow users to change the `tag` of an image, we wouldn't be able to guarantee that it works because we cannot test all combinations.
+
+## Ease of use
+
+The library should be easy to use.
+For example, users should be able to make their own implementation of `Image` without much boilerplate.
+In fact, the path forward may very well be that we stop shipping a lot of images in the crate and instead require users to create their own images.
