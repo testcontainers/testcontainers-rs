@@ -32,6 +32,12 @@ watchdog = [ "signal-hook", "conquer-once" ]
 experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]
+aws-config = "0.49.0"
+aws-sdk-dynamodb = "0.19.0"
+aws-sdk-s3 = "0.19.0"
+aws-sdk-sqs = "0.19.0"
+aws-smithy-http = "0.49.0"
+aws-types = "0.49.0"
 bitcoincore-rpc = "0.16"
 json = "0.12"
 lapin = "1.8.0"
@@ -42,11 +48,6 @@ pretty_env_logger = "0.4"
 rdkafka = "0.28"
 redis = "0.22"
 reqwest = { version = "0.11", features = [ "blocking" ] }
-rusoto_core = "0.47"
-rusoto_credential = "0.47"
-rusoto_dynamodb = "0.47"
-rusoto_s3 = "0.47"
-rusoto_sqs = "0.47"
 spectral = "0.6"
 testimages = { path = "../testimages" }
 tokio = { version = "1", features = [ "macros" ] }

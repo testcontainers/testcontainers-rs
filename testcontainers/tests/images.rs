@@ -1,14 +1,6 @@
 use bitcoincore_rpc::RpcApi;
-use mongodb::{bson, Client};
+use mongodb::{bson, Client as MongoClient};
 use redis::Commands;
-use rusoto_core::{HttpClient, Region};
-use rusoto_credential::StaticProvider;
-use rusoto_dynamodb::{
-    AttributeDefinition, CreateTableInput, DynamoDb, DynamoDbClient, KeySchemaElement,
-    ProvisionedThroughput,
-};
-use rusoto_s3::{CreateBucketRequest, S3Client, S3};
-use rusoto_sqs::{ListQueuesRequest, Sqs, SqsClient};
 use spectral::prelude::*;
 use std::{ops::Range, time::Duration};
 use zookeeper::{Acl, CreateMode, ZooKeeper};
@@ -145,49 +137,6 @@ fn trufflesuite_ganachecli_listaccounts() {
     assert_eq!(response["result"], "42");
 }
 
-#[tokio::test]
-async fn dynamodb_local_create_table() {
-    let _ = pretty_env_logger::try_init();
-    let docker = clients::Cli::default();
-    let node = docker.run(images::dynamodb_local::DynamoDb::default());
-    let host_port = node.get_host_port_ipv4(8000);
-
-    let create_tables_input = CreateTableInput {
-        table_name: "books".to_string(),
-        key_schema: vec![KeySchemaElement {
-            key_type: "HASH".to_string(),
-            attribute_name: "title".to_string(),
-        }],
-        attribute_definitions: vec![AttributeDefinition {
-            attribute_name: "title".to_string(),
-            attribute_type: "S".to_string(),
-        }],
-        provisioned_throughput: Some(ProvisionedThroughput {
-            read_capacity_units: 5,
-            write_capacity_units: 5,
-        }),
-        ..Default::default()
-    };
-
-    let dynamodb = build_dynamodb_client(host_port);
-    let result = dynamodb.create_table(create_tables_input).await;
-    assert_that(&result).is_ok();
-}
-
-fn build_dynamodb_client(host_port: u16) -> DynamoDbClient {
-    let credentials_provider =
-        StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
-
-    let dispatcher = HttpClient::new().expect("could not create http client");
-
-    let region = Region::Custom {
-        name: "dynamodb-local".to_string(),
-        endpoint: format!("http://127.0.0.1:{}", host_port),
-    };
-
-    DynamoDbClient::new_with(dispatcher, credentials_provider, region)
-}
-
 #[test]
 fn redis_fetch_an_integer() {
     let _ = pretty_env_logger::try_init();
@@ -212,7 +161,7 @@ async fn mongo_fetch_document() {
     let host_port = node.get_host_port_ipv4(27017);
     let url = format!("mongodb://127.0.0.1:{}/", host_port);
 
-    let client: Client = Client::with_uri_str(&url).await.unwrap();
+    let client: MongoClient = MongoClient::with_uri_str(&url).await.unwrap();
     let db = client.database("some_db");
     let coll = db.collection("some-coll");
 
@@ -230,18 +179,6 @@ async fn mongo_fetch_document() {
         .unwrap()
         .unwrap();
     assert_eq!(42, find_one_result.get_i32("x").unwrap())
-}
-
-#[tokio::test]
-async fn sqs_list_queues() {
-    let docker = clients::Cli::default();
-    let node = docker.run(images::elasticmq::ElasticMq::default());
-    let host_port = node.get_host_port_ipv4(9324);
-    let client = build_sqs_client(host_port);
-
-    let request = ListQueuesRequest::default();
-    let result = client.list_queues(request).await.unwrap();
-    assert!(result.queue_urls.is_none());
 }
 
 #[test]
@@ -353,18 +290,6 @@ fn generic_image_port_not_exposed() {
     node.get_host_port_ipv4(target_port);
 }
 
-fn build_sqs_client(host_port: u16) -> SqsClient {
-    let dispatcher = HttpClient::new().expect("could not create http client");
-    let credentials_provider =
-        StaticProvider::new("fakeKey".to_string(), "fakeSecret".to_string(), None, None);
-    let region = Region::Custom {
-        name: "sqs-local".to_string(),
-        endpoint: format!("http://127.0.0.1:{}", host_port),
-    };
-
-    SqsClient::new_with(dispatcher, credentials_provider, region)
-}
-
 #[test]
 fn postgres_one_plus_one() {
     let docker = clients::Cli::default();
@@ -427,49 +352,6 @@ fn postgres_custom_version() {
     let first_row = &rows[0];
     let first_column: String = first_row.get(0);
     assert!(first_column.contains("13"));
-}
-
-#[tokio::test]
-async fn minio_buckets() {
-    let docker = clients::Cli::default();
-    let minio = images::minio::MinIO::default();
-    let node = docker.run(minio);
-
-    let endpoint = format!("http://127.0.0.1:{}", node.get_host_port_ipv4(9000));
-
-    let region = Region::Custom {
-        name: "us-east-1".to_owned(),
-        endpoint: endpoint.to_owned(),
-    };
-
-    // Default MinIO credentials (Can be overridden by ENV container variables)
-    let credentials =
-        StaticProvider::new("minioadmin".to_owned(), "minioadmin".to_owned(), None, None);
-    let client = S3Client::new_with(
-        rusoto_core::request::HttpClient::new().expect("Failed to creat HTTP client"),
-        credentials,
-        region,
-    );
-
-    let bucket_name = "test-bucket";
-    let create_bucket_req = CreateBucketRequest {
-        bucket: bucket_name.to_owned(),
-        ..Default::default()
-    };
-
-    client
-        .create_bucket(create_bucket_req)
-        .await
-        .expect("Failed to create test bucket");
-
-    let buckets = client
-        .list_buckets()
-        .await
-        .expect("Failed to get list of buckets")
-        .buckets
-        .unwrap();
-    assert_eq!(1, buckets.len());
-    assert_eq!(bucket_name, buckets[0].name.as_ref().unwrap());
 }
 
 /// Returns an available localhost port
