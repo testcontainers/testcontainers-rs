@@ -1,11 +1,19 @@
 name: Continuous Integration
+
 on:
   pull_request:
   push:
     branches: [master, dev, trying, staging]
+
 jobs:
   msrv:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cargo-cmd:
+          - build --all-features
+          - build --no-default-features
     steps:
       - uses: actions/checkout@v3
       - name: Get current MSRV from Cargo.toml
@@ -20,11 +28,25 @@ jobs:
           toolchain: ${{steps.current_msrv.outputs.msrv}}
           override: true
       - uses: Swatinem/rust-cache@v2.0.0
-      - run: cargo build
+      - run: cargo ${{ matrix['cargo-cmd'] }}
+
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cargo-cmd:
+          - test --all-features
+          - test --no-default-features
     steps:
       - uses: actions/checkout@v3
+      - name: Enable Docker Remote API on Localhost
+        shell: bash
+        run: |
+          sudo mkdir -p /etc/systemd/system/docker.service.d/
+          sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
+          sudo systemctl daemon-reload
+          sudo systemctl restart docker
       - uses: actions-rs/toolchain@v1
         id: toolchain
         with:
@@ -32,12 +54,14 @@ jobs:
           toolchain: stable
           override: true
       - uses: Swatinem/rust-cache@v2.0.0
-      - run: cargo test
+      - run: cargo ${{ matrix['cargo-cmd'] }}
+
   style:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dprint/check@v2.1
+
   lint:
     runs-on: ubuntu-latest
     steps:
