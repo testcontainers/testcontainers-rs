@@ -1,11 +1,11 @@
 # Design principles
 
-This documents aims to capture the design principles that went into this library.
+This document aims to capture the design principles that went into this library.
 It should serve as a reference point when making decisions on what features to include or exclude.
 
 ## Simple
 
-One of most important goals that we want to adhere to is creating a _simple_ API.
+One of the most important goals that we want to adhere to is creating a _simple_ API.
 Overall, this means keeping the API as small as possible to get the task done.
 When in doubt, we'd rather not add flags or configuration options for certain use cases.
 
