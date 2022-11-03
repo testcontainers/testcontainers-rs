@@ -78,7 +78,9 @@ fn spanner_emulator_expose_port() {
     let docker = clients::Cli::default();
     let node = docker.run(images::google_cloud_sdk_emulators::CloudSdk::spanner());
     assert!(RANDOM_PORTS
-        .contains(&node.get_host_port_ipv4(images::google_cloud_sdk_emulators::SPANNER_PORT)));
+        .contains(&node.get_host_port_ipv4(images::google_cloud_sdk_emulators::SPANNER_GRPC_PORT)));
+    assert!(RANDOM_PORTS
+        .contains(&node.get_host_port_ipv4(images::google_cloud_sdk_emulators::SPANNER_REST_PORT)));
 }
 
 #[test]
