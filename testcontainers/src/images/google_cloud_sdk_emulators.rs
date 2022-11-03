@@ -1,7 +1,7 @@
 use crate::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "google/cloud-sdk";
-const TAG: &str = "362.0.0-emulators";
+const TAG: &str = "408.0.1-emulators";
 
 const HOST: &str = "0.0.0.0";
 pub const BIGTABLE_PORT: u16 = 8086;
