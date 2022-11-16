@@ -153,6 +153,21 @@ fn redis_fetch_an_integer() {
     assert_eq!(42, result);
 }
 
+#[test]
+fn dragonfly_fetch_an_integer() {
+    let _ = pretty_env_logger::try_init();
+    let docker = clients::Cli::default();
+    let node = docker.run(images::dragonfly::Dragonfly::default());
+    let host_port = node.get_host_port_ipv4(6379);
+    let url = format!("redis://127.0.0.1:{}", host_port);
+    let client = redis::Client::open(url.as_ref()).unwrap();
+    let mut con = client.get_connection().unwrap();
+
+    con.set::<_, _, ()>("my_key", 42).unwrap();
+    let result: i64 = con.get("my_key").unwrap();
+    assert_eq!(42, result);
+}
+
 #[tokio::test]
 async fn mongo_fetch_document() {
     let _ = pretty_env_logger::try_init();
