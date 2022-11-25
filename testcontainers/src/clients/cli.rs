@@ -6,7 +6,7 @@ use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     sync::{Arc, RwLock},
     thread::sleep,
     time::{Duration, Instant},
@@ -390,20 +390,23 @@ impl Docker for Cli {
             .expect("Failed to start docker container");
     }
 
-    fn exec(&self, id: &str, cmd: String) {
-        self.inner
+    fn exec(&self, id: &str, cmd: String) -> std::process::Output {
+        let exec_output = self
+            .inner
             .command()
             .arg("exec")
-            .arg("-d")
             .arg(id)
             .arg("sh")
             .arg("-c")
-            .arg(cmd)
+            .arg(&cmd)
             .stdout(Stdio::piped())
             .spawn()
-            .expect("Failed to execute docker command")
-            .wait()
-            .expect("Failed to exec in a docker container");
+            .and_then(Child::wait_with_output)
+            .expect("Failed to execute docker command");
+
+        log::debug!("command {} was executed!", cmd);
+
+        exec_output
     }
 
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>) {
