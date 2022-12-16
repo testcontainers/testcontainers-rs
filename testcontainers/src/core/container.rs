@@ -3,7 +3,18 @@ use crate::{
     Image, RunnableImage,
 };
 use bollard_stubs::models::ContainerInspectResponse;
-use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
+use std::{
+    env, fmt,
+    fs::{self, File},
+    io,
+    marker::PhantomData,
+    net::IpAddr,
+    path::PathBuf,
+    str::FromStr,
+};
+use time::OffsetDateTime;
+
+const LOGS_DUMP_DIR_NAME: &str = "testcontainers";
 
 /// Represents a running docker container.
 ///
@@ -211,6 +222,14 @@ where
 
         self.docker_client.rm(&self.id)
     }
+
+    fn stdout_logs(&self) -> LogStream {
+        self.docker_client.stdout_logs(&self.id)
+    }
+
+    fn stderr_logs(&self) -> LogStream {
+        self.docker_client.stderr_logs(&self.id)
+    }
 }
 
 /// The destructor implementation for a Container.
@@ -227,10 +246,62 @@ where
         match self.command {
             Command::Keep => {}
             Command::Remove => self.rm(),
+            Command::Dump => {
+                self.stop();
+                dump_logs(self).expect("Failed to dump logs to file");
+                self.rm()
+            }
         }
         #[cfg(feature = "watchdog")]
         crate::watchdog::unregister(self.id());
     }
+}
+
+fn dump_logs<I>(container: &Container<'_, I>) -> io::Result<()>
+where
+    I: Image,
+{
+    let mut stdout = container.stdout_logs().into_inner();
+    let mut stderr = container.stderr_logs().into_inner();
+
+    let log_dump_dir = get_log_dump_dir_path();
+    fs::create_dir_all(log_dump_dir.clone())?;
+
+    let stdout_dump_path = get_log_dump_path(container, "stdout");
+    let stderr_dump_path = get_log_dump_path(container, "stderr");
+
+    let mut file = File::create(log_dump_dir.join(stdout_dump_path))?;
+    io::copy(&mut stdout, &mut file)?;
+
+    let mut file = File::create(log_dump_dir.join(stderr_dump_path))?;
+    io::copy(&mut stderr, &mut file)?;
+
+    Ok(())
+}
+
+fn get_log_dump_path<I>(container: &Container<'_, I>, stdtype: &str) -> PathBuf
+where
+    I: Image,
+{
+    let container_name = container
+        .image
+        .container_name()
+        .to_owned()
+        .unwrap_or(container.image.inner().name());
+
+    let iso = OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Iso8601::DEFAULT)
+        .unwrap_or("".into());
+
+    let log_file_name = format!("{container_name}_{stdtype}_{iso}");
+
+    PathBuf::from(log_file_name).with_extension("log")
+}
+
+fn get_log_dump_dir_path() -> PathBuf {
+    env::current_dir()
+        .unwrap_or(PathBuf::from("/tmp"))
+        .join(LOGS_DUMP_DIR_NAME)
 }
 
 /// Defines operations that we need to perform on docker containers and other entities.

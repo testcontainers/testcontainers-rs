@@ -36,6 +36,7 @@ impl GetEnvValue for Os {
 pub enum Command {
     Keep,
     Remove,
+    Dump,
 }
 
 impl FromStr for Command {
@@ -45,6 +46,7 @@ impl FromStr for Command {
         match s {
             "keep" => Ok(Command::Keep),
             "remove" => Ok(Command::Remove),
+            "dump" => Ok(Command::Dump),
             other => panic!(
                 "unknown command '{}' provided via TESTCONTAINERS env variable",
                 other

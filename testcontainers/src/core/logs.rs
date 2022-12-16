@@ -65,6 +65,10 @@ impl LogStream {
 
         Err(end_of_stream(lines))
     }
+
+    pub fn into_inner(self) -> Box<dyn Read> {
+        self.inner
+    }
 }
 
 fn handle_line(line: String, message: &str, lines: &mut Vec<String>) -> bool {

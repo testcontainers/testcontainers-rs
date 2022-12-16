@@ -457,7 +457,7 @@ impl Drop for Client {
             env::Command::Remove if created_networks => {
                 self.delete_networks(networks.iter());
             }
-            env::Command::Remove => {
+            env::Command::Remove | env::Command::Dump => {
                 // nothing to do
             }
             env::Command::Keep => {
