@@ -178,7 +178,9 @@ where
             env::Command::Remove => self.docker_client.rm(&self.id).await,
             env::Command::Dump => {
                 self.docker_client.stop(&self.id).await;
-                dump_logs(self).await.expect("Failed to dump logs to file");
+                if let Err(error) = dump_logs(self).await {
+                    log::warn!("failed to dump logs to disk - {}", error);
+                }
                 self.docker_client.rm(&self.id).await;
             }
             env::Command::Keep => {}

@@ -247,7 +247,9 @@ where
             Command::Remove => self.rm(),
             Command::Dump => {
                 self.stop();
-                dump_logs(self).expect("Failed to dump logs to file");
+                if let Err(error) = dump_logs(self) {
+                    log::warn!("failed to dump logs to disk - {}", error);
+                }
                 self.rm()
             }
         }
