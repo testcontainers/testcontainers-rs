@@ -264,7 +264,7 @@ async fn network_exists(client: &Docker, network: &str) -> bool {
 impl Drop for Client {
     fn drop(&mut self) {
         match self.command {
-            env::Command::Remove => {
+            env::Command::Remove | env::Command::Dump => {
                 let guard = self.created_networks.read().expect("failed to lock RwLock");
                 for network in guard.iter() {
                     block_on(async { self.bollard.remove_network(network).await.unwrap() });

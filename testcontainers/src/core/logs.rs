@@ -3,7 +3,11 @@ use futures::{stream::BoxStream, StreamExt};
 use std::{
     fmt, io,
     io::{BufRead, BufReader, Read},
+    path::PathBuf,
 };
+use time::OffsetDateTime;
+
+const LOGS_DUMP_DIR_NAME: &str = "testcontainers";
 
 #[cfg(feature = "experimental")]
 pub(crate) struct LogStreamAsync<'d> {
@@ -33,6 +37,10 @@ impl<'d> LogStreamAsync<'d> {
         }
 
         Err(end_of_stream(lines))
+    }
+
+    pub(crate) fn into_inner(self) -> BoxStream<'d, Result<String, std::io::Error>> {
+        self.inner
     }
 }
 
@@ -66,7 +74,7 @@ impl LogStream {
         Err(end_of_stream(lines))
     }
 
-    pub fn into_inner(self) -> Box<dyn Read> {
+    pub(crate) fn into_inner(self) -> Box<dyn Read> {
         self.inner
     }
 }
@@ -105,6 +113,20 @@ impl From<io::Error> for WaitError {
     fn from(e: io::Error) -> Self {
         WaitError::Io(e)
     }
+}
+
+pub(crate) fn get_log_dump_path(container_name: &str, stdtype: &str) -> PathBuf {
+    let iso = OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Iso8601::DEFAULT)
+        .unwrap_or("".into());
+
+    let log_file_name = format!("{container_name}_{stdtype}_{iso}");
+
+    PathBuf::from(log_file_name).with_extension("log")
+}
+
+pub(crate) fn get_log_dump_dir_path() -> PathBuf {
+    PathBuf::from(LOGS_DUMP_DIR_NAME)
 }
 
 #[cfg(test)]

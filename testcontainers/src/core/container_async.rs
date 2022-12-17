@@ -4,9 +4,15 @@ use crate::{
 };
 use async_trait::async_trait;
 use bollard::models::{ContainerInspectResponse, HealthStatusEnum};
-use futures::{executor::block_on, FutureExt};
-use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr, time::Duration};
-use tokio::time::sleep;
+use futures::{executor::block_on, FutureExt, StreamExt};
+use std::{fmt, marker::PhantomData, net::IpAddr, path::PathBuf, str::FromStr, time::Duration};
+use tokio::{
+    fs::{self, File},
+    io::{self, AsyncWriteExt},
+    time::sleep,
+};
+
+use super::logs::{get_log_dump_dir_path, get_log_dump_path};
 
 /// Represents a running docker container that has been started using an async client..
 ///
@@ -152,9 +158,22 @@ where
         self.docker_client.rm(&self.id).await
     }
 
+    fn stdout_logs(&self) -> LogStreamAsync<'_> {
+        self.docker_client.stdout_logs(&self.id)
+    }
+
+    fn stderr_logs(&self) -> LogStreamAsync<'_> {
+        self.docker_client.stderr_logs(&self.id)
+    }
+
     async fn drop_async(&self) {
         match self.command {
             env::Command::Remove => self.docker_client.rm(&self.id).await,
+            env::Command::Dump => {
+                self.docker_client.stop(&self.id).await;
+                dump_logs(self).await.expect("Failed to dump logs to file");
+                self.docker_client.rm(&self.id).await;
+            }
             env::Command::Keep => {}
         }
         #[cfg(feature = "watchdog")]
@@ -275,4 +294,49 @@ where
     fn drop(&mut self) {
         block_on(self.drop_async())
     }
+}
+
+async fn dump_logs<I>(container: &ContainerAsync<'_, I>) -> io::Result<()>
+where
+    I: Image,
+{
+    let mut stdout = container.stdout_logs().into_inner();
+    let mut stderr = container.stderr_logs().into_inner();
+
+    let log_dump_dir = get_log_dump_dir_path();
+    fs::create_dir_all(log_dump_dir.clone()).await?;
+
+    let stdout_dump_path = get_container_log_dump_path(container, "stdout");
+    let stderr_dump_path = get_container_log_dump_path(container, "stderr");
+
+    let mut file = File::create(log_dump_dir.join(stdout_dump_path)).await?;
+
+    while let Some(line) = stdout.next().await {
+        if let Ok(line) = line {
+            file.write_all(line.as_bytes()).await?;
+        }
+    }
+
+    let mut file = File::create(log_dump_dir.join(stderr_dump_path)).await?;
+
+    while let Some(line) = stderr.next().await {
+        if let Ok(line) = line {
+            file.write_all(line.as_bytes()).await?;
+        }
+    }
+
+    Ok(())
+}
+
+fn get_container_log_dump_path<I>(container: &ContainerAsync<'_, I>, stdtype: &str) -> PathBuf
+where
+    I: Image,
+{
+    let container_name = container
+        .image
+        .container_name()
+        .to_owned()
+        .unwrap_or(container.image.inner().name());
+
+    get_log_dump_path(&container_name, stdtype)
 }

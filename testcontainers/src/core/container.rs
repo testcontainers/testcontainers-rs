@@ -4,7 +4,7 @@ use crate::{
 };
 use bollard_stubs::models::ContainerInspectResponse;
 use std::{
-    env, fmt,
+    fmt,
     fs::{self, File},
     io,
     marker::PhantomData,
@@ -12,9 +12,8 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
-use time::OffsetDateTime;
 
-const LOGS_DUMP_DIR_NAME: &str = "testcontainers";
+use super::logs::{get_log_dump_dir_path, get_log_dump_path};
 
 /// Represents a running docker container.
 ///
@@ -267,8 +266,8 @@ where
     let log_dump_dir = get_log_dump_dir_path();
     fs::create_dir_all(log_dump_dir.clone())?;
 
-    let stdout_dump_path = get_log_dump_path(container, "stdout");
-    let stderr_dump_path = get_log_dump_path(container, "stderr");
+    let stdout_dump_path = get_container_log_dump_path(container, "stdout");
+    let stderr_dump_path = get_container_log_dump_path(container, "stderr");
 
     let mut file = File::create(log_dump_dir.join(stdout_dump_path))?;
     io::copy(&mut stdout, &mut file)?;
@@ -279,7 +278,7 @@ where
     Ok(())
 }
 
-fn get_log_dump_path<I>(container: &Container<'_, I>, stdtype: &str) -> PathBuf
+fn get_container_log_dump_path<I>(container: &Container<'_, I>, stdtype: &str) -> PathBuf
 where
     I: Image,
 {
@@ -289,19 +288,7 @@ where
         .to_owned()
         .unwrap_or(container.image.inner().name());
 
-    let iso = OffsetDateTime::now_utc()
-        .format(&time::format_description::well_known::Iso8601::DEFAULT)
-        .unwrap_or("".into());
-
-    let log_file_name = format!("{container_name}_{stdtype}_{iso}");
-
-    PathBuf::from(log_file_name).with_extension("log")
-}
-
-fn get_log_dump_dir_path() -> PathBuf {
-    env::current_dir()
-        .unwrap_or(PathBuf::from("/tmp"))
-        .join(LOGS_DUMP_DIR_NAME)
+    get_log_dump_path(&container_name, stdtype)
 }
 
 /// Defines operations that we need to perform on docker containers and other entities.
