@@ -142,7 +142,10 @@ pub(crate) fn get_log_dump_file_path(
     container_name: &str,
     stdtype: &str,
 ) -> PathBuf {
-    let log_file_name = format!("{container_name}_{stdtype}.log");
+    // handle container names with a "/" in them, for example image names with
+    // a namespace: minio/minio
+    let safe_container_name = container_name.replace("/", "_");
+    let log_file_name = format!("{safe_container_name}_{stdtype}.log");
 
     log_dump_dir.join(log_file_name)
 }
