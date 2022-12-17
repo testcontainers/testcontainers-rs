@@ -1,13 +1,35 @@
+use conquer_once::Lazy;
 #[cfg(feature = "experimental")]
 use futures::{stream::BoxStream, StreamExt};
 use std::{
     fmt, io,
     io::{BufRead, BufReader, Read},
-    path::PathBuf,
+    num::NonZeroU8,
+    path::{Path, PathBuf},
 };
-use time::OffsetDateTime;
+use time::{
+    format_description::well_known::{self, iso8601::TimePrecision},
+    OffsetDateTime,
+};
 
-const LOGS_DUMP_DIR_NAME: &str = "testcontainers";
+static LOGS_DUMP_DIR_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    PathBuf::from("testcontainers").join(
+        // now date in iso8601 format, with 2 digits precision
+        OffsetDateTime::now_utc()
+            .format(
+                &well_known::Iso8601::<
+                    {
+                        well_known::iso8601::Config::DEFAULT
+                            .set_time_precision(TimePrecision::Second {
+                                decimal_digits: NonZeroU8::new(2),
+                            })
+                            .encode()
+                    },
+                >,
+            )
+            .unwrap_or("".into()),
+    )
+});
 
 #[cfg(feature = "experimental")]
 pub(crate) struct LogStreamAsync<'d> {
@@ -115,18 +137,18 @@ impl From<io::Error> for WaitError {
     }
 }
 
-pub(crate) fn get_log_dump_path(container_name: &str, stdtype: &str) -> PathBuf {
-    let iso = OffsetDateTime::now_utc()
-        .format(&time::format_description::well_known::Iso8601::DEFAULT)
-        .unwrap_or("".into());
+pub(crate) fn get_log_dump_file_path(
+    log_dump_dir: &Path,
+    container_name: &str,
+    stdtype: &str,
+) -> PathBuf {
+    let log_file_name = format!("{container_name}_{stdtype}.log");
 
-    let log_file_name = format!("{container_name}_{stdtype}_{iso}");
-
-    PathBuf::from(log_file_name).with_extension("log")
+    log_dump_dir.join(log_file_name)
 }
 
 pub(crate) fn get_log_dump_dir_path() -> PathBuf {
-    PathBuf::from(LOGS_DUMP_DIR_NAME)
+    LOGS_DUMP_DIR_PATH.clone()
 }
 
 #[cfg(test)]

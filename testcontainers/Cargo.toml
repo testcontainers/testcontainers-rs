@@ -14,7 +14,7 @@ description = "A library for integration-testing against docker containers from 
 async-trait = { version = "0.1", optional = true }
 bollard = { version = "0.13.0", optional = true }
 bollard-stubs = "=1.42.0-rc.3"
-conquer-once = { version = "0.3", optional = true }
+conquer-once = { version = "0.3" }
 futures = "0.3"
 hex = "0.4"
 hmac = "0.12"
@@ -29,7 +29,7 @@ tokio = { version = "1", features = [ "macros" ], optional = true }
 
 [features]
 default = [ ]
-watchdog = [ "signal-hook", "conquer-once" ]
+watchdog = [ "signal-hook" ]
 experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]

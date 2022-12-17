@@ -5,14 +5,21 @@ use crate::{
 use async_trait::async_trait;
 use bollard::models::{ContainerInspectResponse, HealthStatusEnum};
 use futures::{executor::block_on, FutureExt, StreamExt};
-use std::{fmt, marker::PhantomData, net::IpAddr, path::PathBuf, str::FromStr, time::Duration};
+use std::{
+    fmt,
+    marker::PhantomData,
+    net::IpAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
 use tokio::{
     fs::{self, File},
     io::{self, AsyncWriteExt},
     time::sleep,
 };
 
-use super::logs::{get_log_dump_dir_path, get_log_dump_path};
+use super::logs::{get_log_dump_dir_path, get_log_dump_file_path};
 
 /// Represents a running docker container that has been started using an async client..
 ///
@@ -306,10 +313,10 @@ where
     let log_dump_dir = get_log_dump_dir_path();
     fs::create_dir_all(log_dump_dir.clone()).await?;
 
-    let stdout_dump_path = get_container_log_dump_path(container, "stdout");
-    let stderr_dump_path = get_container_log_dump_path(container, "stderr");
+    let stdout_dump_path = get_container_log_dump_path(&log_dump_dir, container, "stdout");
+    let stderr_dump_path = get_container_log_dump_path(&log_dump_dir, container, "stderr");
 
-    let mut file = File::create(log_dump_dir.join(stdout_dump_path)).await?;
+    let mut file = File::create(stdout_dump_path).await?;
 
     while let Some(line) = stdout.next().await {
         if let Ok(line) = line {
@@ -317,7 +324,7 @@ where
         }
     }
 
-    let mut file = File::create(log_dump_dir.join(stderr_dump_path)).await?;
+    let mut file = File::create(stderr_dump_path).await?;
 
     while let Some(line) = stderr.next().await {
         if let Ok(line) = line {
@@ -328,7 +335,11 @@ where
     Ok(())
 }
 
-fn get_container_log_dump_path<I>(container: &ContainerAsync<'_, I>, stdtype: &str) -> PathBuf
+fn get_container_log_dump_path<I>(
+    log_dump_dir: &Path,
+    container: &ContainerAsync<'_, I>,
+    stdtype: &str,
+) -> PathBuf
 where
     I: Image,
 {
@@ -338,5 +349,5 @@ where
         .to_owned()
         .unwrap_or(container.image.inner().name());
 
-    get_log_dump_path(&container_name, stdtype)
+    get_log_dump_file_path(log_dump_dir, &container_name, stdtype)
 }
