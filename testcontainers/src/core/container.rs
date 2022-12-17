@@ -290,7 +290,13 @@ where
         .image
         .container_name()
         .to_owned()
-        .unwrap_or(container.image.inner().name());
+        .unwrap_or_else(|| {
+            format!(
+                "{}_{}",
+                container.image.inner().name(),
+                &container.id()[..12]
+            )
+        });
 
     get_log_dump_file_path(log_dump_dir, &container_name, stdtype)
 }
