@@ -32,8 +32,16 @@ where
 
     /// Implementations are encouraged to include a tag that will not change (i.e. NOT latest)
     /// in order to prevent test code from randomly breaking because the underlying docker
-    /// suddenly changed.
+    /// suddenly changed. It is advised to also attach a sha256.
     fn tag(&self) -> String;
+
+    /// Every docker image has a unique sha256 generated corresponding to it. It is strongly
+    /// encouraged to use sha256 digests over versions, as versions might be overwritten
+    /// by the publisher, which could cause compatability issues, but more importantly,
+    /// pose a security risk.
+    fn sha256(&self) -> Option<String> {
+        None
+    }
 
     /// Returns a list of conditions that need to be met before a started container is considered ready.
     ///
@@ -158,6 +166,7 @@ pub struct RunnableImage<I: Image> {
     image: I,
     image_args: I::Args,
     image_tag: Option<String>,
+    image_sha256: Option<String>,
     container_name: Option<String>,
     network: Option<String>,
     env_vars: BTreeMap<String, String>,
@@ -210,11 +219,17 @@ impl<I: Image> RunnableImage<I> {
     }
 
     pub fn descriptor(&self) -> String {
-        if let Some(tag) = &self.image_tag {
-            format!("{}:{}", self.image.name(), tag)
-        } else {
-            format!("{}:{}", self.image.name(), self.image.tag())
+        let mut descriptor = self.image.name();
+
+        descriptor.push(':');
+        descriptor.push_str(&self.image_tag.clone().unwrap_or_else(|| self.image.tag()));
+
+        if let Some(sha256) = &self.image_sha256.clone().or_else(|| self.image.sha256()) {
+            descriptor.push_str("@sha256:");
+            descriptor.push_str(sha256);
         }
+
+        descriptor
     }
 
     pub fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -238,6 +253,12 @@ impl<I: Image> RunnableImage<I> {
             image_tag: Some(tag.into()),
             ..self
         }
+    }
+
+    pub fn with_sha256(mut self, sha256: impl Into<String>) -> Self {
+        self.image_sha256 = Some(sha256.into());
+
+        self
     }
 
     pub fn with_container_name(self, name: impl Into<String>) -> Self {
@@ -311,6 +332,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             ports: None,
             privileged: false,
             shm_size: None,
+            image_sha256: None,
         }
     }
 }

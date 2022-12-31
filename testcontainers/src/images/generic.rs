@@ -12,6 +12,7 @@ impl ImageArgs for Vec<String> {
 pub struct GenericImage {
     name: String,
     tag: String,
+    sha256: Option<String>,
     volumes: BTreeMap<String, String>,
     env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
@@ -23,7 +24,8 @@ impl Default for GenericImage {
     fn default() -> Self {
         Self {
             name: "".to_owned(),
-            tag: "".to_owned(),
+            tag: "latest".to_owned(),
+            sha256: None,
             volumes: BTreeMap::new(),
             env_vars: BTreeMap::new(),
             wait_for: Vec::new(),
@@ -42,8 +44,21 @@ impl GenericImage {
         }
     }
 
+    pub fn new_with_sha256<S: Into<String>>(name: S, sha256: S) -> GenericImage {
+        Self {
+            name: name.into(),
+            sha256: Some(sha256.into()),
+            ..Default::default()
+        }
+    }
+
     pub fn with_volume<F: Into<String>, D: Into<String>>(mut self, from: F, dest: D) -> Self {
         self.volumes.insert(from.into(), dest.into());
+        self
+    }
+
+    pub fn with_sha256<S: Into<String>>(mut self, value: Option<S>) -> Self {
+        self.sha256 = value.map(|it| it.into());
         self
     }
 
@@ -79,6 +94,10 @@ impl Image for GenericImage {
         self.tag.clone()
     }
 
+    fn sha256(&self) -> Option<String> {
+        self.sha256.clone()
+    }
+
     fn ready_conditions(&self) -> Vec<WaitFor> {
         self.wait_for.clone()
     }
@@ -104,6 +123,8 @@ impl Image for GenericImage {
 mod tests {
     use super::*;
 
+    const A_SHA256: &str = "a_sha256";
+
     #[test]
     fn should_return_env_vars() {
         let image = GenericImage::new("hello-world", "latest")
@@ -118,5 +139,26 @@ mod tests {
         assert_eq!(first_value, "one-value");
         assert_eq!(second_key, "two-key");
         assert_eq!(second_value, "two-value");
+    }
+
+    #[test]
+    fn should_return_sha256() {
+        let image = GenericImage::new("hello-world", "latest").with_sha256(Some(A_SHA256));
+
+        assert_eq!(image.sha256(), Some(A_SHA256.to_string()));
+    }
+
+    #[test]
+    fn should_return_sha256_when_created_with_it() {
+        let image = GenericImage::new_with_sha256("hello-world", A_SHA256);
+
+        assert_eq!(image.sha256(), Some(A_SHA256.to_string()));
+    }
+
+    #[test]
+    fn should_return_none_for_sha256_when_created_with_tag() {
+        let image = GenericImage::new("hello-world", "latest");
+
+        assert_eq!(image.sha256(), None);
     }
 }
