@@ -608,6 +608,42 @@ mod tests {
     }
 
     #[test]
+    fn cli_run_command_with_custom_sha256_should_attach_that() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_sha256("a_sha_256");
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "hello:0.0@sha256:a_sha_256""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_with_generic_image_that_includes_sha256_it_should_attach_that() {
+        let image = GenericImage::new("hello", "0.0").with_sha256(Some("a_sha_256"));
+        let image = RunnableImage::from(image);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "hello:0.0@sha256:a_sha_256""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_with_sha256_should_attach_that() {
+        let image = GenericImage::new_with_sha256("hello", "a_sha_256");
+        let image = RunnableImage::from(image);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "hello:latest@sha256:a_sha_256""#
+        );
+    }
+
+    #[test]
     fn cli_run_command_should_include_privileged() {
         let image = GenericImage::new("hello", "0.0");
         let image = RunnableImage::from(image).with_privileged(true);
