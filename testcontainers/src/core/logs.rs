@@ -1,9 +1,35 @@
+use conquer_once::Lazy;
 #[cfg(feature = "experimental")]
 use futures::{stream::BoxStream, StreamExt};
 use std::{
     fmt, io,
     io::{BufRead, BufReader, Read},
+    num::NonZeroU8,
+    path::{Path, PathBuf},
 };
+use time::{
+    format_description::well_known::{self, iso8601::TimePrecision},
+    OffsetDateTime,
+};
+
+static LOGS_DUMP_DIR_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    PathBuf::from("testcontainers").join(
+        // now date in iso8601 format, with 2 digits precision
+        OffsetDateTime::now_utc()
+            .format(
+                &well_known::Iso8601::<
+                    {
+                        well_known::iso8601::Config::DEFAULT
+                            .set_time_precision(TimePrecision::Second {
+                                decimal_digits: NonZeroU8::new(2),
+                            })
+                            .encode()
+                    },
+                >,
+            )
+            .unwrap_or("".into()),
+    )
+});
 
 #[cfg(feature = "experimental")]
 pub(crate) struct LogStreamAsync<'d> {
@@ -33,6 +59,10 @@ impl<'d> LogStreamAsync<'d> {
         }
 
         Err(end_of_stream(lines))
+    }
+
+    pub(crate) fn into_inner(self) -> BoxStream<'d, Result<String, std::io::Error>> {
+        self.inner
     }
 }
 
@@ -64,6 +94,10 @@ impl LogStream {
         }
 
         Err(end_of_stream(lines))
+    }
+
+    pub(crate) fn into_inner(self) -> Box<dyn Read> {
+        self.inner
     }
 }
 
@@ -101,6 +135,23 @@ impl From<io::Error> for WaitError {
     fn from(e: io::Error) -> Self {
         WaitError::Io(e)
     }
+}
+
+pub(crate) fn get_log_dump_file_path(
+    log_dump_dir: &Path,
+    container_name: &str,
+    stdtype: &str,
+) -> PathBuf {
+    // handle container names with a "/" in them, for example image names with
+    // a namespace: minio/minio
+    let safe_container_name = container_name.replace("/", "_");
+    let log_file_name = format!("{safe_container_name}_{stdtype}.log");
+
+    log_dump_dir.join(log_file_name)
+}
+
+pub(crate) fn get_log_dump_dir_path() -> PathBuf {
+    LOGS_DUMP_DIR_PATH.clone()
 }
 
 #[cfg(test)]
