@@ -55,7 +55,7 @@ impl Image for LocalStack {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout( format!("Starting edge router (https port {})...", PORT))]
+        vec![WaitFor::message_on_stdout( format!("Ready."))]
     }
 
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
