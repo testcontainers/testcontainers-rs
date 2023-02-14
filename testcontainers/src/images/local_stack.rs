@@ -2,7 +2,7 @@ use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
 
 const NAME: &str = "localstack/localstack";
-const TAG: &str = "latest";
+const TAG: &str = "1.4";
 const PORT: u16 = 4566;
 
 #[derive(Debug)]
@@ -12,25 +12,13 @@ pub struct LocalStack {
     tag: String,
 }
 
-impl LocalStack{
-    pub fn set_services(&mut self, services: &str) {
-
-        self.env_vars.insert("SERVICES".to_owned(), services.to_owned());
-
-    }
-}
-
 impl Default for LocalStack {
     fn default() -> Self {
         let mut env_vars = HashMap::new();
-        //env_vars.insert("SERVICES".to_owned(), "s3".to_owned());
         env_vars.insert("DEBUG".to_owned(), "1".to_owned());
         env_vars.insert("PORT_WEB_UI".to_owned(), "8080".to_owned());
         env_vars.insert("LAMBDA_EXECUTOR".to_owned(), "docker".to_owned());
         env_vars.insert("DOCKER_HOST".to_owned(), "unix:///var/run/docker.sock".to_owned());
-        env_vars.insert("AWS_DEFAULT_REGION".to_owned(), "eu-central-1".to_owned());
-        env_vars.insert("AWS_ACCESS_KEY_ID".to_owned(), "test".to_owned());
-        env_vars.insert("AWS_SECRET_ACCESS_KEY".to_owned(), "test".to_owned());
         env_vars.insert("DATA_DIR".to_owned(), "/tmp/localstack/data".to_owned());
 
         let mut volumes = HashMap::new();

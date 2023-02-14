@@ -15,8 +15,7 @@ async fn dynamodb_local_create_table() {
     
     let docker = clients::Cli::default();
     
-    let mut local_stack = images::local_stack::LocalStack::default();
-    local_stack.set_services("dynamodb,s3,lambda,iam,secretsmanager,sns,apigateway,logs,kms");
+    let local_stack = images::local_stack::LocalStack::default();
 
     let node = docker.run(local_stack);
     let host_port = node.get_host_port_ipv4(4566);
