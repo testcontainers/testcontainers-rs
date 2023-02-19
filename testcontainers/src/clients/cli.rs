@@ -564,8 +564,8 @@ mod tests {
     fn cli_run_command_should_include_args() {
         let image = GenericImage::new("hello", "0.0");
 
-        let image = RunnableImage::from(image)
-            .with_args(vec!["-a".to_string(), "--arg2=foo".to_string()]);
+        let image =
+            RunnableImage::from(image).with_args(vec!["-a".to_string(), "--arg2=foo".to_string()]);
         let command = Client::build_run_command(&image, Command::new("docker"));
 
         assert_eq!(

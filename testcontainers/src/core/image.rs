@@ -261,7 +261,10 @@ impl<I: Image> RunnableImage<I> {
     }
 
     pub fn with_args(self, args: impl Into<I::Args>) -> Self {
-        Self { image_args: args.into(), ..self }
+        Self {
+            image_args: args.into(),
+            ..self
+        }
     }
 
     pub fn with_volume(self, (orig, dest): (impl Into<String>, impl Into<String>)) -> Self {
