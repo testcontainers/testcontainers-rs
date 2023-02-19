@@ -561,6 +561,20 @@ mod tests {
     }
 
     #[test]
+    fn cli_run_command_should_include_args() {
+        let image = GenericImage::new("hello", "0.0");
+
+        let image = RunnableImage::from(image)
+            .with_args(vec!["-a".to_string(), "--arg2=foo".to_string()]);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "-P" "-d" "hello:0.0" "-a" "--arg2=foo""#
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "Failed to remove docker container")]
     fn cli_rm_command_should_panic_on_invalid_container() {
         let docker = Cli::default();

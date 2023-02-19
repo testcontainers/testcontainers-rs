@@ -260,6 +260,10 @@ impl<I: Image> RunnableImage<I> {
         Self { env_vars, ..self }
     }
 
+    pub fn with_args(self, args: impl Into<I::Args>) -> Self {
+        Self { image_args: args.into(), ..self }
+    }
+
     pub fn with_volume(self, (orig, dest): (impl Into<String>, impl Into<String>)) -> Self {
         let mut volumes = self.volumes;
         volumes.insert(orig.into(), dest.into());
