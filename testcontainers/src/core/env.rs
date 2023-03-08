@@ -45,10 +45,7 @@ impl FromStr for Command {
         match s {
             "keep" => Ok(Command::Keep),
             "remove" => Ok(Command::Remove),
-            other => panic!(
-                "unknown command '{}' provided via TESTCONTAINERS env variable",
-                other
-            ),
+            other => panic!("unknown command '{other}' provided via TESTCONTAINERS env variable",),
         }
     }
 }

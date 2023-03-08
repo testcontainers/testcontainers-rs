@@ -18,7 +18,7 @@ fn coblox_bitcoincore_getnewaddress() {
     let client = {
         let host_port = node.get_host_port_ipv4(18443);
 
-        let url = format!("http://127.0.0.1:{}", host_port);
+        let url = format!("http://127.0.0.1:{host_port}");
 
         let auth = &node.image_args().rpc_auth;
 
@@ -89,7 +89,7 @@ fn parity_parity_net_version() {
     let host_port = node.get_host_port_ipv4(8545);
 
     let response = reqwest::blocking::Client::new()
-        .post(&format!("http://127.0.0.1:{}", host_port))
+        .post(format!("http://127.0.0.1:{host_port}"))
         .body(
             json::object! {
                 "jsonrpc" => "2.0",
@@ -117,7 +117,7 @@ fn trufflesuite_ganachecli_listaccounts() {
     let host_port = node.get_host_port_ipv4(8545);
 
     let response = reqwest::blocking::Client::new()
-        .post(&format!("http://127.0.0.1:{}", host_port))
+        .post(format!("http://127.0.0.1:{host_port}"))
         .body(
             json::object! {
                 "jsonrpc" => "2.0",
@@ -143,7 +143,7 @@ fn redis_fetch_an_integer() {
     let docker = clients::Cli::default();
     let node = docker.run(images::redis::Redis::default());
     let host_port = node.get_host_port_ipv4(6379);
-    let url = format!("redis://127.0.0.1:{}", host_port);
+    let url = format!("redis://127.0.0.1:{host_port}");
 
     let client = redis::Client::open(url.as_ref()).unwrap();
     let mut con = client.get_connection().unwrap();
@@ -159,7 +159,7 @@ async fn mongo_fetch_document() {
     let docker = clients::Cli::default();
     let node = docker.run(images::mongo::Mongo::default());
     let host_port = node.get_host_port_ipv4(27017);
-    let url = format!("mongodb://127.0.0.1:{}/", host_port);
+    let url = format!("mongodb://127.0.0.1:{host_port}/");
 
     let client: MongoClient = MongoClient::with_uri_str(&url).await.unwrap();
     let db = client.database("some_db");
@@ -201,11 +201,8 @@ fn generic_image() {
     let node = docker.run(generic_postgres);
 
     let connection_string = &format!(
-        "postgres://{}:{}@127.0.0.1:{}/{}",
-        user,
-        password,
-        node.get_host_port_ipv4(5432),
-        db
+        "postgres://{user}:{password}@127.0.0.1:{}/{db}",
+        node.get_host_port_ipv4(5432)
     );
     let mut conn = postgres::Client::connect(connection_string, postgres::NoTls).unwrap();
 
@@ -229,7 +226,7 @@ fn generic_image_with_custom_entrypoint() {
     let port = node.get_host_port_ipv4(80);
     assert_eq!(
         "foo",
-        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+        reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
             .unwrap()
             .text()
             .unwrap()
@@ -243,7 +240,7 @@ fn generic_image_with_custom_entrypoint() {
     let port = node.get_host_port_ipv4(80);
     assert_eq!(
         "bar",
-        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
+        reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
             .unwrap()
             .text()
             .unwrap()
@@ -265,12 +262,10 @@ fn generic_image_exposed_ports() {
 
     let node = docker.run(generic_server);
     let port = node.get_host_port_ipv4(target_port);
-    assert!(
-        reqwest::blocking::get(&format!("http://127.0.0.1:{}", port))
-            .unwrap()
-            .status()
-            .is_success()
-    );
+    assert!(reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
+        .unwrap()
+        .status()
+        .is_success());
 }
 
 #[test]
@@ -321,10 +316,7 @@ fn postgres_one_plus_one_with_custom_mapped_port() {
     let _node = docker.run(image);
 
     let mut conn = postgres::Client::connect(
-        &format!(
-            "postgres://postgres:postgres@localhost:{}/postgres",
-            free_local_port
-        ),
+        &format!("postgres://postgres:postgres@localhost:{free_local_port}/postgres",),
         postgres::NoTls,
     )
     .unwrap();
@@ -373,7 +365,7 @@ fn zookeeper_check_directories_existence() {
     let node = docker.run(image);
 
     let host_port = node.get_host_port_ipv4(2181);
-    let zk_urls = format!("127.0.0.1:{}", host_port);
+    let zk_urls = format!("127.0.0.1:{host_port}");
     let zk = ZooKeeper::connect(&zk_urls, Duration::from_secs(15), |_| ()).unwrap();
 
     zk.create(

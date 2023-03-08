@@ -91,7 +91,7 @@ impl Http {
         let envs: Vec<String> = image
             .env_vars()
             .into_iter()
-            .map(|(k, v)| format!("{}={}", k, v))
+            .map(|(k, v)| format!("{k}={v}"))
             .collect();
         config.env = Some(envs);
 
@@ -99,7 +99,7 @@ impl Http {
         let vols: HashMap<String, HashMap<(), ()>> = image
             .volumes()
             .into_iter()
-            .map(|(orig, dest)| (format!("{}:{}", orig, dest), HashMap::new()))
+            .map(|(orig, dest)| (format!("{orig}:{dest}"), HashMap::new()))
             .collect();
         config.volumes = Some(vols);
 

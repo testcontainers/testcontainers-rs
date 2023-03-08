@@ -122,23 +122,13 @@ impl ContainerState {
     pub fn host_port_ipv4(&self, internal_port: u16) -> u16 {
         self.ports
             .map_to_host_port_ipv4(internal_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Container does not have a mapped port for {}",
-                    internal_port
-                )
-            })
+            .unwrap_or_else(|| panic!("Container does not have a mapped port for {internal_port}",))
     }
 
     pub fn host_port_ipv6(&self, internal_port: u16) -> u16 {
         self.ports
             .map_to_host_port_ipv6(internal_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Container does not have a mapped port for {}",
-                    internal_port
-                )
-            })
+            .unwrap_or_else(|| panic!("Container does not have a mapped port for {internal_port}",))
     }
 }
 
@@ -211,7 +201,7 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn descriptor(&self) -> String {
         if let Some(tag) = &self.image_tag {
-            format!("{}:{}", self.image.name(), tag)
+            format!("{}:{tag}", self.image.name())
         } else {
             format!("{}:{}", self.image.name(), self.image.tag())
         }

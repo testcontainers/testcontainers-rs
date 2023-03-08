@@ -38,7 +38,7 @@ async fn produce_and_consume_messages() {
 
     let number_of_messages_to_produce = 5_usize;
     let expected: Vec<String> = (0..number_of_messages_to_produce)
-        .map(|i| format!("Message {}", i))
+        .map(|i| format!("Message {i}"))
         .collect();
 
     for (i, message) in expected.iter().enumerate() {
@@ -46,7 +46,7 @@ async fn produce_and_consume_messages() {
             .send(
                 FutureRecord::to(topic)
                     .payload(message)
-                    .key(&format!("Key {}", i)),
+                    .key(&format!("Key {i}")),
                 Duration::from_secs(0),
             )
             .await

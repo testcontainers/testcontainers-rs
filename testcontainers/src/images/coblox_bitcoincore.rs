@@ -128,7 +128,7 @@ impl ImageArgs for BitcoinCoreImageArgs {
         let mut args = vec![
             format!("-rpcauth={}", self.rpc_auth.encode()),
             // Will print a message when bitcoind is fully started
-            format!("-startupnotify='echo \'{}\''", BITCOIND_STARTUP_MESSAGE),
+            format!("-startupnotify='echo \'{BITCOIND_STARTUP_MESSAGE}\''"),
             format!("-addresstype={}", self.address_type),
         ];
 
@@ -171,7 +171,7 @@ impl ImageArgs for BitcoinCoreImageArgs {
         }
 
         if let Some(fallback_fee) = self.fallback_fee {
-            args.push(format!("-fallbackfee={}", fallback_fee));
+            args.push(format!("-fallbackfee={fallback_fee}"));
         }
 
         Box::new(args.into_iter())
