@@ -21,12 +21,9 @@ jobs:
         run: |
           msrv=$(cat testcontainers/Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
           echo "::set-output name=msrv::$msrv"
-      - uses: actions-rs/toolchain@v1
-        id: toolchain
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: ${{steps.current_msrv.outputs.msrv}}
-          override: true
       - uses: Swatinem/rust-cache@v2.0.0
       - run: cargo ${{ matrix['cargo-cmd'] }}
 
@@ -47,12 +44,7 @@ jobs:
           sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
           sudo systemctl daemon-reload
           sudo systemctl restart docker
-      - uses: actions-rs/toolchain@v1
-        id: toolchain
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2.0.0
       - run: cargo ${{ matrix['cargo-cmd'] }}
 
@@ -66,12 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        id: toolchain
+      - uses: dtolnay/rust-toolchain@1.67
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: clippy
       - uses: Swatinem/rust-cache@v2.0.0
       - run: cargo clippy --all-targets -- -D warnings
