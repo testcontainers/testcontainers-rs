@@ -1,6 +1,6 @@
 use std::net::{Ipv6Addr, TcpListener};
 
-use testcontainers::{clients, core::WaitFor, images::generic::GenericImage};
+use testcontainers::{clients, core::WaitFor, GenericImage};
 
 /// Test the functionality of exposing container ports over both IPv4 and IPv6.
 #[tokio::test]

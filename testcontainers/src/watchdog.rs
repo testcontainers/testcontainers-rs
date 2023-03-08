@@ -10,7 +10,7 @@ static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
     thread::spawn(move || {
         let signal_docker = Cli::default();
         let mut signals =
-            Signals::new(&[SIGTERM, SIGINT, SIGQUIT]).expect("failed to register signal handler");
+            Signals::new([SIGTERM, SIGINT, SIGQUIT]).expect("failed to register signal handler");
 
         for signal in &mut signals {
             for container_id in WATCHDOG

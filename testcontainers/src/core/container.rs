@@ -279,9 +279,26 @@ pub(crate) trait Docker: Sync + Send {
 
 #[cfg(test)]
 mod test {
+    use super::*;
 
-    use super::Container;
-    use crate::images::hello_world::HelloWorld;
+    #[derive(Debug, Default)]
+    pub struct HelloWorld;
+
+    impl Image for HelloWorld {
+        type Args = ();
+
+        fn name(&self) -> String {
+            "hello-world".to_owned()
+        }
+
+        fn tag(&self) -> String {
+            "latest".to_owned()
+        }
+
+        fn ready_conditions(&self) -> Vec<WaitFor> {
+            vec![WaitFor::message_on_stdout("Hello from Docker!")]
+        }
+    }
 
     #[test]
     fn container_should_be_send_and_sync() {
