@@ -4,7 +4,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use bollard::models::{ContainerInspectResponse, HealthStatusEnum};
-use futures::{executor::block_on, FutureExt};
+use futures::executor::block_on;
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr, time::Duration};
 use tokio::time::sleep;
 
@@ -117,23 +117,32 @@ where
             })
     }
 
-    /// Returns the bridge ip address of docker container as specified in NetworkSettings.IPAddress
+    /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
     pub async fn get_bridge_ip_address(&self) -> IpAddr {
-        self.docker_client
-            .inspect(&self.id)
-            .map(|details| {
-                IpAddr::from_str(
-                    &details
-                        .network_settings
-                        .unwrap_or_default()
-                        .ip_address
-                        .unwrap_or_default(),
-                )
-                .unwrap_or_else(|_| {
-                    panic!("container {} has missing or invalid bridge IP", self.id)
-                })
-            })
-            .await
+        let result = self.docker_client.inspect(&self.id).await;
+
+        let settings = result
+            .network_settings
+            .unwrap_or_else(|| panic!("container {} has no network settings", self.id));
+
+        let mut networks = settings
+            .networks
+            .unwrap_or_else(|| panic!("container {} has no any networks", self.id));
+
+        let bridge_name = self
+            .image
+            .network()
+            .clone()
+            .or(settings.bridge)
+            .unwrap_or_else(|| panic!("container {} has missing bridge name", self.id));
+
+        let ip = networks
+            .remove(&bridge_name)
+            .and_then(|network| network.ip_address)
+            .unwrap_or_else(|| panic!("container {} has missing bridge IP", self.id));
+
+        IpAddr::from_str(&ip)
+            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
     }
 
     pub async fn start(&self) {
