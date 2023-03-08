@@ -51,7 +51,7 @@ async fn dynamodb_local_create_table() {
 }
 
 async fn build_dynamodb_client(host_port: u16) -> Client {
-    let endpoint_uri = format!("http://127.0.0.1:{}", host_port);
+    let endpoint_uri = format!("http://127.0.0.1:{host_port}");
     let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
     let creds = Credentials::new("fakeKey", "fakeSecret", None, None, "test");
 

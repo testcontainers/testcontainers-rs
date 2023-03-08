@@ -96,7 +96,7 @@ impl From<PortMap> for Ports {
 
 fn parse_port(port: &str) -> u16 {
     port.parse()
-        .unwrap_or_else(|e| panic!("Failed to parse {} as u16 because {}", port, e))
+        .unwrap_or_else(|e| panic!("Failed to parse {port} as u16 because {e}"))
 }
 
 #[cfg(test)]

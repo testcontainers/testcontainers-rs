@@ -21,14 +21,13 @@ impl ImageArgs for KafkaArgs {
                 "-c".to_owned(),
                 format!(
                     r#"
-echo 'clientPort={}' > zookeeper.properties;
+echo 'clientPort={ZOOKEEPER_PORT}' > zookeeper.properties;
 echo 'dataDir=/var/lib/zookeeper/data' >> zookeeper.properties;
 echo 'dataLogDir=/var/lib/zookeeper/log' >> zookeeper.properties;
 zookeeper-server-start zookeeper.properties &
 . /etc/confluent/docker/bash-config &&
 /etc/confluent/docker/configure &&
 /etc/confluent/docker/launch"#,
-                    ZOOKEEPER_PORT
                 ),
             ]
             .into_iter(),
@@ -47,11 +46,11 @@ impl Default for Kafka {
 
         env_vars.insert(
             "KAFKA_ZOOKEEPER_CONNECT".to_owned(),
-            format!("localhost:{}", ZOOKEEPER_PORT),
+            format!("localhost:{ZOOKEEPER_PORT}"),
         );
         env_vars.insert(
             "KAFKA_LISTENERS".to_owned(),
-            format!("PLAINTEXT://0.0.0.0:{},BROKER://0.0.0.0:9092", KAFKA_PORT),
+            format!("PLAINTEXT://0.0.0.0:{KAFKA_PORT},BROKER://0.0.0.0:9092"),
         );
         env_vars.insert(
             "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP".to_owned(),
@@ -63,10 +62,7 @@ impl Default for Kafka {
         );
         env_vars.insert(
             "KAFKA_ADVERTISED_LISTENERS".to_owned(),
-            format!(
-                "PLAINTEXT://localhost:{},BROKER://localhost:9092",
-                KAFKA_PORT
-            ),
+            format!("PLAINTEXT://localhost:{KAFKA_PORT},BROKER://localhost:9092",),
         );
         env_vars.insert("KAFKA_BROKER_ID".to_owned(), "1".to_owned());
         env_vars.insert(
