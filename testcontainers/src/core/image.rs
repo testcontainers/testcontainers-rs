@@ -97,7 +97,9 @@ where
 
 #[derive(Default, Debug)]
 pub struct ExecCommand {
+    /// Command to be executed
     pub cmd: String,
+    /// Conditions to be checked on related container
     pub ready_conditions: Vec<WaitFor>,
 }
 

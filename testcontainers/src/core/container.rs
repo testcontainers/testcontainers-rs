@@ -3,6 +3,7 @@ use crate::{
     Image, RunnableImage,
 };
 use bollard_stubs::models::ContainerInspectResponse;
+
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
@@ -196,7 +197,7 @@ where
             .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
     }
 
-    pub fn exec(&self, cmd: ExecCommand) {
+    pub fn exec(&self, cmd: ExecCommand) -> ExecOutput {
         let ExecCommand {
             cmd,
             ready_conditions,
@@ -204,10 +205,15 @@ where
 
         log::debug!("Executing command {:?}", cmd);
 
-        self.docker_client.exec(self.id(), cmd);
+        let output = self.docker_client.exec(self.id(), cmd);
 
         self.docker_client
             .block_until_ready(self.id(), ready_conditions);
+
+        ExecOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        }
     }
 
     pub fn stop(&self) {
@@ -225,6 +231,14 @@ where
 
         self.docker_client.rm(&self.id)
     }
+}
+
+/// Represents an output of `exec` command.
+/// `stdout` & `stderr` is represented as bytes because it might contain non-utf chars and responsibility should be on the caller end.
+#[derive(Debug)]
+pub struct ExecOutput {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
 }
 
 /// The destructor implementation for a Container.
@@ -259,7 +273,7 @@ pub(crate) trait Docker: Sync + Send {
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
-    fn exec(&self, id: &str, cmd: String);
+    fn exec(&self, id: &str, cmd: String) -> std::process::Output;
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>);
 }
 
