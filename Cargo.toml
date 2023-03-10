@@ -4,3 +4,13 @@ members = [
     "testcontainers-images",
     "testimages",
 ]
+
+[workspace.package]
+version = "0.14.0"
+authors = ["CoBloX developers <team@coblox.tech>"]
+categories = ["development-tools::testing"]
+edition = "2021"
+keywords = ["docker", "testcontainers"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/testcontainers/testcontainers-rs"
+rust-version = "1.60.0"
