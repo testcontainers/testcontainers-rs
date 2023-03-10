@@ -279,13 +279,12 @@ pub(crate) trait Docker: Sync + Send {
 
 #[cfg(test)]
 mod test {
-
     use super::Container;
-    use crate::images::hello_world::HelloWorld;
+    use crate::images::generic::GenericImage;
 
     #[test]
     fn container_should_be_send_and_sync() {
-        assert_send_and_sync::<Container<'_, HelloWorld>>();
+        assert_send_and_sync::<Container<'_, GenericImage>>();
     }
 
     fn assert_send_and_sync<T: Send + Sync>() {}

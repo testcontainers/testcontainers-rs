@@ -1,9 +1,9 @@
-use crate::{core::WaitFor, Image, ImageArgs};
 use hex::encode;
 use hmac::{Hmac, Mac};
 use rand::{thread_rng, Rng};
 use sha2::Sha256;
 use std::fmt;
+use testcontainers::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "coblox/bitcoin-core";
 const TAG: &str = "0.21.0";
@@ -200,6 +200,10 @@ impl Image for BitcoinCore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bitcoincore_rpc::RpcApi;
+    use spectral::assert_that;
+    use spectral::prelude::*;
+    use testcontainers::clients;
 
     #[test]
     fn encodes_rpc_auth_correctly() {
@@ -212,5 +216,33 @@ mod tests {
         let rpc_auth = auth.encode();
 
         assert_eq!(rpc_auth, "bitcoin:cb77f0957de88ff388cf817ddbc7273$9eaa166ace0d94a29c6eceb831a42458e93faeb79f895a7ee4ce03f4343f8f55".to_string())
+    }
+
+    #[test]
+    fn coblox_bitcoincore_getnewaddress() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(BitcoinCore::default());
+
+        let client = {
+            let host_port = node.get_host_port_ipv4(18443);
+
+            let url = format!("http://127.0.0.1:{host_port}");
+
+            let auth = &node.image_args().rpc_auth;
+
+            bitcoincore_rpc::Client::new(
+                &url,
+                bitcoincore_rpc::Auth::UserPass(
+                    auth.username().to_owned(),
+                    auth.password().to_owned(),
+                ),
+            )
+            .unwrap()
+        };
+
+        assert_that(&client.create_wallet("miner", None, None, None, None)).is_ok();
+
+        assert_that(&client.get_new_address(None, None)).is_ok();
     }
 }

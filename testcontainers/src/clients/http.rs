@@ -350,7 +350,8 @@ impl DockerAsync for Http {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::images::{generic::GenericImage, hello_world::HelloWorld};
+    use crate::images::generic::GenericImage;
+    use crate::images::hello_world::HelloWorld;
     use spectral::prelude::*;
 
     async fn inspect(client: &bollard::Docker, id: &str) -> ContainerInspectResponse {

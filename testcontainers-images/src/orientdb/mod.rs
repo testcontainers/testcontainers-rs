@@ -1,5 +1,5 @@
-use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
+use testcontainers::{core::WaitFor, Image};
 
 const NAME: &str = "orientdb";
 const TAG: &str = "3.1.3";
@@ -35,5 +35,34 @@ impl Image for OrientDb {
 
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.env_vars.iter())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::orientdb::OrientDb;
+    use testcontainers::clients;
+
+    #[test]
+    #[ignore]
+    fn orientdb_exists_database() {
+        let docker = clients::Cli::default();
+        let orientdb_image = OrientDb::default();
+        let node = docker.run(orientdb_image);
+
+        let client =
+            orientdb_client::OrientDB::connect(("127.0.0.1", node.get_host_port_ipv4(2424)))
+                .unwrap();
+
+        let exists = client
+            .exist_database(
+                "orientdb_exists_database",
+                "root",
+                "root",
+                orientdb_client::DatabaseType::Memory,
+            )
+            .unwrap();
+
+        assert!(!exists);
     }
 }

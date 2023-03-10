@@ -1,5 +1,5 @@
-use crate::{core::WaitFor, Image};
 use std::collections::HashMap;
+use testcontainers::{core::WaitFor, Image};
 
 const NAME: &str = "docker.elastic.co/elasticsearch/elasticsearch";
 const TAG: &str = "7.16.1";
@@ -44,3 +44,6 @@ impl Image for ElasticSearch {
         vec![9200, 9300]
     }
 }
+
+#[cfg(test)]
+mod tests {}

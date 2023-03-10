@@ -1,0 +1,63 @@
+[package]
+name = "testcontainers-images"
+version = "0.14.0"
+authors = ["CoBloX developers <team@coblox.tech>"]
+categories = ["development-tools::testing"]
+edition = "2021"
+keywords = ["docker", "testcontainers"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/testcontainers/testcontainers-rs"
+rust-version = "1.60.0"
+description = "A library for integration-testing against docker containers from within Rust."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = []
+coblox_bitcoincore = ["hex", "hmac", "rand", "sha2"]
+dynamodb = []
+elastic_search = []
+elasticmq = []
+google_cloud_sdk_emulators = []
+kafka = []
+minio = []
+mongo = []
+orientdb = []
+parity = []
+postgres = []
+rabbitmq = []
+redis = []
+trufflesuite_ganachecli = []
+zookeeper = []
+
+[dependencies]
+testcontainers = { path = "../testcontainers" }
+hex = { version = "0.4", optional = true }
+hmac = { version = "0.12", optional = true }
+rand = { version = "0.8", optional = true }
+sha2 = { version = "0.10", optional = true }
+
+
+[dev-dependencies]
+aws-config = "0.49.0"
+aws-sdk-dynamodb = "0.19.0"
+aws-sdk-s3 = "0.19.0"
+aws-sdk-sqs = "0.19.0"
+aws-types = "0.49.0"
+bitcoincore-rpc = "0.16"
+futures = "0.3"
+json = "0.12"
+lapin = "1.8.0"
+mongodb = "2.1.0"
+orientdb-client = "0.6"
+postgres = "0.19"
+pretty_env_logger = "0.4"
+rdkafka = "0.29"
+redis = "0.22"
+reqwest = { version = "0.11", features = ["blocking"] }
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+spectral = "0.6"
+tokio = { version = "1", features = ["macros"] }
+tokio-amqp = "1.0.0"
+zookeeper = "0.7"

@@ -48,3 +48,4 @@ pub mod clients;
 pub mod core;
 /// All available Docker images.
 pub mod images;
+pub mod utils;

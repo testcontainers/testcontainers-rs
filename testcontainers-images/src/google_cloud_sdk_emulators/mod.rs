@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image, ImageArgs};
+use testcontainers::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "google/cloud-sdk";
 const TAG: &str = "362.0.0-emulators";
@@ -135,5 +135,59 @@ impl CloudSdk {
             Emulator::Spanner,
             WaitFor::message_on_stderr("Cloud Spanner emulator running"),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::google_cloud_sdk_emulators;
+    use std::ops::Range;
+    use testcontainers::clients;
+
+    const RANDOM_PORTS: Range<u16> = 32768..61000;
+
+    #[test]
+    fn bigtable_emulator_expose_port() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(google_cloud_sdk_emulators::CloudSdk::bigtable());
+        assert!(RANDOM_PORTS
+            .contains(&node.get_host_port_ipv4(google_cloud_sdk_emulators::BIGTABLE_PORT)));
+    }
+
+    #[test]
+    fn datastore_emulator_expose_port() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(google_cloud_sdk_emulators::CloudSdk::datastore("test"));
+        assert!(RANDOM_PORTS
+            .contains(&node.get_host_port_ipv4(google_cloud_sdk_emulators::DATASTORE_PORT)));
+    }
+
+    #[test]
+    fn firestore_emulator_expose_port() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(google_cloud_sdk_emulators::CloudSdk::firestore());
+        assert!(RANDOM_PORTS
+            .contains(&node.get_host_port_ipv4(google_cloud_sdk_emulators::FIRESTORE_PORT)));
+    }
+
+    #[test]
+    fn pubsub_emulator_expose_port() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(google_cloud_sdk_emulators::CloudSdk::pubsub());
+        assert!(RANDOM_PORTS
+            .contains(&node.get_host_port_ipv4(google_cloud_sdk_emulators::PUBSUB_PORT)));
+    }
+
+    #[test]
+    fn spanner_emulator_expose_port() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(google_cloud_sdk_emulators::CloudSdk::spanner());
+        assert!(RANDOM_PORTS
+            .contains(&node.get_host_port_ipv4(google_cloud_sdk_emulators::SPANNER_PORT)));
     }
 }

@@ -1,4 +1,4 @@
-use crate::{core::WaitFor, Image, ImageArgs};
+use testcontainers::{core::WaitFor, Image, ImageArgs};
 
 const NAME: &str = "trufflesuite/ganache-cli";
 const TAG: &str = "v6.1.3";
@@ -54,5 +54,39 @@ impl Image for GanacheCli {
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         vec![WaitFor::message_on_stdout("Listening on localhost:")]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::trufflesuite_ganachecli;
+    use testcontainers::clients;
+
+    #[test]
+    fn trufflesuite_ganachecli_listaccounts() {
+        let _ = pretty_env_logger::try_init();
+        let docker = clients::Cli::default();
+        let node = docker.run(trufflesuite_ganachecli::GanacheCli::default());
+        let host_port = node.get_host_port_ipv4(8545);
+
+        let response = reqwest::blocking::Client::new()
+            .post(format!("http://127.0.0.1:{host_port}"))
+            .body(
+                json::object! {
+                    "jsonrpc" => "2.0",
+                    "method" => "net_version",
+                    "params" => json::array![],
+                    "id" => 1
+                }
+                .dump(),
+            )
+            .header("content-type", "application/json")
+            .send()
+            .unwrap();
+
+        let response = response.text().unwrap();
+        let response = json::parse(&response).unwrap();
+
+        assert_eq!(response["result"], "42");
     }
 }
