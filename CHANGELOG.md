@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Container::exec` changed to be synchronous and return `ExecOutput`
 
+### Removed
+
+- Removed all pre-defined images from the library to escape unbounded maintenance work.
+  See https://github.com/testcontainers/testcontainers-rs/issues/471 for details.
+
 ## [0.14.0] - 2022-05-30
 
 ### Added

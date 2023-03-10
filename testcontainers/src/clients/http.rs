@@ -350,7 +350,7 @@ impl DockerAsync for Http {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::images::{generic::GenericImage, hello_world::HelloWorld};
+    use crate::images::generic::GenericImage;
     use spectral::prelude::*;
 
     async fn inspect(client: &bollard::Docker, id: &str) -> ContainerInspectResponse {
@@ -360,7 +360,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
         let docker = Http::new();
-        let image = HelloWorld::default();
+        let image = GenericImage::new("hello-world", "latest");
         let container = docker.run(image).await;
 
         // inspect volume and env
@@ -405,8 +405,7 @@ mod tests {
 
         assert!(
             networks.contains_key("awesome-net-1"),
-            "Networks is {:?}",
-            networks
+            "Networks is {networks:?}"
         );
     }
 
@@ -424,6 +423,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn http_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
         let client = bollard::Docker::connect_with_http_defaults().unwrap();
+        let hello_world = GenericImage::new("hello-world", "latest");
 
         {
             let docker = Http::new();
@@ -431,12 +431,12 @@ mod tests {
 
             // creating the first container creates the network
             let _container1 = docker
-                .run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net-2"))
+                .run(RunnableImage::from(hello_world.clone()).with_network("awesome-net-2"))
                 .await;
 
             // creating a 2nd container doesn't fail because check if the network exists already
             let _container2 = docker
-                .run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net-2"))
+                .run(RunnableImage::from(hello_world).with_network("awesome-net-2"))
                 .await;
 
             assert!(network_exists(&client, "awesome-net-2").await);
