@@ -19,7 +19,11 @@
 //!
 //! Unsurprisingly, working with testcontainers is very similar to working with Docker itself.
 //!
-//! First you choose a [`Client`]. Given a client instance, you can [`run`][docker_run] [`Images`]. This gives you back a [`Container`]. Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
+//! First you choose a [`Client`]. Given a client instance, you can [`run`][docker_run] [`Images`].
+//! This gives you back a [`Container`]. Containers implement [`Drop`].
+//! As soon as they go out of scope, or are dereferenced, the underlying docker container is removed.
+//!
+//! See [`Drop implementation`][drop_impl]
 //!
 //! # Usage in production code
 //!
@@ -35,6 +39,7 @@
 //! [`Client`]: trait.Docker.html#implementors
 //! [`Images`]: trait.Image.html#implementors
 //! [`Container`]: struct.Container.html
+//! [drop_impl]: struct.Container.html#impl-Drop-for-Container<%27d%2C%20I>
 pub use crate::core::{Container, Image, ImageArgs, RunnableImage};
 
 #[cfg(feature = "experimental")]

@@ -12,20 +12,33 @@ use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 ///
 /// ```rust
 /// use testcontainers::*;
+///
 /// #[test]
 /// fn a_test() {
 ///     let docker = clients::Cli::default();
-///
 ///     {
 ///         let container = docker.run(MyImage::default());
-///
 ///         // Docker container is stopped/removed at the end of this scope.
 ///     }
 /// }
-///
 /// ```
 ///
-/// [drop_impl]: struct.Container.html#impl-Drop
+/// This means that one should not chain calls on the container directly like so:
+///
+/// ```rust
+/// # use testcontainers::*;
+/// #
+/// # #[test]
+/// # fn a_test() {
+/// # let target_port = 1234;
+/// let docker = clients::Cli::default();
+/// // Docker container is stopped/removed instantly here because its dereferenced
+/// let port = docker.run(MyImage::default()).get_host_port_ipv4(target_port);
+/// # }
+/// ```
+/// Therefore one should always bind the instance to a local variable like in the example above
+///
+/// [drop_impl]: struct.Container.html#impl-Drop-for-Container<%27d%2C%20I>
 pub struct Container<'d, I: Image> {
     id: String,
     docker_client: Box<dyn Docker>,

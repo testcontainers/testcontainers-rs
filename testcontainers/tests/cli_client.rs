@@ -73,6 +73,7 @@ fn generic_image_exposed_ports() {
         // Explicitly expose the port, which otherwise would not be available.
         .with_exposed_port(target_port);
 
+    // IMPORTANT: do not chain those calls together otherwise the contaner will be dropped immediately
     let node = docker.run(generic_server);
     let port = node.get_host_port_ipv4(target_port);
     assert!(reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
