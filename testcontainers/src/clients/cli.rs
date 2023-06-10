@@ -676,10 +676,13 @@ mod tests {
             assert!(!docker.inner.network_exists(network_name));
 
             // creating the first container creates the network
-            let _container1 =
+            let container1 =
                 docker.run(RunnableImage::from(HelloWorld::default()).with_network(network_name));
 
             assert!(docker.inner.network_exists(network_name));
+
+            // remove container, so network can get cleaned up after the test
+            docker.rm(container1.id());
         }
 
         let docker = Cli::docker();
