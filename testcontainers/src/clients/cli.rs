@@ -243,31 +243,20 @@ impl Client {
 
 impl Default for Cli {
     fn default() -> Self {
-        Self::docker()
+        Self::new::<env::Os>()
     }
 }
 
 impl Cli {
-    /// Create a new client, using the `docker` binary.
-    pub fn docker() -> Self {
-        Self::new::<env::Os, _>("docker")
-    }
-
-    /// Create a new client, using the `podman` binary.
-    pub fn podman() -> Self {
-        Self::new::<env::Os, _>("podman")
-    }
-
-    fn new<E, S>(binary: S) -> Self
+    pub fn new<E>() -> Self
     where
-        S: Into<OsString>,
         E: GetEnvValue,
     {
         Self {
             inner: Arc::new(Client {
                 container_startup_timestamps: Default::default(),
                 created_networks: Default::default(),
-                binary: binary.into(),
+                binary: "docker".into(),
                 command: env::command::<E>().unwrap_or_default(),
             }),
         }
@@ -671,7 +660,7 @@ mod tests {
         let network_name = "foobar-net";
 
         {
-            let docker = Cli::new::<FakeEnvAlwaysKeep, _>("docker");
+            let docker = Cli::new::<FakeEnvAlwaysKeep>();
 
             assert!(!docker.inner.network_exists(network_name));
 
@@ -685,7 +674,7 @@ mod tests {
             docker.rm(container1.id());
         }
 
-        let docker = Cli::docker();
+        let docker = Cli::default();
 
         assert!(
             docker.inner.network_exists(network_name),
