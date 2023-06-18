@@ -2,8 +2,9 @@ name: Continuous Integration
 
 on:
   pull_request:
+  merge_group:
   push:
-    branches: [master, dev, trying, staging]
+    branches: [master, dev]
 
 jobs:
   msrv:
