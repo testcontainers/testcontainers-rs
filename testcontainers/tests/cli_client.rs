@@ -63,7 +63,7 @@ fn generic_image_with_custom_entrypoint() {
 #[test]
 fn generic_image_exposed_ports() {
     let _ = pretty_env_logger::try_init();
-    let docker = clients::Cli::docker();
+    let docker = clients::Cli::default();
 
     let target_port = 8080;
 
@@ -85,7 +85,7 @@ fn generic_image_exposed_ports() {
 #[should_panic]
 fn generic_image_port_not_exposed() {
     let _ = pretty_env_logger::try_init();
-    let docker = clients::Cli::docker();
+    let docker = clients::Cli::default();
 
     let target_port = 8080;
 
