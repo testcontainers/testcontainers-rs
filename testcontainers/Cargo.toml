@@ -32,7 +32,7 @@ watchdog = [ "signal-hook", "conquer-once" ]
 experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]
-pretty_env_logger = "0.4"
+pretty_env_logger = "0.5"
 reqwest = { version = "0.11.14", features = [ "blocking" ] }
 spectral = "0.6.0"
 testimages = { path = "../testimages" }
