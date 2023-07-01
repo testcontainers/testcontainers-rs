@@ -12,8 +12,8 @@ use super::ports::Ports;
 /// [docker_run]: trait.Docker.html#tymethod.run
 pub trait Image
 where
-    Self: Sized,
-    Self::Args: ImageArgs + Clone + Debug,
+    Self: Sized + Sync + Send,
+    Self::Args: ImageArgs + Clone + Debug + Sync + Send,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -160,7 +160,7 @@ pub struct RunnableImage<I: Image> {
 }
 
 impl<I: Image> RunnableImage<I> {
-    pub fn inner(&self) -> &I {
+    pub fn image(&self) -> &I {
         &self.image
     }
 
