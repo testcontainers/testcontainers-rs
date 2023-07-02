@@ -1,5 +1,7 @@
 #![cfg(feature = "experimental")]
 
+use bollard::Docker;
+use clients::RunViaHttp;
 use std::time::Duration;
 use testcontainers::{core::WaitFor, GenericImage, *};
 
@@ -26,13 +28,11 @@ impl Image for HelloWorld {
 async fn bollard_can_run_hello_world() {
     let _ = pretty_env_logger::try_init();
 
-    let docker = clients::Http::default();
-
-    let _container = docker.run(HelloWorld).await;
+    let _container = RunnableImage::from(HelloWorld).start().await;
 }
 
 async fn cleanup_hello_world_image() {
-    let docker = bollard::Docker::connect_with_http_defaults().unwrap();
+    let docker = Docker::connect_with_http_defaults().unwrap();
     futures::future::join_all(
         docker
             .list_images::<String>(None)
@@ -53,22 +53,21 @@ async fn cleanup_hello_world_image() {
 async fn bollard_pull_missing_image_hello_world() {
     let _ = pretty_env_logger::try_init();
     cleanup_hello_world_image().await;
-    let docker = clients::Http::default();
-    let _container = docker.run(HelloWorld).await;
+    let _container = RunnableImage::from(HelloWorld).start().await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn start_containers_in_parallel() {
     let _ = pretty_env_logger::try_init();
 
-    let docker = clients::Http::default();
+    let image = RunnableImage::from(
+        GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2)),
+    );
 
-    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
-
-    let run_1 = docker.run(image.clone());
-    let run_2 = docker.run(image.clone());
-    let run_3 = docker.run(image.clone());
-    let run_4 = docker.run(image);
+    let run_1 = image.clone().start();
+    let run_2 = image.clone().start();
+    let run_3 = image.clone().start();
+    let run_4 = image.start();
 
     let run_all = futures::future::join_all(vec![run_1, run_2, run_3, run_4]);
 

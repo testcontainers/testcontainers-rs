@@ -1,4 +1,4 @@
-use crate::{clients::Cli, core::Docker};
+use crate::{clients::cli_docker_client, core::Docker};
 use conquer_once::Lazy;
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
@@ -8,7 +8,7 @@ use std::{collections::BTreeSet, sync::Mutex, thread};
 
 static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
     thread::spawn(move || {
-        let signal_docker = Cli::default();
+        let signal_docker = cli_docker_client();
         let mut signals =
             Signals::new([SIGTERM, SIGINT, SIGQUIT]).expect("failed to register signal handler");
 

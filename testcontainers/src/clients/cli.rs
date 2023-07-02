@@ -16,16 +16,16 @@ const ONE_SECOND: Duration = Duration::from_secs(1);
 const ZERO: Duration = Duration::from_secs(0);
 
 static CLI_DOCKER: OnceLock<Client> = OnceLock::new();
-fn docker_client() -> &'static Client {
+pub(crate) fn docker_client() -> &'static Client {
     CLI_DOCKER.get_or_init(|| Client::new::<env::Os>())
 }
 
 pub trait RunViaCli<I: Image> {
-    fn run(self) -> Container<I>;
+    fn start(self) -> Container<I>;
 }
 
 impl<I: Image> RunViaCli<I> for RunnableImage<I> {
-    fn run(self) -> Container<I> {
+    fn start(self) -> Container<I> {
         let docker = docker_client();
         if let Some(network) = self.network() {
             if docker.create_network_if_not_exists(network) {
@@ -51,7 +51,7 @@ impl<I: Image> RunViaCli<I> for RunnableImage<I> {
             .to_string();
 
         #[cfg(feature = "watchdog")]
-        if cli.command == env::Command::Remove {
+        if docker.command == env::Command::Remove {
             crate::watchdog::register(container_id.clone());
         }
 
@@ -74,7 +74,7 @@ impl<I: Image> RunViaCli<I> for RunnableImage<I> {
 }
 
 #[derive(Debug)]
-struct Client {
+pub(crate) struct Client {
     /// The docker CLI has an issue that if you request logs for a container
     /// too quickly after it was started up, the resulting stream will never
     /// emit any data, even if the container is already emitting logs.
@@ -534,8 +534,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Failed to remove docker container")]
     fn cli_rm_command_should_panic_on_invalid_container() {
-        let docker = Cli::default();
-        docker.rm("!INVALID_NAME_DUE_TO_SYMBOLS!");
+        docker_client().rm("!INVALID_NAME_DUE_TO_SYMBOLS!");
         unreachable!()
     }
 
@@ -605,24 +604,26 @@ mod tests {
     #[test]
     fn should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
         {
-            let docker = Cli::default();
+            let docker = docker_client();
 
-            assert!(!docker.inner.network_exists("awesome-net"));
+            assert!(!docker.network_exists("awesome-net"));
 
             // creating the first container creates the network
-            let _container1 =
-                docker.run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net"));
+            let _container1: Container<HelloWorld> = RunnableImage::from(HelloWorld::default())
+                .with_network("awesome-net")
+                .start();
             // creating a 2nd container doesn't fail because check if the network exists already
-            let _container2 =
-                docker.run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net"));
+            let _container2 = RunnableImage::from(HelloWorld::default())
+                .with_network("awesome-net")
+                .start();
 
-            assert!(docker.inner.network_exists("awesome-net"));
+            assert!(docker.network_exists("awesome-net"));
         }
 
         {
-            let docker = Cli::default();
+            let docker = docker_client();
             // original client has been dropped, should clean up networks
-            assert!(!docker.inner.network_exists("awesome-net"))
+            assert!(!docker.network_exists("awesome-net"))
         }
     }
 
@@ -639,37 +640,39 @@ mod tests {
         let network_name = "foobar-net";
 
         {
-            let docker = Cli::new::<FakeEnvAlwaysKeep>();
+            let docker = docker_client();
 
-            assert!(!docker.inner.network_exists(network_name));
+            assert!(!docker.network_exists(network_name));
 
             // creating the first container creates the network
-            let container1 =
-                docker.run(RunnableImage::from(HelloWorld::default()).with_network(network_name));
+            let container1 = RunnableImage::from(HelloWorld::default())
+                .with_network(network_name)
+                .start();
 
-            assert!(docker.inner.network_exists(network_name));
+            assert!(docker.network_exists(network_name));
 
             // remove container, so network can get cleaned up after the test
             docker.rm(container1.id());
         }
 
-        let docker = Cli::default();
+        let docker = docker_client();
 
         assert!(
-            docker.inner.network_exists(network_name),
+            docker.network_exists(network_name),
             "network should still exist after client is dropped"
         );
 
-        docker.inner.delete_networks(vec![network_name]);
+        docker.delete_networks(vec![network_name]);
     }
 
     #[test]
     fn should_wait_for_at_least_one_second_before_fetching_logs() {
         let _ = pretty_env_logger::try_init();
-        let docker = Cli::default();
+        let docker = docker_client();
 
         let before_run = Instant::now();
-        let container = docker.run(HelloWorld::default());
+        // ToDo I had to wrap Image with RunnableImage so I can call "run". We should make "run" work with Image as well.
+        let container = RunnableImage::from(HelloWorld::default()).start();
         let after_run = Instant::now();
 
         let before_logs = Instant::now();

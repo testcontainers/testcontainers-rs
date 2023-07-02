@@ -145,7 +145,7 @@ impl ImageArgs for () {
 }
 
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RunnableImage<I: Image> {
     image: I,
     image_args: I::Args,

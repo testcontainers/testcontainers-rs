@@ -20,7 +20,7 @@ use std::{
 static HTTP_DOCKER: OnceLock<Client> = OnceLock::new();
 
 fn docker_client() -> &'static Client {
-    HTTP_DOCKER.get_or_init(|| Client::default())
+    HTTP_DOCKER.get_or_init(|| Client::new())
 }
 
 /// The internal client.
@@ -32,24 +32,14 @@ struct Client {
     created_networks: RwLock<Vec<String>>,
 }
 
-impl Default for Client {
-    fn default() -> Self {
-        Client {
-            command: env::command::<env::Os>().unwrap_or_default(),
-            bollard: Docker::connect_with_http_defaults().unwrap(),
-            created_networks: RwLock::new(Vec::new()),
-        }
-    }
-}
-
 #[async_trait]
 pub trait RunViaHttp<I: Image> {
-    async fn run(self) -> ContainerAsync<I>;
+    async fn start(self) -> ContainerAsync<I>;
 }
 
 #[async_trait]
 impl<I: Image> RunViaHttp<I> for RunnableImage<I> {
-    async fn run(self) -> ContainerAsync<I> {
+    async fn start(self) -> ContainerAsync<I> {
         let client = docker_client();
         let mut create_options: Option<CreateContainerOptions<String>> = None;
         let mut config: Config<String> = Config {
@@ -195,6 +185,14 @@ impl<I: Image> RunViaHttp<I> for RunnableImage<I> {
 }
 
 impl Client {
+    fn new() -> Client {
+        Client {
+            command: env::command::<env::Os>().unwrap_or_default(),
+            bollard: Docker::connect_with_http_defaults()
+                .expect("Failed to initialize docker client"),
+            created_networks: RwLock::new(Vec::new()),
+        }
+    }
 
     async fn create_network_if_not_exists(&self, network: &str) -> bool {
         if !network_exists(&self.bollard, network).await {
@@ -337,9 +335,10 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
-        let docker = Http::new();
-        let image = GenericImage::new("hello-world", "latest");
-        let container = docker.run(image).await;
+        let docker = docker_client();
+        let container = RunnableImage::from(GenericImage::new("hello-world", "latest"))
+            .start()
+            .await;
 
         // inspect volume and env
         let container_details = inspect(&docker.bollard, container.id()).await;
@@ -349,12 +348,13 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_expose_only_requested_ports() {
-        let docker = Http::new();
+        let docker = docker_client();
         let image = GenericImage::new("hello-world", "latest");
-        let image = RunnableImage::from(image)
+        let container = RunnableImage::from(image)
             .with_mapped_port((123, 456))
-            .with_mapped_port((555, 888));
-        let container = docker.run(image).await;
+            .with_mapped_port((555, 888))
+            .start()
+            .await;
 
         let container_details = inspect(&docker.bollard, container.id()).await;
 
@@ -369,10 +369,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_include_network() {
-        let docker = Http::new();
+        let docker = docker_client();
         let image = GenericImage::new("hello-world", "latest");
-        let image = RunnableImage::from(image).with_network("awesome-net-1");
-        let container = docker.run(image).await;
+        let container = RunnableImage::from(image)
+            .with_network("awesome-net-1")
+            .start()
+            .await;
 
         let container_details = inspect(&docker.bollard, container.id()).await;
         let networks = container_details
@@ -389,10 +391,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_include_name() {
-        let docker = Http::new();
+        let docker = docker_client();
         let image = GenericImage::new("hello-world", "latest");
-        let image = RunnableImage::from(image).with_container_name("hello_container");
-        let container = docker.run(image).await;
+        let container = RunnableImage::from(image)
+            .with_container_name("hello_container")
+            .start()
+            .await;
 
         let container_details = inspect(&docker.bollard, container.id()).await;
         assert_that!(container_details.name.unwrap()).ends_with("hello_container");
@@ -400,36 +404,40 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
-        let client = bollard::Docker::connect_with_http_defaults().unwrap();
+        let docker = docker_client();
         let hello_world = GenericImage::new("hello-world", "latest");
 
         {
-            let docker = Http::new();
-            assert!(!network_exists(&client, "awesome-net-2").await);
+            let docker = &docker.clone();
+            assert!(!network_exists(&docker.bollard, "awesome-net-2").await);
 
             // creating the first container creates the network
-            let _container1 = docker
-                .run(RunnableImage::from(hello_world.clone()).with_network("awesome-net-2"))
+            let _container1 = RunnableImage::from(hello_world.clone())
+                .with_network("awesome-net-2")
+                .start()
                 .await;
 
             // creating a 2nd container doesn't fail because check if the network exists already
-            let _container2 = docker
-                .run(RunnableImage::from(hello_world).with_network("awesome-net-2"))
+            let _container2 = RunnableImage::from(hello_world)
+                .with_network("awesome-net-2")
+                .start()
                 .await;
 
-            assert!(network_exists(&client, "awesome-net-2").await);
+            assert!(network_exists(&docker.bollard, "awesome-net-2").await);
         }
 
         // client has been dropped, should clean up networks
-        assert!(!network_exists(&client, "awesome-net-2").await)
+        assert!(!network_exists(&docker.bollard, "awesome-net-2").await)
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_set_shared_memory_size() {
-        let docker = Http::new();
+        let docker = docker_client();
         let image = GenericImage::new("hello-world", "latest");
-        let image = RunnableImage::from(image).with_shm_size(1_000_000);
-        let container = docker.run(image).await;
+        let container = RunnableImage::from(image)
+            .with_shm_size(1_000_000)
+            .start()
+            .await;
 
         let container_details = inspect(&docker.bollard, container.id()).await;
         let shm_size = container_details.host_config.unwrap().shm_size.unwrap();
