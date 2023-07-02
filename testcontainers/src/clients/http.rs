@@ -38,6 +38,17 @@ pub trait RunViaHttp<I: Image> {
 }
 
 #[async_trait]
+impl<I> RunViaHttp<I> for I
+where
+    I: Image,
+    I::Args: Default,
+{
+    async fn start(self) -> ContainerAsync<I> {
+        RunnableImage::from(self).start().await
+    }
+}
+
+#[async_trait]
 impl<I: Image> RunViaHttp<I> for RunnableImage<I> {
     async fn start(self) -> ContainerAsync<I> {
         let client = docker_client();
@@ -188,7 +199,7 @@ impl Client {
     fn new() -> Client {
         Client {
             command: env::command::<env::Os>().unwrap_or_default(),
-            bollard: Docker::connect_with_http_defaults()
+            bollard: Docker::connect_with_unix_defaults()
                 .expect("Failed to initialize docker client"),
             created_networks: RwLock::new(Vec::new()),
         }

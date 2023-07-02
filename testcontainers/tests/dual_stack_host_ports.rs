@@ -1,7 +1,7 @@
 use std::net::{Ipv6Addr, TcpListener};
 
 use clients::RunViaCli;
-use testcontainers::{clients, core::WaitFor, GenericImage, RunnableImage};
+use testcontainers::{clients, core::WaitFor, GenericImage};
 
 /// Test the functionality of exposing container ports over both IPv4 and IPv6.
 #[tokio::test]
@@ -9,9 +9,7 @@ async fn test_ipv4_ipv6_host_ports() {
     let _ = pretty_env_logger::try_init();
 
     let wait_for = WaitFor::message_on_stdout("server is ready");
-    let image = RunnableImage::from(
-        GenericImage::new("simple_web_server", "latest").with_wait_for(wait_for.clone()),
-    );
+    let image = GenericImage::new("simple_web_server", "latest").with_wait_for(wait_for.clone());
 
     // Run one container, and check what ephemeral ports it uses. Perform test HTTP requests to
     // both bound ports.

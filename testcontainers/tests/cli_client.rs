@@ -23,16 +23,14 @@ impl Image for HelloWorld {
 #[tokio::test(flavor = "multi_thread")]
 async fn cli_can_run_hello_world() {
     let _ = pretty_env_logger::try_init();
-    let _container = RunnableImage::from(HelloWorld).start();
+    let _container = HelloWorld.start();
 }
 
 #[test]
 fn generic_image_with_custom_entrypoint() {
     let msg = WaitFor::message_on_stdout("server is ready");
 
-    let generic = RunnableImage::from(
-        GenericImage::new("simple_web_server", "latest").with_wait_for(msg.clone()),
-    );
+    let generic = GenericImage::new("simple_web_server", "latest").with_wait_for(msg.clone());
 
     let node = generic.start();
     let port = node.get_host_port_ipv4(80);
@@ -44,11 +42,9 @@ fn generic_image_with_custom_entrypoint() {
             .unwrap()
     );
 
-    let generic = RunnableImage::from(
-        GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(msg)
-            .with_entrypoint("./bar"),
-    );
+    let generic = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(msg)
+        .with_entrypoint("./bar");
 
     let node = generic.start();
     let port = node.get_host_port_ipv4(80);
@@ -68,12 +64,10 @@ fn generic_image_exposed_ports() {
     let target_port = 8080;
 
     // This server does not EXPOSE ports in its image.
-    let generic_server = RunnableImage::from(
-        GenericImage::new("no_expose_port", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"))
-            // Explicitly expose the port, which otherwise would not be available.
-            .with_exposed_port(target_port),
-    );
+    let generic_server = GenericImage::new("no_expose_port", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"))
+        // Explicitly expose the port, which otherwise would not be available.
+        .with_exposed_port(target_port);
 
     let node = generic_server.start();
     let port = node.get_host_port_ipv4(target_port);
@@ -91,10 +85,8 @@ fn generic_image_port_not_exposed() {
     let target_port = 8080;
 
     // This image binds to 0.0.0.0:8080, does not EXPOSE ports in its dockerfile.
-    let generic_server = RunnableImage::from(
-        GenericImage::new("no_expose_port", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080")),
-    );
+    let generic_server = GenericImage::new("no_expose_port", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"));
     let node = generic_server.start();
 
     // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.

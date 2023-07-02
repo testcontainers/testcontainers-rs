@@ -28,11 +28,11 @@ impl Image for HelloWorld {
 async fn bollard_can_run_hello_world() {
     let _ = pretty_env_logger::try_init();
 
-    let _container = RunnableImage::from(HelloWorld).start().await;
+    let _container = HelloWorld.start().await;
 }
 
 async fn cleanup_hello_world_image() {
-    let docker = Docker::connect_with_http_defaults().unwrap();
+    let docker = Docker::connect_with_unix_defaults().unwrap();
     futures::future::join_all(
         docker
             .list_images::<String>(None)
@@ -60,9 +60,7 @@ async fn bollard_pull_missing_image_hello_world() {
 async fn start_containers_in_parallel() {
     let _ = pretty_env_logger::try_init();
 
-    let image = RunnableImage::from(
-        GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2)),
-    );
+    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
 
     let run_1 = image.clone().start();
     let run_2 = image.clone().start();

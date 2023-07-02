@@ -24,6 +24,16 @@ pub trait RunViaCli<I: Image> {
     fn start(self) -> Container<I>;
 }
 
+impl<I> RunViaCli<I> for I
+where
+    I: Image,
+    I::Args: Default,
+{
+    fn start(self) -> Container<I> {
+        RunnableImage::from(self).start()
+    }
+}
+
 impl<I: Image> RunViaCli<I> for RunnableImage<I> {
     fn start(self) -> Container<I> {
         let docker = docker_client();
@@ -671,8 +681,7 @@ mod tests {
         let docker = docker_client();
 
         let before_run = Instant::now();
-        // ToDo I had to wrap Image with RunnableImage so I can call "run". We should make "run" work with Image as well.
-        let container = RunnableImage::from(HelloWorld::default()).start();
+        let container = HelloWorld::default().start();
         let after_run = Instant::now();
 
         let before_logs = Instant::now();
