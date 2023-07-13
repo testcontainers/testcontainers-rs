@@ -180,7 +180,7 @@ impl Client {
             for port in ports {
                 command
                     .arg("-p")
-                    .arg(format!("{}:{}", port.local, port.internal));
+                    .arg(port.to_string());
             }
         } else if !is_container_networked {
             for port in image.expose_ports() {

@@ -1,4 +1,10 @@
-use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
+use std::{
+    collections::BTreeMap,
+    env::var,
+    fmt::Debug,
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
 
 use super::ports::Ports;
 
@@ -307,11 +313,21 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
     }
 }
 
-/// Represents a port mapping between a local port and the internal port of a container.
+/// Represents a port mapping between a local socket addr and the internal port of a container.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Port {
     pub local: u16,
     pub internal: u16,
+    pub host_ip: Option<IpAddr>,
+}
+
+impl std::fmt::Display for Port {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(host_ip) = self.host_ip {
+            f.write_fmt(format_args!("{host_ip}:"))?
+        }
+        f.write_fmt(format_args!("{}:{}", self.local, self.internal))
+    }
 }
 
 /// Represents a condition that needs to be met before a container is considered ready.
@@ -370,6 +386,21 @@ impl WaitFor {
 
 impl From<(u16, u16)> for Port {
     fn from((local, internal): (u16, u16)) -> Self {
-        Port { local, internal }
+        Port {
+            local,
+            internal,
+            host_ip: None,
+        }
+    }
+}
+
+/// Convert from a pair of local socket addr and internal port
+impl From<(SocketAddr, u16)> for Port {
+    fn from((local, internal): (SocketAddr, u16)) -> Self {
+        Port {
+            local: local.port(),
+            internal,
+            host_ip: Some(local.ip()),
+        }
     }
 }
