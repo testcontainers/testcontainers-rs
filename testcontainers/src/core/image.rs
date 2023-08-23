@@ -157,6 +157,7 @@ pub struct RunnableImage<I: Image> {
     ports: Option<Vec<Port>>,
     privileged: bool,
     shm_size: Option<u64>,
+    user: Option<String>,
 }
 
 impl<I: Image> RunnableImage<I> {
@@ -199,6 +200,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn entrypoint(&self) -> Option<String> {
         self.image.entrypoint()
+    }
+
+    pub fn user(&self) -> Option<&str> {
+        self.user.as_ref().map(|s| s.as_str())
     }
 
     pub fn descriptor(&self) -> String {
@@ -278,6 +283,13 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    pub fn with_user(self, user: impl ToString) -> Self {
+        Self {
+            user: Some(user.to_string()),
+            ..self
+        }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -303,6 +315,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             ports: None,
             privileged: false,
             shm_size: None,
+            user: None,
         }
     }
 }

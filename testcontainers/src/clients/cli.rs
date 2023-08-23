@@ -171,6 +171,10 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
+        if let Some(user) = image.user() {
+            command.arg(format!("--user={user}"));
+        }
+
         let is_container_networked = image
             .network()
             .as_ref()
@@ -223,9 +227,9 @@ impl Client {
     }
 
     fn delete_networks<I, S>(&self, networks: I)
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<OsStr>,
+        where
+            I: IntoIterator<Item=S>,
+            S: AsRef<OsStr>,
     {
         let mut docker = self.command();
         docker.args(["network", "rm"]);
@@ -570,6 +574,19 @@ mod tests {
         assert_eq!(
             format!("{command:?}"),
             r#""docker" "run" "--network=awesome-net" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_user() {
+        let image = GenericImage::new("hello", "0.0");
+
+        let image = RunnableImage::from(image).with_user("awesome-user");
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{:?}", command),
+            r#""docker" "run" "--user=awesome-user" "-P" "-d" "hello:0.0""#
         );
     }
 
