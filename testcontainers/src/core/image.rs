@@ -11,9 +11,9 @@ use super::ports::Ports;
 /// [`Image`]: trait.Image.html
 /// [docker_run]: trait.Docker.html#tymethod.run
 pub trait Image
-where
-    Self: Sized,
-    Self::Args: ImageArgs + Clone + Debug,
+    where
+        Self: Sized,
+        Self::Args: ImageArgs + Clone + Debug,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -55,7 +55,7 @@ where
     /// users will either go with the default ones or just override one or two. When defining
     /// the environment variables of your image, consider that the whole purpose is to facilitate integration
     /// testing. Only expose those that actually make sense for this case.
-    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+    fn env_vars(&self) -> Box<dyn Iterator<Item=(&String, &String)> + '_> {
         Box::new(std::iter::empty())
     }
 
@@ -67,7 +67,7 @@ where
     /// users will either go with the default ones or just override one or two. When defining
     /// the volumes of your image, consider that the whole purpose is to facilitate integration
     /// testing. Only expose those that actually make sense for this case.
-    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+    fn volumes(&self) -> Box<dyn Iterator<Item=(&String, &String)> + '_> {
         Box::new(std::iter::empty())
     }
 
@@ -112,8 +112,8 @@ impl ContainerState {
     }
 
     #[deprecated(
-        since = "0.13.1",
-        note = "Use `host_port_ipv4()` or `host_port_ipv6()` instead."
+    since = "0.13.1",
+    note = "Use `host_port_ipv4()` or `host_port_ipv6()` instead."
     )]
     pub fn host_port(&self, internal_port: u16) -> u16 {
         self.host_port_ipv4(internal_port)
@@ -143,11 +143,11 @@ impl ContainerState {
 }
 
 pub trait ImageArgs {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>>;
+    fn into_iterator(self) -> Box<dyn Iterator<Item=String>>;
 }
 
 impl ImageArgs for () {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
+    fn into_iterator(self) -> Box<dyn Iterator<Item=String>> {
         Box::new(vec![].into_iter())
     }
 }
@@ -163,6 +163,7 @@ pub struct RunnableImage<I: Image> {
     env_vars: BTreeMap<String, String>,
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
+    user: Option<String>,
 }
 
 impl<I: Image> RunnableImage<I> {
@@ -182,11 +183,11 @@ impl<I: Image> RunnableImage<I> {
         &self.container_name
     }
 
-    pub fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+    pub fn env_vars(&self) -> Box<dyn Iterator<Item=(&String, &String)> + '_> {
         Box::new(self.image.env_vars().chain(self.env_vars.iter()))
     }
 
-    pub fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+    pub fn volumes(&self) -> Box<dyn Iterator<Item=(&String, &String)> + '_> {
         Box::new(self.image.volumes().chain(self.volumes.iter()))
     }
 
@@ -196,6 +197,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn entrypoint(&self) -> Option<String> {
         self.image.entrypoint()
+    }
+
+    pub fn user(&self) -> Option<&str> {
+        self.user.as_ref().map(|s| s.as_str())
     }
 
     pub fn descriptor(&self) -> String {
@@ -264,12 +269,19 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    pub fn with_user(self, user: impl ToString) -> Self {
+        Self {
+            user: Some(user.to_string()),
+            ..self
+        }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
-where
-    I: Image,
-    I::Args: Default,
+    where
+        I: Image,
+        I::Args: Default,
 {
     fn from(image: I) -> Self {
         Self::from((image, I::Args::default()))
@@ -287,6 +299,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             env_vars: BTreeMap::default(),
             volumes: BTreeMap::default(),
             ports: None,
+            user: None,
         }
     }
 }
@@ -348,7 +361,7 @@ impl WaitFor {
                 length: Duration::from_millis(length),
             })
         })()
-        .unwrap_or(WaitFor::Nothing)
+            .unwrap_or(WaitFor::Nothing)
     }
 }
 
