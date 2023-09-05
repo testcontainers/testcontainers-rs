@@ -4,7 +4,7 @@ jobs:
   nightly-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         id: toolchain
         with:
@@ -16,7 +16,7 @@ jobs:
   nightly-lints:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         id: toolchain
         with:
