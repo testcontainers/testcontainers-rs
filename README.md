@@ -16,6 +16,8 @@ Testcontainers-rs is the official Rust language fork of [http://testcontainers.o
 
 Check [the integration tests](./testcontainers/tests) on how to use the library.
 
+A set of ready-to-use images (aka modules) is available as a community-maintained crate: [testcontainers-modules](https://github.com/testcontainers/testcontainers-rs-modules-community)
+
 ## License
 
 Licensed under either of
