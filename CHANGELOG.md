@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `Container::exec` changed to be synchronous and return `ExecOutput`
+- MSRV is now 1.63.
 
 ### Removed
 
