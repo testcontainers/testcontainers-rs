@@ -7,7 +7,7 @@ edition = "2021"
 keywords = [ "docker", "testcontainers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/testcontainers/testcontainers-rs"
-rust-version = "1.60.0"
+rust-version = "1.63"
 description = "A library for integration-testing against docker containers from within Rust."
 
 [dependencies]
