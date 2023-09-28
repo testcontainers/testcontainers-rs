@@ -473,7 +473,6 @@ impl Drop for Client {
 mod tests {
     use super::*;
     use crate::{core::WaitFor, images::generic::GenericImage, Image};
-    use spectral::prelude::*;
     use std::collections::BTreeMap;
 
     #[derive(Default)]
@@ -702,7 +701,14 @@ mod tests {
         docker.stdout_logs(container.id());
         let after_logs = Instant::now();
 
-        assert_that(&(after_run - before_run)).is_greater_than(Duration::from_secs(1));
-        assert_that(&(after_logs - before_logs)).is_less_than(Duration::from_secs(1));
+        const ONE_SEC: Duration = Duration::from_secs(1);
+        assert!(
+            (after_run - before_run) > ONE_SEC,
+            "run completed in less than a second"
+        );
+        assert!(
+            (after_logs - before_logs) < ONE_SEC,
+            "log fetching took more than a second"
+        );
     }
 }
