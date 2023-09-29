@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Container::exec` changed to be synchronous and return `ExecOutput`
 - MSRV is now 1.63.
 - Fixed `get_bridge_ip_address` not to use outdated properties
-- `Docker` trait is declared to be  `Send + Sync`
+- `Docker` trait is declared to be `Send + Sync`
 
 ### Removed
 
