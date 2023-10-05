@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.15.0] - 2023-09-28
 
 ### Added
+
 - Added `privileged` parameter to `RunnableImage`
 - Added `shm_size` (shared memory size) parameter to `RunnableImage`
 - Added logging of an error when starting a container fails
