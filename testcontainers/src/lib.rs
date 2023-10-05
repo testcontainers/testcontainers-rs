@@ -27,7 +27,8 @@
 //!
 //! # Ecosystem
 //!
-//! The testcontainers ecosystem is split into multiple crates, however, the `testcontainers` crate itself is a meta-crate, re-exporting the others. Usually, depending on `testcontainers` should be sufficient for most users needs.
+//! `testcontainers` is the core crate that provides an API for working with containers in a test environment.
+//!  However, it does not provide ready-to-use modules, you can implement your [`Image`]s using the library directly or use community supported [`testcontainers-modules`].
 //!
 //! [tc_website]: https://testcontainers.org
 //! [`Docker`]: https://docker.com
@@ -35,6 +36,7 @@
 //! [`Client`]: trait.Docker.html#implementors
 //! [`Images`]: trait.Image.html#implementors
 //! [`Container`]: struct.Container.html
+//! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
 pub use crate::core::{Container, Image, ImageArgs, RunnableImage};
 
 #[cfg(feature = "experimental")]
@@ -47,4 +49,6 @@ pub(crate) mod watchdog;
 pub mod clients;
 pub mod core;
 /// All available Docker images.
-pub mod images;
+mod images;
+
+pub use images::generic::GenericImage;

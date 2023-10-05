@@ -3,6 +3,7 @@ use crate::{
     Image, RunnableImage,
 };
 use bollard_stubs::models::ContainerInspectResponse;
+
 use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
@@ -168,21 +169,35 @@ where
             })
     }
 
-    /// Returns the bridge ip address of docker container as specified in NetworkSettings.IPAddress
+    /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
     pub fn get_bridge_ip_address(&self) -> IpAddr {
-        IpAddr::from_str(
-            &self
-                .docker_client
-                .inspect(&self.id)
-                .network_settings
-                .unwrap_or_default()
-                .ip_address
-                .unwrap_or_default(),
-        )
-        .unwrap_or_else(|_| panic!("container {} has missing or invalid bridge IP", self.id))
+        let settings = self
+            .docker_client
+            .inspect(&self.id)
+            .network_settings
+            .unwrap_or_else(|| panic!("container {} has no network settings", self.id));
+
+        let mut networks = settings
+            .networks
+            .unwrap_or_else(|| panic!("container {} has no any networks", self.id));
+
+        let bridge_name = self
+            .image
+            .network()
+            .clone()
+            .or(settings.bridge)
+            .unwrap_or_else(|| panic!("container {} has missing bridge name", self.id));
+
+        let ip = networks
+            .remove(&bridge_name)
+            .and_then(|network| network.ip_address)
+            .unwrap_or_else(|| panic!("container {} has missing bridge IP", self.id));
+
+        IpAddr::from_str(&ip)
+            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
     }
 
-    pub fn exec(&self, cmd: ExecCommand) {
+    pub fn exec(&self, cmd: ExecCommand) -> ExecOutput {
         let ExecCommand {
             cmd,
             ready_conditions,
@@ -190,10 +205,15 @@ where
 
         log::debug!("Executing command {:?}", cmd);
 
-        self.docker_client.exec(self.id(), cmd);
+        let output = self.docker_client.exec(self.id(), cmd);
 
         self.docker_client
             .block_until_ready(self.id(), ready_conditions);
+
+        ExecOutput {
+            stdout: output.stdout,
+            stderr: output.stderr,
+        }
     }
 
     pub fn stop(&self) {
@@ -211,6 +231,14 @@ where
 
         self.docker_client.rm(&self.id)
     }
+}
+
+/// Represents an output of `exec` command.
+/// `stdout` & `stderr` is represented as bytes because it might contain non-utf chars and responsibility should be on the caller end.
+#[derive(Debug)]
+pub struct ExecOutput {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
 }
 
 /// The destructor implementation for a Container.
@@ -237,7 +265,7 @@ where
 ///
 /// This trait is pub(crate) because it should not be used directly by users but only represents an internal abstraction that allows containers to be generic over the client they have been started with.
 /// All functionality of this trait is available on [`Container`]s directly.
-pub(crate) trait Docker {
+pub(crate) trait Docker: Sync + Send {
     fn stdout_logs(&self, id: &str) -> LogStream;
     fn stderr_logs(&self, id: &str) -> LogStream;
     fn ports(&self, id: &str) -> Ports;
@@ -245,6 +273,37 @@ pub(crate) trait Docker {
     fn rm(&self, id: &str);
     fn stop(&self, id: &str);
     fn start(&self, id: &str);
-    fn exec(&self, id: &str, cmd: String);
+    fn exec(&self, id: &str, cmd: String) -> std::process::Output;
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>);
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[derive(Debug, Default)]
+    pub struct HelloWorld;
+
+    impl Image for HelloWorld {
+        type Args = ();
+
+        fn name(&self) -> String {
+            "hello-world".to_owned()
+        }
+
+        fn tag(&self) -> String {
+            "latest".to_owned()
+        }
+
+        fn ready_conditions(&self) -> Vec<WaitFor> {
+            vec![WaitFor::message_on_stdout("Hello from Docker!")]
+        }
+    }
+
+    #[test]
+    fn container_should_be_send_and_sync() {
+        assert_send_and_sync::<Container<'_, HelloWorld>>();
+    }
+
+    fn assert_send_and_sync<T: Send + Sync>() {}
 }

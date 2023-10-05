@@ -1,11 +1,26 @@
 #![cfg(feature = "experimental")]
 
 use std::time::Duration;
-use testcontainers::{
-    core::WaitFor,
-    images::{generic::GenericImage, hello_world::HelloWorld},
-    *,
-};
+use testcontainers::{core::WaitFor, GenericImage, *};
+
+#[derive(Debug, Default)]
+pub struct HelloWorld;
+
+impl Image for HelloWorld {
+    type Args = ();
+
+    fn name(&self) -> String {
+        "hello-world".to_owned()
+    }
+
+    fn tag(&self) -> String {
+        "latest".to_owned()
+    }
+
+    fn ready_conditions(&self) -> Vec<WaitFor> {
+        vec![WaitFor::message_on_stdout("Hello from Docker!")]
+    }
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bollard_can_run_hello_world() {

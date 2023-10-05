@@ -5,7 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.15.0] - 2023-09-28
+
+### Added
+
+- Added `privileged` parameter to `RunnableImage`
+- Added `shm_size` (shared memory size) parameter to `RunnableImage`
+- Added logging of an error when starting a container fails
+
+### Changed
+
+- `Container::exec` changed to be synchronous and return `ExecOutput`
+- MSRV is now 1.63.
+- Fixed `get_bridge_ip_address` not to use outdated properties
+- `Docker` trait is declared to be `Send + Sync`
+
+### Removed
+
+- Removed all pre-defined images from the library to escape unbounded maintenance work.
+  See https://github.com/testcontainers/testcontainers-rs/issues/471 for details.
+- Removed explicit support for podman.
+  See https://github.com/testcontainers/testcontainers-rs/issues/422 for details.
 
 ## [0.14.0] - 2022-05-30
 

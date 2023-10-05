@@ -11,10 +11,19 @@ Testcontainers-rs is the official Rust language fork of [http://testcontainers.o
 
 ## Usage
 
-1. Depend on `testcontainers`
-2. Import `use testcontainers::*`.
+### `testcontainers` is the core crate
 
-Check [the integration tests](./testcontainers/tests) on how to use the library.
+The crate provides an API for working with containers in a test environment.
+
+1. Depend on `testcontainers`
+2. Implement `testcontainers::core::Image` for necessary docker-images
+3. Run it with any available client `testcontainers::clients::*`
+
+### Ready-to-use images
+
+The easiest way to use `testcontainers` is to depend on ready-to-use images (aka modules).
+
+Modules are available as a community-maintained crate: [testcontainers-modules](https://github.com/testcontainers/testcontainers-rs-modules-community)
 
 ## License
 

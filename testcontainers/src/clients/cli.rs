@@ -6,7 +6,7 @@ use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     sync::{Arc, RwLock},
     thread::sleep,
     time::{Duration, Instant},
@@ -44,8 +44,13 @@ impl Cli {
         log::debug!("Executing command: {:?}", command);
 
         let output = command.output().expect("Failed to execute docker command");
+        if !output.status.success() {
+            let stdout = std::str::from_utf8(&output.stdout).unwrap_or("{not utf8}");
+            let stderr = std::str::from_utf8(&output.stderr).unwrap_or("{not utf8}");
+            log::error!("Failed to start container.\nContainer stdout: {stdout}\nContainer stderr: {stderr}");
+            panic!("Failed to start container, check log for details")
+        }
 
-        assert!(output.status.success(), "failed to start container");
         let container_id = String::from_utf8(output.stdout)
             .expect("output is not valid utf8")
             .trim()
@@ -143,20 +148,28 @@ impl Client {
     fn build_run_command<I: Image>(image: &RunnableImage<I>, mut command: Command) -> Command {
         command.arg("run");
 
+        if image.privileged() {
+            command.arg("--privileged");
+        }
+
+        if let Some(bytes) = image.shm_size() {
+            command.arg(format!("--shm-size={bytes}"));
+        }
+
         if let Some(network) = image.network() {
-            command.arg(format!("--network={}", network));
+            command.arg(format!("--network={network}"));
         }
 
         if let Some(name) = image.container_name() {
-            command.arg(format!("--name={}", name));
+            command.arg(format!("--name={name}"));
         }
 
         for (key, value) in image.env_vars() {
-            command.arg("-e").arg(format!("{}={}", key, value));
+            command.arg("-e").arg(format!("{key}={value}"));
         }
 
         for (orig, dest) in image.volumes() {
-            command.arg("-v").arg(format!("{}:{}", orig, dest));
+            command.arg("-v").arg(format!("{orig}:{dest}"));
         }
 
         if let Some(entrypoint) = image.entrypoint() {
@@ -176,7 +189,7 @@ impl Client {
             }
         } else if !is_container_networked {
             for port in image.expose_ports() {
-                command.arg(format!("--expose={}", port));
+                command.arg(format!("--expose={port}"));
             }
             command.arg("-P"); // publish all exposed ports
         }
@@ -196,7 +209,7 @@ impl Client {
         }
 
         let mut docker = self.command();
-        docker.args(&["network", "create", name]);
+        docker.args(["network", "create", name]);
 
         let output = docker.output().expect("failed to create docker network");
         assert!(output.status.success(), "failed to create docker network");
@@ -206,7 +219,7 @@ impl Client {
 
     fn network_exists(&self, name: &str) -> bool {
         let mut docker = self.command();
-        docker.args(&["network", "ls", "--format", "{{.Name}}"]);
+        docker.args(["network", "ls", "--format", "{{.Name}}"]);
 
         let output = docker.output().expect("failed to list docker networks");
         let output = String::from_utf8(output.stdout).expect("output is not valid utf-8");
@@ -220,7 +233,7 @@ impl Client {
         S: AsRef<OsStr>,
     {
         let mut docker = self.command();
-        docker.args(&["network", "rm"]);
+        docker.args(["network", "rm"]);
         docker.args(networks);
 
         let output = docker.output().expect("failed to delete docker networks");
@@ -235,31 +248,20 @@ impl Client {
 
 impl Default for Cli {
     fn default() -> Self {
-        Self::docker()
+        Self::new::<env::Os>()
     }
 }
 
 impl Cli {
-    /// Create a new client, using the `docker` binary.
-    pub fn docker() -> Self {
-        Self::new::<env::Os, _>("docker")
-    }
-
-    /// Create a new client, using the `podman` binary.
-    pub fn podman() -> Self {
-        Self::new::<env::Os, _>("podman")
-    }
-
-    fn new<E, S>(binary: S) -> Self
+    pub fn new<E>() -> Self
     where
-        S: Into<OsString>,
         E: GetEnvValue,
     {
         Self {
             inner: Arc::new(Client {
                 container_startup_timestamps: Default::default(),
                 created_networks: Default::default(),
-                binary: binary.into(),
+                binary: "docker".into(),
                 command: env::command::<E>().unwrap_or_default(),
             }),
         }
@@ -382,20 +384,23 @@ impl Docker for Cli {
             .expect("Failed to start docker container");
     }
 
-    fn exec(&self, id: &str, cmd: String) {
-        self.inner
+    fn exec(&self, id: &str, cmd: String) -> std::process::Output {
+        let exec_output = self
+            .inner
             .command()
             .arg("exec")
-            .arg("-d")
             .arg(id)
             .arg("sh")
             .arg("-c")
-            .arg(cmd)
+            .arg(&cmd)
             .stdout(Stdio::piped())
             .spawn()
-            .expect("Failed to execute docker command")
-            .wait()
-            .expect("Failed to exec in a docker container");
+            .and_then(Child::wait_with_output)
+            .expect("Failed to execute docker command");
+
+        log::debug!("command {} was executed!", cmd);
+
+        exec_output
     }
 
     fn block_until_ready(&self, id: &str, ready_conditions: Vec<WaitFor>) {
@@ -516,10 +521,10 @@ mod tests {
         let command =
             Client::build_run_command(&RunnableImage::from(image), Command::new("docker"));
 
-        println!("Executing command: {:?}", command);
+        println!("Executing command: {command:?}");
 
         assert_eq!(
-            format!("{:?}", command),
+            format!("{command:?}"),
             r#""docker" "run" "-e" "one-key=one-value" "-e" "two-key=two-value" "-v" "one-from:one-dest" "-v" "two-from:two-dest" "-P" "-d" "hello-world:latest""#
         );
     }
@@ -532,7 +537,7 @@ mod tests {
             Client::build_run_command(&RunnableImage::from(image), Command::new("docker"));
 
         assert_eq!(
-            format!("{:?}", command),
+            format!("{command:?}"),
             r#""docker" "run" "-P" "-d" "hello:0.0""#
         );
     }
@@ -547,7 +552,7 @@ mod tests {
         let command = Client::build_run_command(&image, Command::new("docker"));
 
         assert_eq!(
-            format!("{:?}", command),
+            format!("{command:?}"),
             r#""docker" "run" "-p" "123:456" "-p" "555:888" "-d" "hello:0.0""#
         );
     }
@@ -568,7 +573,7 @@ mod tests {
         let command = Client::build_run_command(&image, Command::new("docker"));
 
         assert_eq!(
-            format!("{:?}", command),
+            format!("{command:?}"),
             r#""docker" "run" "--network=awesome-net" "-P" "-d" "hello:0.0""#
         );
     }
@@ -580,7 +585,7 @@ mod tests {
         let command = Client::build_run_command(&image, Command::new("docker"));
 
         assert_eq!(
-            format!("{:?}", command),
+            format!("{command:?}"),
             r#""docker" "run" "--name=hello_container" "-P" "-d" "hello:0.0""#
         );
     }
@@ -594,8 +599,32 @@ mod tests {
         let command = Client::build_run_command(&image, Command::new("docker"));
 
         assert_eq!(
-            format!("{:?}", command),
+            format!("{command:?}"),
             r#""docker" "run" "--network=container:the_other_one" "--name=hello_container" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_privileged() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_privileged(true);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{command:?}"),
+            r#""docker" "run" "--privileged" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_shm_size() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_shm_size(1_000_000);
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{command:?}"),
+            r#""docker" "run" "--shm-size=1000000" "-P" "-d" "hello:0.0""#
         );
     }
 
@@ -636,18 +665,21 @@ mod tests {
         let network_name = "foobar-net";
 
         {
-            let docker = Cli::new::<FakeEnvAlwaysKeep, _>("docker");
+            let docker = Cli::new::<FakeEnvAlwaysKeep>();
 
             assert!(!docker.inner.network_exists(network_name));
 
             // creating the first container creates the network
-            let _container1 =
+            let container1 =
                 docker.run(RunnableImage::from(HelloWorld::default()).with_network(network_name));
 
             assert!(docker.inner.network_exists(network_name));
+
+            // remove container, so network can get cleaned up after the test
+            docker.rm(container1.id());
         }
 
-        let docker = Cli::docker();
+        let docker = Cli::default();
 
         assert!(
             docker.inner.network_exists(network_name),

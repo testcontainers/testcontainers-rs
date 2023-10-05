@@ -1,6 +1,6 @@
 use std::net::{Ipv6Addr, TcpListener};
 
-use testcontainers::{clients, core::WaitFor, images::generic::GenericImage};
+use testcontainers::{clients, core::WaitFor, GenericImage};
 
 /// Test the functionality of exposing container ports over both IPv4 and IPv6.
 #[tokio::test]
@@ -18,7 +18,7 @@ async fn test_ipv4_ipv6_host_ports() {
     let first_ipv6_port = first_container.get_host_port_ipv6(80);
     assert_eq!(
         "foo",
-        reqwest::get(&format!("http://127.0.0.1:{}", first_ipv4_port))
+        reqwest::get(&format!("http://127.0.0.1:{first_ipv4_port}"))
             .await
             .unwrap()
             .text()
@@ -27,7 +27,7 @@ async fn test_ipv4_ipv6_host_ports() {
     );
     assert_eq!(
         "foo",
-        reqwest::get(&format!("http://[::1]:{}", first_ipv6_port))
+        reqwest::get(&format!("http://[::1]:{first_ipv6_port}"))
             .await
             .unwrap()
             .text()
@@ -53,7 +53,7 @@ async fn test_ipv4_ipv6_host_ports() {
     let second_ipv6_port = second_container.get_host_port_ipv6(80);
     assert_eq!(
         "foo",
-        reqwest::get(&format!("http://127.0.0.1:{}", second_ipv4_port))
+        reqwest::get(&format!("http://127.0.0.1:{second_ipv4_port}"))
             .await
             .unwrap()
             .text()
@@ -62,7 +62,7 @@ async fn test_ipv4_ipv6_host_ports() {
     );
     assert_eq!(
         "foo",
-        reqwest::get(&format!("http://[::1]:{}", second_ipv6_port))
+        reqwest::get(&format!("http://[::1]:{second_ipv6_port}"))
             .await
             .unwrap()
             .text()

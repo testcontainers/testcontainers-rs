@@ -56,7 +56,15 @@ impl Http {
             ..Default::default()
         };
 
-        // Create network and add it to container creation
+        // shared memory
+        if let Some(bytes) = image.shm_size() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.shm_size = Some(bytes as i64);
+                host_config
+            });
+        }
+
+        // create network and add it to container creation
         if let Some(network) = image.network() {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.network_mode = Some(network.to_string());
@@ -83,7 +91,7 @@ impl Http {
         let envs: Vec<String> = image
             .env_vars()
             .into_iter()
-            .map(|(k, v)| format!("{}={}", k, v))
+            .map(|(k, v)| format!("{k}={v}"))
             .collect();
         config.env = Some(envs);
 
@@ -91,7 +99,7 @@ impl Http {
         let vols: HashMap<String, HashMap<(), ()>> = image
             .volumes()
             .into_iter()
-            .map(|(orig, dest)| (format!("{}:{}", orig, dest), HashMap::new()))
+            .map(|(orig, dest)| (format!("{orig}:{dest}"), HashMap::new()))
             .collect();
         config.volumes = Some(vols);
 
@@ -145,10 +153,12 @@ impl Http {
         let create_result = self
             .create_container(create_options.clone(), config.clone())
             .await;
-        let id = {
+        let container_id = {
             match create_result {
                 Ok(container) => container.id,
-                Err(bollard::errors::Error::DockerResponseNotFoundError { message: _ }) => {
+                Err(bollard::errors::Error::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {
                     {
                         let pull_options = Some(CreateImageOptions {
                             from_image: image.descriptor(),
@@ -172,12 +182,12 @@ impl Http {
 
         #[cfg(feature = "watchdog")]
         if self.inner.command == env::Command::Remove {
-            crate::watchdog::Watchdog::register(container_id.clone());
+            crate::watchdog::register(container_id.clone());
         }
 
         self.inner
             .bollard
-            .start_container::<String>(&id, None)
+            .start_container::<String>(&container_id, None)
             .await
             .unwrap();
 
@@ -185,7 +195,7 @@ impl Http {
             inner: self.inner.clone(),
         };
 
-        ContainerAsync::new(id, client, image, self.inner.command).await
+        ContainerAsync::new(container_id, client, image, self.inner.command).await
     }
 }
 
@@ -340,7 +350,7 @@ impl DockerAsync for Http {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::images::{generic::GenericImage, hello_world::HelloWorld};
+    use crate::images::generic::GenericImage;
     use spectral::prelude::*;
 
     async fn inspect(client: &bollard::Docker, id: &str) -> ContainerInspectResponse {
@@ -350,7 +360,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn http_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
         let docker = Http::new();
-        let image = HelloWorld::default();
+        let image = GenericImage::new("hello-world", "latest");
         let container = docker.run(image).await;
 
         // inspect volume and env
@@ -395,8 +405,7 @@ mod tests {
 
         assert!(
             networks.contains_key("awesome-net-1"),
-            "Networks is {:?}",
-            networks
+            "Networks is {networks:?}"
         );
     }
 
@@ -414,6 +423,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn http_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
         let client = bollard::Docker::connect_with_http_defaults().unwrap();
+        let hello_world = GenericImage::new("hello-world", "latest");
 
         {
             let docker = Http::new();
@@ -421,12 +431,12 @@ mod tests {
 
             // creating the first container creates the network
             let _container1 = docker
-                .run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net-2"))
+                .run(RunnableImage::from(hello_world.clone()).with_network("awesome-net-2"))
                 .await;
 
             // creating a 2nd container doesn't fail because check if the network exists already
             let _container2 = docker
-                .run(RunnableImage::from(HelloWorld::default()).with_network("awesome-net-2"))
+                .run(RunnableImage::from(hello_world).with_network("awesome-net-2"))
                 .await;
 
             assert!(network_exists(&client, "awesome-net-2").await);
@@ -434,5 +444,18 @@ mod tests {
 
         // client has been dropped, should clean up networks
         assert!(!network_exists(&client, "awesome-net-2").await)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn http_run_command_should_set_shared_memory_size() {
+        let docker = Http::new();
+        let image = GenericImage::new("hello-world", "latest");
+        let image = RunnableImage::from(image).with_shm_size(1_000_000);
+        let container = docker.run(image).await;
+
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        let shm_size = container_details.host_config.unwrap().shm_size.unwrap();
+
+        assert_eq!(shm_size, 1_000_000);
     }
 }

@@ -1,20 +1,20 @@
 [package]
 name = "testcontainers"
-version = "0.14.0"
+version = "0.15.0"
 authors = [ "CoBloX developers <team@coblox.tech>" ]
 categories = [ "development-tools::testing" ]
 edition = "2021"
 keywords = [ "docker", "testcontainers" ]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/testcontainers/testcontainers-rs"
-rust-version = "1.60.0"
+rust-version = "1.63"
 description = "A library for integration-testing against docker containers from within Rust."
 
 [dependencies]
 async-trait = { version = "0.1", optional = true }
-bollard = { version = "0.11", optional = true }
-bollard-stubs = "1.41"
-conquer-once = { version = "0.3", optional = true }
+bollard = { version = "0.13.0", optional = true }
+bollard-stubs = "=1.42.0-rc.3"
+conquer-once = { version = "0.4", optional = true }
 futures = "0.3"
 hex = "0.4"
 hmac = "0.12"
@@ -32,23 +32,8 @@ watchdog = [ "signal-hook", "conquer-once" ]
 experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]
-bitcoincore-rpc = "0.15"
-json = "0.12"
-lapin = "1.8.0"
-mongodb = "2.1.0"
-orientdb-client = "0.6"
-postgres = "0.19"
-pretty_env_logger = "0.4"
-rdkafka = "0.28"
-redis = "0.21"
-reqwest = { version = "0.11", features = [ "blocking" ] }
-rusoto_core = "0.47"
-rusoto_credential = "0.47"
-rusoto_dynamodb = "0.47"
-rusoto_s3 = "0.47"
-rusoto_sqs = "0.47"
-spectral = "0.6"
+pretty_env_logger = "0.5"
+reqwest = { version = "0.11.14", features = [ "blocking" ] }
+spectral = "0.6.0"
 testimages = { path = "../testimages" }
 tokio = { version = "1", features = [ "macros" ] }
-tokio-amqp = "1.0.0"
-zookeeper = "0.6"
