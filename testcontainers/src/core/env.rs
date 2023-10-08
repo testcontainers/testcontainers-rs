@@ -32,9 +32,10 @@ impl GetEnvValue for Os {
 }
 
 /// The commands available to the `TESTCONTAINERS` env variable.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum Command {
     Keep,
+    #[default]
     Remove,
 }
 
@@ -47,12 +48,6 @@ impl FromStr for Command {
             "remove" => Ok(Command::Remove),
             other => panic!("unknown command '{other}' provided via TESTCONTAINERS env variable",),
         }
-    }
-}
-
-impl Default for Command {
-    fn default() -> Self {
-        Command::Remove
     }
 }
 

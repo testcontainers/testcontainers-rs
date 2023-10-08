@@ -351,7 +351,6 @@ impl DockerAsync for Http {
 mod tests {
     use super::*;
     use crate::images::generic::GenericImage;
-    use spectral::prelude::*;
 
     async fn inspect(client: &bollard::Docker, id: &str) -> ContainerInspectResponse {
         client.inspect_container(id, None).await.unwrap()
@@ -365,8 +364,12 @@ mod tests {
 
         // inspect volume and env
         let container_details = inspect(&docker.inner.bollard, container.id()).await;
-        assert_that!(container_details.host_config.unwrap().publish_all_ports)
-            .is_equal_to(Some(true));
+        let publish_ports = container_details
+            .host_config
+            .unwrap()
+            .publish_all_ports
+            .unwrap();
+        assert_eq!(publish_ports, true, "publish_all_ports must be `true`");
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -385,8 +388,8 @@ mod tests {
             .unwrap()
             .port_bindings
             .unwrap();
-        assert_that!(&port_bindings).contains_key(&"456/tcp".into());
-        assert_that!(&port_bindings).contains_key(&"888/tcp".into());
+        assert!(port_bindings.contains_key("456/tcp"));
+        assert!(port_bindings.contains_key("888/tcp"));
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -417,7 +420,8 @@ mod tests {
         let container = docker.run(image).await;
 
         let container_details = inspect(&docker.inner.bollard, container.id()).await;
-        assert_that!(container_details.name.unwrap()).ends_with("hello_container");
+        let container_name = container_details.name.unwrap();
+        assert!(container_name.ends_with("hello_container"));
     }
 
     #[tokio::test(flavor = "multi_thread")]
