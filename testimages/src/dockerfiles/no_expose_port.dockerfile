@@ -18,7 +18,7 @@ RUN cargo build -v --release --bin no_expose_port
 FROM debian:bullseye-slim AS runtime
 WORKDIR /app
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl curl\
+    && apt-get install -y --no-install-recommends openssl \
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
