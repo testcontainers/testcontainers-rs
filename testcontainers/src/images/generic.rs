@@ -17,6 +17,7 @@ pub struct GenericImage {
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
     exposed_ports: Vec<u16>,
+    health_cmd: Option<String>,
 }
 
 impl Default for GenericImage {
@@ -29,6 +30,7 @@ impl Default for GenericImage {
             wait_for: Vec::new(),
             entrypoint: None,
             exposed_ports: Vec::new(),
+            health_cmd: None,
         }
     }
 }
@@ -66,6 +68,11 @@ impl GenericImage {
         self.exposed_ports.push(port);
         self
     }
+
+    pub fn with_health_cmd(mut self, cmd: &str) -> Self {
+        self.health_cmd = Some(cmd.to_string());
+        self
+    }
 }
 
 impl Image for GenericImage {
@@ -97,6 +104,10 @@ impl Image for GenericImage {
 
     fn expose_ports(&self) -> Vec<u16> {
         self.exposed_ports.clone()
+    }
+
+    fn health_cmd(&self) -> Option<String> {
+        self.health_cmd.clone()
     }
 }
 

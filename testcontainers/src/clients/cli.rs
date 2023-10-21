@@ -176,6 +176,10 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
+        if let Some(health_cmd) = image.health_cmd() {
+            command.arg("--health-cmd").arg(health_cmd);
+        }
+
         let is_container_networked = image
             .network()
             .as_ref()

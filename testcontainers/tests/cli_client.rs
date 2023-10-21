@@ -97,3 +97,22 @@ fn generic_image_port_not_exposed() {
     // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.
     node.get_host_port_ipv4(target_port);
 }
+
+#[test]
+fn generic_image_with_custom_healthcheck_cmd() {
+    let docker = clients::Cli::default();
+
+    let generic = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::Healthcheck)
+        .with_health_cmd("curl --fail http://127.0.0.1 || exit 1");
+
+    let node = docker.run(generic);
+    let port = node.get_host_port_ipv4(80);
+    assert_eq!(
+        "foo",
+        reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
+            .unwrap()
+            .text()
+            .unwrap()
+    );
+}

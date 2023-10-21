@@ -84,6 +84,11 @@ where
         Default::default()
     }
 
+    /// Returns the healtcheck cmd this instance was created with.
+    fn health_cmd(&self) -> Option<String> {
+        None
+    }
+
     /// Returns the commands that needs to be executed after a container is started i.e. commands
     /// to be run in a running container.
     ///
@@ -219,6 +224,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
         self.image.exec_after_start(cs)
+    }
+
+    pub fn health_cmd(&self) -> Option<String> {
+        self.image.health_cmd()
     }
 }
 
