@@ -108,6 +108,11 @@ impl Http {
             config.entrypoint = Some(vec![entrypoint]);
         }
 
+        // User
+        if let Some(user) = image.user() {
+            config.user = Some(user.to_string());
+        }
+
         // ports
         if let Some(ports) = image.ports() {
             config.host_config = config.host_config.map(|mut host_config| {
@@ -422,6 +427,18 @@ mod tests {
         let container_details = inspect(&docker.inner.bollard, container.id()).await;
         let container_name = container_details.name.unwrap();
         assert!(container_name.ends_with("hello_container"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn http_run_command_should_include_user() {
+        let docker = Http::new();
+        let image = GenericImage::new("hello-world", "latest");
+        let image = RunnableImage::from(image).with_container_name("hello_container").with_user("root");
+        let container = docker.run(image).await;
+
+        let container_details = inspect(&docker.inner.bollard, container.id()).await;
+        let user = container_details.config.and_then(|c| c.user);
+        assert_that!(Some("root"), user);
     }
 
     #[tokio::test(flavor = "multi_thread")]
