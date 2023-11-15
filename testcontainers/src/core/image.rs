@@ -152,6 +152,7 @@ pub struct RunnableImage<I: Image> {
     image_tag: Option<String>,
     container_name: Option<String>,
     network: Option<String>,
+    hostname: Option<String>,
     env_vars: BTreeMap<String, String>,
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
@@ -170,6 +171,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn network(&self) -> &Option<String> {
         &self.network
+    }
+
+    pub fn hostname(&self) -> &Option<String> {
+        &self.hostname
     }
 
     pub fn container_name(&self) -> &Option<String> {
@@ -246,6 +251,13 @@ impl<I: Image> RunnableImage<I> {
         }
     }
 
+    pub fn with_hostname(self, hostname: impl Into<String>) -> Self {
+        Self {
+            hostname: Some(hostname.into()),
+            ..self
+        }
+    }
+
     pub fn with_env_var(self, (key, value): (impl Into<String>, impl Into<String>)) -> Self {
         let mut env_vars = self.env_vars;
         env_vars.insert(key.into(), value.into());
@@ -298,6 +310,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             image_tag: None,
             container_name: None,
             network: None,
+            hostname: None,
             env_vars: BTreeMap::default(),
             volumes: BTreeMap::default(),
             ports: None,

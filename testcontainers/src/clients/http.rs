@@ -80,6 +80,14 @@ impl Http {
             }
         }
 
+        // hostname
+        if let Some(hostname) = image.hostname() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.hostname = Some(hostname.to_string());
+                host_config
+            });
+        }
+
         // name of the container
         if let Some(name) = image.container_name() {
             create_options = Some(CreateContainerOptions {

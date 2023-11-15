@@ -160,6 +160,10 @@ impl Client {
             command.arg(format!("--network={network}"));
         }
 
+        if let Some(hostname) = image.hostname() {
+            command.arg(format!("--hostname={hostname}"));
+        }
+
         if let Some(name) = image.container_name() {
             command.arg(format!("--name={name}"));
         }
@@ -574,6 +578,18 @@ mod tests {
         assert_eq!(
             format!("{command:?}"),
             r#""docker" "run" "--network=awesome-net" "-P" "-d" "hello:0.0""#
+        );
+    }
+
+    #[test]
+    fn cli_run_command_should_include_hostname() {
+        let image = GenericImage::new("hello", "0.0");
+        let image = RunnableImage::from(image).with_hostname("what-a-host");
+        let command = Client::build_run_command(&image, Command::new("docker"));
+
+        assert_eq!(
+            format!("{command:?}"),
+            r#""docker" "run" "--hostname=hosti" "-P" "-d" "hello:0.0""#
         );
     }
 
