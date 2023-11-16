@@ -212,7 +212,13 @@ impl Client {
         docker.args(["network", "create", name]);
 
         let output = docker.output().expect("failed to create docker network");
-        assert!(output.status.success(), "failed to create docker network");
+        if !output.status.success() {
+            // In case another thread creates this network after our first check.
+            if self.network_exists(name) {
+                return false;
+            }
+            panic!("failed to create docker network")
+        }
 
         true
     }
