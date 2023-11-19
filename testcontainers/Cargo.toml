@@ -25,11 +25,13 @@ serde_json = "1"
 sha2 = "0.10"
 signal-hook = { version = "0.3", optional = true }
 tokio = { version = "1", features = [ "macros" ], optional = true }
+url = { version = "2.4", optional = true }
 
 [features]
 default = [ ]
 watchdog = [ "signal-hook", "conquer-once" ]
-experimental = [ "async-trait", "bollard", "tokio" ]
+experimental = [ "async-trait", "bollard", "tokio", "url" ]
+ssl = [ "bollard/ssl" ]
 
 [dev-dependencies]
 pretty_env_logger = "0.5"

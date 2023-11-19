@@ -197,17 +197,42 @@ impl Http {
 
         ContainerAsync::new(container_id, client, image, self.inner.command).await
     }
-}
 
-impl Http {
     fn new() -> Self {
         Http {
             inner: Arc::new(Client {
                 command: env::command::<env::Os>().unwrap_or_default(),
-                bollard: Docker::connect_with_http_defaults().unwrap(),
+                bollard: Self::default_bollard_client(),
                 created_networks: RwLock::new(Vec::new()),
             }),
         }
+    }
+}
+
+impl Http {
+    fn default_bollard_client() -> Docker {
+        use std::env;
+        use url::Url;
+
+        let host = env::var("DOCKER_HOST")
+            .ok()
+            .map(|ref h| Url::parse(h).expect(&format!("Can't parse DOCKER_HOST: {h}")));
+
+        match host {
+            Some(x) if !matches!(x.scheme(), "unix" | "npipe") => {
+                #[cfg(feature = "ssl")]
+                {
+                    Docker::connect_with_ssl_defaults()
+                }
+                #[cfg(not(feature = "ssl"))]
+                {
+                    Docker::connect_with_http_defaults()
+                }
+            }
+            Some(x) => Docker::connect_with_socket(x.path(), 60, bollard::API_DEFAULT_VERSION),
+            None => Docker::connect_with_socket_defaults(),
+        }
+        .unwrap()
     }
 
     async fn create_network_if_not_exists(&self, network: &str) -> bool {
@@ -426,7 +451,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn http_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
-        let client = bollard::Docker::connect_with_http_defaults().unwrap();
+        let client = Http::default_bollard_client();
         let hello_world = GenericImage::new("hello-world", "latest");
 
         {
