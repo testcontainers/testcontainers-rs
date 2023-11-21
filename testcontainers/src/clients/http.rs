@@ -1,5 +1,5 @@
 use crate::{
-    core::{env, logs::LogStreamAsync, ports::Ports, DockerAsync},
+    core::{env, logs::LogStreamAsync, ports::Ports, DockerAsync, Port},
     ContainerAsync, Image, ImageArgs, RunnableImage,
 };
 use async_trait::async_trait;
@@ -108,31 +108,43 @@ impl Http {
             config.entrypoint = Some(vec![entrypoint]);
         }
 
+        // exposed ports
+        config.exposed_ports = Some(
+            image
+                .expose_ports()
+                .into_iter()
+                .map(|p| (format!("{p}/tcp"), HashMap::new()))
+                .collect(),
+        );
+
         // ports
-        if let Some(ports) = image.ports() {
+        if image.ports().is_some() || image.expose_ports().len() > 0 {
+            let empty: Vec<Port> = Vec::new();
+            let bindings = image
+                .ports()
+                .as_ref()
+                .unwrap_or(&empty)
+                .iter()
+                .map(|p| {
+                    (
+                        format!("{}/tcp", p.internal),
+                        Some(vec![PortBinding {
+                            host_ip: Some(String::from("127.0.0.1")),
+                            host_port: Some(p.local.to_string()),
+                        }]),
+                    )
+                })
+                .chain(
+                    image
+                        .expose_ports()
+                        .into_iter()
+                        .map(|p| (format!("{}/tcp", p), Some(vec![PortBinding::default()]))),
+                );
+
             config.host_config = config.host_config.map(|mut host_config| {
-                host_config.port_bindings = Some(HashMap::new());
+                host_config.port_bindings = Some(bindings.collect());
                 host_config
             });
-
-            for port in ports {
-                config.host_config = config.host_config.map(|mut host_config| {
-                    host_config.port_bindings =
-                        host_config.port_bindings.map(|mut port_bindings| {
-                            port_bindings.insert(
-                                format!("{}/tcp", port.internal),
-                                Some(vec![PortBinding {
-                                    host_ip: Some(String::from("127.0.0.1")),
-                                    host_port: Some(port.local.to_string()),
-                                }]),
-                            );
-
-                            port_bindings
-                        });
-
-                    host_config
-                });
-            }
         } else {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.publish_all_ports = Some(true);
@@ -395,6 +407,14 @@ mod tests {
             .publish_all_ports
             .unwrap();
         assert_eq!(publish_ports, true, "publish_all_ports must be `true`");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn http_run_command_should_map_exposed_port() {
+        let docker = Http::new();
+        let image = GenericImage::new("simple_web_server", "latest").with_exposed_port(5000);
+        let container = docker.run(image).await;
+        container.get_host_port_ipv4(5000).await;
     }
 
     #[tokio::test(flavor = "multi_thread")]
