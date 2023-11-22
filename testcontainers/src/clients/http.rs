@@ -231,16 +231,10 @@ impl Http {
             .map(|ref h| Url::parse(h).expect(&format!("Can't parse DOCKER_HOST: {h}")));
 
         match host {
-            Some(x) if !matches!(x.scheme(), "unix" | "npipe") => {
-                #[cfg(feature = "ssl")]
-                {
-                    Docker::connect_with_ssl_defaults()
-                }
-                #[cfg(not(feature = "ssl"))]
-                {
-                    Docker::connect_with_http_defaults()
-                }
-            }
+            Some(x) if x.scheme() == "tcp" => match env::var("DOCKER_CERT_PATH") {
+                Ok(_) => Docker::connect_with_ssl_defaults(),
+                Err(_) => Docker::connect_with_http_defaults(),
+            },
             Some(x) => Docker::connect_with_socket(x.path(), 60, bollard::API_DEFAULT_VERSION),
             None => Docker::connect_with_socket_defaults(),
         }
