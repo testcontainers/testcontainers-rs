@@ -1,4 +1,7 @@
-use testcontainers::{core::WaitFor, *};
+use testcontainers::{
+    core::{Host, WaitFor},
+    *,
+};
 
 #[derive(Debug, Default)]
 pub struct HelloWorld;
@@ -79,6 +82,28 @@ fn generic_image_exposed_ports() {
         .unwrap()
         .status()
         .is_success());
+}
+
+#[test]
+fn generic_image_running_with_extra_hosts_added() {
+    let docker = clients::Cli::default();
+    let msg = WaitFor::message_on_stdout("server is ready");
+
+    let server_1 = GenericImage::new("simple_web_server", "latest").with_wait_for(msg.clone());
+    let node = docker.run(server_1);
+    let port = node.get_host_port_ipv4(80);
+
+    let msg = WaitFor::message_on_stdout("foo");
+    let server_2 = GenericImage::new("curlimages/curl", "latest")
+        .with_wait_for(msg.clone())
+        .with_entrypoint("curl");
+
+    // Override hosts for server_2 adding
+    // custom-host as an alias for localhost
+    let server_2 = RunnableImage::from((server_2, vec![format!("http://custom-host:{port}")]))
+        .with_host("custom-host", Host::HostGateway);
+
+    docker.run(server_2);
 }
 
 #[test]
