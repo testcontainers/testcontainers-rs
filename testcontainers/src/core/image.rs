@@ -233,7 +233,7 @@ impl<I: Image> RunnableImage<I> {
         let original_tag = self.image.tag();
 
         let name = self.image_name.as_ref().unwrap_or(&original_name);
-        let tag = self.image_name.as_ref().unwrap_or(&original_tag);
+        let tag = self.image_tag.as_ref().unwrap_or(&original_tag);
 
         format!("{name}:{tag}")
     }
