@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `name` parameter to `RunnableImage`
+- Added optional `registry` and `owner` parameters to `Image`
+- Added `name`, `registry` and `owner` parameters to `RunnableImage`
 
 ## [0.15.0] - 2023-09-28
 
