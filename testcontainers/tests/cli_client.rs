@@ -3,6 +3,11 @@ use testcontainers::{
     *,
 };
 
+fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
+    let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
+    GenericImage::new("simple_web_server", "latest").with_wait_for(msg)
+}
+
 #[derive(Debug, Default)]
 pub struct HelloWorld;
 
@@ -34,9 +39,7 @@ async fn cli_can_run_hello_world() {
 #[test]
 fn generic_image_with_custom_entrypoint() {
     let docker = clients::Cli::default();
-    let msg = WaitFor::message_on_stdout("server is ready");
-
-    let generic = GenericImage::new("simple_web_server", "latest").with_wait_for(msg.clone());
+    let generic = get_server_container(None);
 
     let node = docker.run(generic);
     let port = node.get_host_port_ipv4(80);
@@ -48,9 +51,7 @@ fn generic_image_with_custom_entrypoint() {
             .unwrap()
     );
 
-    let generic = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(msg)
-        .with_entrypoint("./bar");
+    let generic = get_server_container(None).with_entrypoint("./bar");
 
     let node = docker.run(generic);
     let port = node.get_host_port_ipv4(80);
@@ -87,9 +88,8 @@ fn generic_image_exposed_ports() {
 #[test]
 fn generic_image_running_with_extra_hosts_added() {
     let docker = clients::Cli::default();
-    let msg = WaitFor::message_on_stdout("server is ready");
 
-    let server_1 = GenericImage::new("simple_web_server", "latest").with_wait_for(msg.clone());
+    let server_1 = get_server_container(None);
     let node = docker.run(server_1);
     let port = node.get_host_port_ipv4(80);
 
