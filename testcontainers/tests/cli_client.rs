@@ -95,7 +95,7 @@ fn generic_image_running_with_extra_hosts_added() {
 
     let msg = WaitFor::message_on_stdout("foo");
     let server_2 = GenericImage::new("curlimages/curl", "latest")
-        .with_wait_for(msg.clone())
+        .with_wait_for(msg)
         .with_entrypoint("curl");
 
     // Override hosts for server_2 adding

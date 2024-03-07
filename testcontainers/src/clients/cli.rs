@@ -174,7 +174,7 @@ impl Client {
         }
 
         for (key, value) in image.hosts() {
-            command.arg("--add-host").arg(format!("{key}={value}"));
+            command.arg("--add-host").arg(format!("{key}:{value}"));
         }
 
         for (orig, dest) in image.volumes() {
