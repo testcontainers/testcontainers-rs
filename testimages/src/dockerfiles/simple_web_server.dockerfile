@@ -18,7 +18,7 @@ RUN cargo build -v --release --bin simple_web_server
 FROM debian:bullseye-slim AS runtime
 WORKDIR /app
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl \
+    && apt-get install -y --no-install-recommends openssl curl\
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
