@@ -1,5 +1,10 @@
 use crate::{
-    core::{env, env::GetEnvValue, logs::LogStream, ports::Ports, ContainerState, Docker, WaitFor},
+    core::{
+        env::{self, GetEnvValue},
+        logs::LogStream,
+        ports::Ports,
+        ContainerState, Docker, WaitFor,
+    },
     Container, Image, ImageArgs, RunnableImage,
 };
 use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
@@ -166,6 +171,10 @@ impl Client {
 
         for (key, value) in image.env_vars() {
             command.arg("-e").arg(format!("{key}={value}"));
+        }
+
+        for (key, value) in image.hosts() {
+            command.arg("--add-host").arg(format!("{key}:{value}"));
         }
 
         for (orig, dest) in image.volumes() {

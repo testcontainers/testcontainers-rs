@@ -1,4 +1,10 @@
-use std::{collections::BTreeMap, env::var, fmt::Debug, time::Duration};
+use std::{
+    collections::BTreeMap,
+    env::var,
+    fmt::{Debug, Display},
+    net::IpAddr,
+    time::Duration,
+};
 
 use super::ports::Ports;
 
@@ -144,6 +150,21 @@ impl ImageArgs for () {
     }
 }
 
+#[derive(Debug)]
+pub enum Host {
+    Addr(IpAddr),
+    HostGateway,
+}
+
+impl Display for Host {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Host::Addr(addr) => write!(f, "{addr}"),
+            Host::HostGateway => write!(f, "host-gateway"),
+        }
+    }
+}
+
 #[must_use]
 #[derive(Debug)]
 pub struct RunnableImage<I: Image> {
@@ -153,6 +174,7 @@ pub struct RunnableImage<I: Image> {
     container_name: Option<String>,
     network: Option<String>,
     env_vars: BTreeMap<String, String>,
+    hosts: BTreeMap<String, Host>,
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
     privileged: bool,
@@ -178,6 +200,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(self.image.env_vars().chain(self.env_vars.iter()))
+    }
+
+    pub fn hosts(&self) -> Box<dyn Iterator<Item = (&String, &Host)> + '_> {
+        Box::new(self.hosts.iter())
     }
 
     pub fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
@@ -252,6 +278,12 @@ impl<I: Image> RunnableImage<I> {
         Self { env_vars, ..self }
     }
 
+    pub fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> Self {
+        let mut hosts = self.hosts;
+        hosts.insert(key.into(), value.into());
+        Self { hosts, ..self }
+    }
+
     pub fn with_volume(self, (orig, dest): (impl Into<String>, impl Into<String>)) -> Self {
         let mut volumes = self.volumes;
         volumes.insert(orig.into(), dest.into());
@@ -299,6 +331,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             container_name: None,
             network: None,
             env_vars: BTreeMap::default(),
+            hosts: BTreeMap::default(),
             volumes: BTreeMap::default(),
             ports: None,
             privileged: false,
