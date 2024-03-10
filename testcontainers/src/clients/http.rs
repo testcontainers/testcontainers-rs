@@ -47,7 +47,7 @@ impl Default for Http {
 
 // public API
 impl Http {
-    pub async fn run<I: Image>(&self, image: impl Into<RunnableImage<I>>) -> ContainerAsync<'_, I> {
+    pub async fn run<I: Image>(&self, image: impl Into<RunnableImage<I>>) -> ContainerAsync<I> {
         let image = image.into();
         let mut create_options: Option<CreateContainerOptions<String>> = None;
         let mut config: Config<String> = Config {

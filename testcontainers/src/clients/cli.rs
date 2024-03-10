@@ -29,7 +29,7 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn run<I: Image>(&self, image: impl Into<RunnableImage<I>>) -> Container<'_, I> {
+    pub fn run<I: Image>(&self, image: impl Into<RunnableImage<I>>) -> Container<I> {
         let image = image.into();
 
         if let Some(network) = image.network() {
