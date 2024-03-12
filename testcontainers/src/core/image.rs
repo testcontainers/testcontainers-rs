@@ -33,13 +33,25 @@ where
     /// testing. Only expose those that actually make sense for this case.
     type Args;
 
-    /// The name of the docker image to pull from the Docker Hub registry.
+    /// The name of the image to pull from a registry.
     fn name(&self) -> String;
 
     /// Implementations are encouraged to include a tag that will not change (i.e. NOT latest)
     /// in order to prevent test code from randomly breaking because the underlying docker
     /// suddenly changed.
     fn tag(&self) -> String;
+
+    /// The registry to use for the image descriptor. Optional, by default it uses DockerHub.
+    /// Will be prepended to image descriptor if present. E.g: `{registry}/{owner}/{name}`
+    fn registry(&self) -> Option<String> {
+        None
+    }
+
+    /// The owner of the image in a registry to use for the image descriptor.
+    /// Optional, will be prepended to image descriptor if present (before `registry`). E.g: `{registry}/{owner}/{name}`
+    fn owner(&self) -> Option<String> {
+        None
+    }
 
     /// Returns a list of conditions that need to be met before a started container is considered ready.
     ///
@@ -170,7 +182,10 @@ impl Display for Host {
 pub struct RunnableImage<I: Image> {
     image: I,
     image_args: I::Args,
+    image_name: Option<String>,
     image_tag: Option<String>,
+    image_registry: Option<String>,
+    image_owner: Option<String>,
     container_name: Option<String>,
     network: Option<String>,
     env_vars: BTreeMap<String, String>,
@@ -228,11 +243,28 @@ impl<I: Image> RunnableImage<I> {
     }
 
     pub fn descriptor(&self) -> String {
-        if let Some(tag) = &self.image_tag {
-            format!("{}:{tag}", self.image.name())
-        } else {
-            format!("{}:{}", self.image.name(), self.image.tag())
-        }
+        let original_registry = self.image.registry();
+        let original_owner = self.image.owner();
+        let original_name = self.image.name();
+        let original_tag = self.image.tag();
+
+        let registry = self
+            .image_registry
+            .as_ref()
+            .or(original_registry.as_ref())
+            .map(|r| format!("{}/", r))
+            .unwrap_or_default();
+        let owner = self
+            .image_owner
+            .as_ref()
+            .or(original_owner.as_ref())
+            .map(|o| format!("{}/", o))
+            .unwrap_or_default();
+
+        let name = self.image_name.as_ref().unwrap_or(&original_name);
+        let tag = self.image_tag.as_ref().unwrap_or(&original_tag);
+
+        format!("{registry}{owner}{name}:{tag}")
     }
 
     pub fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -249,11 +281,32 @@ impl<I: Image> RunnableImage<I> {
 }
 
 impl<I: Image> RunnableImage<I> {
+    pub fn with_name(self, name: impl Into<String>) -> Self {
+        Self {
+            image_name: Some(name.into()),
+            ..self
+        }
+    }
+
     /// There is no guarantee that the specified tag for an image would result in a
     /// running container. Users of this API are advised to use this at their own risk.
     pub fn with_tag(self, tag: impl Into<String>) -> Self {
         Self {
             image_tag: Some(tag.into()),
+            ..self
+        }
+    }
+
+    pub fn with_registry(self, registry: impl Into<String>) -> Self {
+        Self {
+            image_registry: Some(registry.into()),
+            ..self
+        }
+    }
+
+    pub fn with_owner(self, owner: impl Into<String>) -> Self {
+        Self {
+            image_owner: Some(owner.into()),
             ..self
         }
     }
@@ -327,7 +380,10 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
         Self {
             image,
             image_args,
+            image_name: None,
             image_tag: None,
+            image_registry: None,
+            image_owner: None,
             container_name: None,
             network: None,
             env_vars: BTreeMap::default(),
