@@ -176,8 +176,6 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
-
-
         let is_container_networked = image
             .network()
             .as_ref()
