@@ -84,6 +84,11 @@ where
         Default::default()
     }
 
+    /// Implementations custom build options
+    fn options(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(std::iter::empty())
+    }
+
     /// Returns the commands that needs to be executed after a container is started i.e. commands
     /// to be run in a running container.
     ///
@@ -155,6 +160,7 @@ pub struct RunnableImage<I: Image> {
     env_vars: BTreeMap<String, String>,
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
+    options: BTreeMap<String, String>,
     privileged: bool,
     shm_size: Option<u64>,
 }
@@ -186,6 +192,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn ports(&self) -> &Option<Vec<Port>> {
         &self.ports
+    }
+
+    pub fn options(&self) ->  Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.image.options().chain(self.volumes.iter()))
     }
 
     pub fn privileged(&self) -> bool {
@@ -278,6 +288,12 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    pub fn with_option(self, (key, value): (impl Into<String>, impl Into<String>)) -> Self {
+        let mut options = self.options;
+        options.insert(key.into(), value.into());
+        Self { options, ..self }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -301,6 +317,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             env_vars: BTreeMap::default(),
             volumes: BTreeMap::default(),
             ports: None,
+            options: BTreeMap::default(),
             privileged: false,
             shm_size: None,
         }

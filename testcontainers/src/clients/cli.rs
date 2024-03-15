@@ -176,6 +176,8 @@ impl Client {
             command.arg("--entrypoint").arg(entrypoint);
         }
 
+
+
         let is_container_networked = image
             .network()
             .as_ref()
@@ -192,6 +194,10 @@ impl Client {
                 command.arg(format!("--expose={port}"));
             }
             command.arg("-P"); // publish all exposed ports
+        }
+
+        for (key, value) in image.options() {
+            command.arg(key).arg(value);
         }
 
         command
