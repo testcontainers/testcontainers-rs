@@ -196,7 +196,7 @@ impl Client {
             command.arg("-P"); // publish all exposed ports
         }
 
-        for (key, value) in image.options() {
+        for (key, value) in image.run_options() {
             command.arg(key).arg(value);
         }
 
