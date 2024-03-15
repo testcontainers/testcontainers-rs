@@ -203,6 +203,10 @@ impl Client {
             command.arg("-P"); // publish all exposed ports
         }
 
+        for (key, value) in image.run_options() {
+            command.arg(key).arg(value);
+        }
+
         command
             .arg("-d") // Always run detached
             .arg(image.descriptor())

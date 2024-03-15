@@ -177,6 +177,7 @@ pub struct RunnableImage<I: Image> {
     hosts: BTreeMap<String, Host>,
     volumes: BTreeMap<String, String>,
     ports: Option<Vec<Port>>,
+    run_options: BTreeMap<String, String>,
     privileged: bool,
     shm_size: Option<u64>,
 }
@@ -212,6 +213,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn ports(&self) -> &Option<Vec<Port>> {
         &self.ports
+    }
+
+    pub fn run_options(&self) ->  Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        Box::new(self.run_options.iter())
     }
 
     pub fn privileged(&self) -> bool {
@@ -310,6 +315,12 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    pub fn with_run_option(self, (key, value): (impl Into<String>, impl Into<String>)) -> Self {
+        let mut run_options = self.run_options;
+        run_options.insert(key.into(), value.into());
+        Self { run_options, ..self }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -334,6 +345,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             hosts: BTreeMap::default(),
             volumes: BTreeMap::default(),
             ports: None,
+            run_options: BTreeMap::default(),
             privileged: false,
             shm_size: None,
         }
