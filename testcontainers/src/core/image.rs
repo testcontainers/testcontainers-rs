@@ -84,7 +84,7 @@ where
         Default::default()
     }
 
-    /// Implementations custom build options
+    /// Implementations custom run options
     fn options(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
         Box::new(std::iter::empty())
     }
