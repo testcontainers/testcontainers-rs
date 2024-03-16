@@ -249,6 +249,13 @@ impl<I: Image> RunnableImage<I> {
 }
 
 impl<I: Image> RunnableImage<I> {
+    pub fn with_args(self, args: I::Args) -> Self {
+        Self {
+            image_args: args,
+            ..self
+        }
+    }
+
     /// There is no guarantee that the specified tag for an image would result in a
     /// running container. Users of this API are advised to use this at their own risk.
     pub fn with_tag(self, tag: impl Into<String>) -> Self {
