@@ -222,8 +222,9 @@ where
         self.docker_client.stop(&self.id)
     }
 
-    pub fn start(&self) {
+    pub fn start(&mut self) {
         self.docker_client.start(&self.id);
+        self.ports = self.docker_client.ports(&self.id);
     }
 
     pub fn rm(&self) {
