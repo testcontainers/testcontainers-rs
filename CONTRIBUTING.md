@@ -31,4 +31,4 @@ git config core.hookspath .githooks
 
 ## Contact
 
-Feel free to drop by in our Slack: http://slack.testcontainers.org/
+Feel free to drop by in the [testcontainers-rust channel](https://testcontainers.slack.com/archives/C048EPGRCER) of our [Slack server](https://testcontainers.slack.com).
