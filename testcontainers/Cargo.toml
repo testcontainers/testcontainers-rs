@@ -33,6 +33,6 @@ experimental = [ "async-trait", "bollard", "tokio" ]
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
-reqwest = { version = "0.11.14", features = [ "blocking" ] }
+reqwest = { version = "0.12.2", features = [ "blocking" ] }
 testimages = { path = "../testimages" }
 tokio = { version = "1", features = [ "macros" ] }
