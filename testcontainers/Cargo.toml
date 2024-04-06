@@ -33,6 +33,6 @@ watchdog = ["signal-hook", "conquer-once"]
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
-reqwest = { version = "0.11.14", features = ["blocking"] }
+reqwest = { version = "0.12.3", features = ["blocking"] }
 testimages.workspace = true
 tokio = { version = "1", features = ["macros"] }
