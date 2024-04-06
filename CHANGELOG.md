@@ -174,15 +174,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
 [Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.14.0...HEAD
-
 [0.14.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.13...0.14.0
-
 [0.13.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.12.0...0.13
-
 [0.12.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...0.12.0
-
 [0.11.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.10.0...0.11.0
-
 [0.10.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...0.10.0
-
 [0.9.1]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
