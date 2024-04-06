@@ -275,7 +275,8 @@ impl<I: Image> RunnableImage<I> {
         }
     }
 
-    /// Overrides the full qualified image name. Can be used to specify a custom registry or owner (e.g `{domain}/{owner}/{image}`).
+    /// Overrides the fully qualified image name (consists of `{domain}/{owner}/{image}`).
+    /// Can be used to specify a custom registry or owner.
     pub fn with_name(self, name: impl Into<String>) -> Self {
         Self {
             image_name: Some(name.into()),

@@ -5,12 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-
-### Added
-
-- Added `name` parameter to `RunnableImage`
-
 ## [0.15.0] - 2023-09-28
 
 ### Added
@@ -37,13 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `watchdog` feature that spawns a background thread keeping track of docker containers that are started by the test suite and removes them in the case of a `CTRL+C` or `kill` of the test process.
-- Introduced `Container::get_host_port_ipv4`, `Container::get_host_port_ipv6`, `ContainerState::host_port_ipv4`, and `ContainerState::host_port_ipv6` to better handle automatically assigned ports.
-  Docker may bind the same exposed container port to different host ports on `0.0.0.0` and `::`, depending on influences from the environment.
+- Added `watchdog` feature that spawns a background thread keeping track of docker containers that are started by the
+  test suite and removes them in the case of a `CTRL+C` or `kill` of the test process.
+- Introduced `Container::get_host_port_ipv4`, `Container::get_host_port_ipv6`, `ContainerState::host_port_ipv4`,
+  and `ContainerState::host_port_ipv6` to better handle automatically assigned ports.
+  Docker may bind the same exposed container port to different host ports on `0.0.0.0` and `::`, depending on influences
+  from the environment.
 
 ### Changed
 
-- `Container::get_host_port` and `ContainerState::host_port` are now deprecated in favor of the new IPv4- and IPv6-specific methods.
+- `Container::get_host_port` and `ContainerState::host_port` are now deprecated in favor of the new IPv4- and
+  IPv6-specific methods.
 - MSRV is now 1.60.
 
 ## [0.13.0] - 2022-04-04
@@ -52,24 +50,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A new client implementation that talks to the Docker daemon via **HTTP**.
   This implementation is available as `testcontainers::clients::Http` and provides an **async** interface.
-  As of now, this implementation is guarded behind the `experimental` feature-flag and not yet guaranteed to work flawlessly.
+  As of now, this implementation is guarded behind the `experimental` feature-flag and not yet guaranteed to work
+  flawlessly.
 - Allow using `podman` CLI in addition to `docker`
 - The `TESTCONTAINERS` environment variable to control what happens to containers and networks at the end of a test.
   The default value is `remove` which deletes all containers and networks that were used in the test.
   By setting the value to `keep`, containers and networks will not be deleted but kept **running**.
   You will have to **stop** and **delete** those yourself eventually.
-- Upgrade default bitcoin-core image version to 0.21.0. This allows us to remove `-debug` for bitcoind and replace it with
-  `-startupnotify=echo ...`. More details on bitcoind 0.21.0 can be found [here](https://github.com/bitcoin/bitcoin/blob/master/doc/release-notes/release-notes-0.21.0.md).
+- Upgrade default bitcoin-core image version to 0.21.0. This allows us to remove `-debug` for bitcoind and replace it
+  with
+  `-startupnotify=echo ...`. More details on bitcoind 0.21.0 can be
+  found [here](https://github.com/bitcoin/bitcoin/blob/master/doc/release-notes/release-notes-0.21.0.md).
   Note: This release also removed the default wallet.
 - `expose_port` functionality to `Image` trait.
 - `Google Cloud SDK` image
 - `RabbitMQ` image
-- `WaitFor::Healthcheck` container ready condition, which corresponds with the [healthcheck](https://docs.docker.com/engine/reference/builder/#healthcheck) status.
+- `WaitFor::Healthcheck` container ready condition, which corresponds with
+  the [healthcheck](https://docs.docker.com/engine/reference/builder/#healthcheck) status.
 - `MinIO` image
 
 ### Changed
 
-- How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to implement `ready_conditions` which returns a list of `WaitFor` instances.
+- How images express when a container is ready: Instead of implementing `wait_until_ready`, images now need to
+  implement `ready_conditions` which returns a list of `WaitFor` instances.
 - Return value of `get_host_port` from `Option<u16>` to `u16`.
   If the port cannot be resolved, this function will now **panic**.
 - MSRV bumped to 1.46.
@@ -88,9 +91,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The functionality of `KEEP_CONTAINERS=true` is superseded by `TESTCONTAINERS=keep`.
 - `with_entrypoint` from the `Image` trait.
   This functionality is not used within the library.
-  Images that need this kind of customization can always implement it on their own type directly but there is no need to force it onto them.
+  Images that need this kind of customization can always implement it on their own type directly but there is no need to
+  force it onto them.
 - `Image::EnvVars` and `Image::Volumes` associated types.
-  The respective functions `Image::env_vars` and `Image::volumes` still exist but now return a trait object that must implement `Iterator<Item = (&String, &String)`.
+  The respective functions `Image::env_vars` and `Image::volumes` still exist but now return a trait object that must
+  implement `Iterator<Item = (&String, &String)`.
   This allows us to provide a default implementation which reduces the boilerplate in defining new images.
 - `args` and `with_args` from `Image` trait.
 
@@ -118,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The docker
+- `Docker::run_with_args` method. This allows naming a container and assigning it to a specific docker network. The
+  docker
   network will be created if it doesn't exist yet. Once the client is dropped, the network will be removed again if it
   has previously been created. A network that already existed will not be removed.
 - Address-type argument to `coblox/bitcoin-core` Image.
@@ -128,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Block the thread until containers have been successfully removed.
-  Previously, this was done in a fire-and-forget way and hence led to containers not being removed in certain situations.
+  Previously, this was done in a fire-and-forget way and hence led to containers not being removed in certain
+  situations.
 
 ### Changed
 
@@ -167,9 +174,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   There seems to be an unfortunate breaking change in the postgres image that we need to cater for.
 
 [Unreleased]: https://github.com/testcontainers/testcontainers-rs/compare/0.14.0...HEAD
+
 [0.14.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.13...0.14.0
+
 [0.13.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.12.0...0.13
+
 [0.12.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.11.0...0.12.0
+
 [0.11.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.10.0...0.11.0
+
 [0.10.0]: https://github.com/testcontainers/testcontainers-rs/compare/0.9.1...0.10.0
+
 [0.9.1]: https://github.com/testcontainers/testcontainers-rs/compare/0.8.1...0.9.1
