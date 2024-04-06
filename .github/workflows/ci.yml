@@ -4,7 +4,7 @@ on:
   pull_request:
   merge_group:
   push:
-    branches: [master, dev]
+    branches: [ master, dev ]
 
 jobs:
   msrv:
@@ -20,7 +20,7 @@ jobs:
       - name: Get current MSRV from Cargo.toml
         id: current_msrv
         run: |
-          msrv=$(cat testcontainers/Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
+          msrv=$(cat Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
           echo "::set-output name=msrv::$msrv"
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -53,6 +53,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rustfmt
       - uses: dprint/check@v2.2
 
   lint:
