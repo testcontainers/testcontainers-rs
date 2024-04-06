@@ -1,16 +1,17 @@
+use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
+
+use bollard_stubs::models::ContainerInspectResponse;
+
 use crate::{
     core::{env::Command, logs::LogStream, ports::Ports, ExecCommand, WaitFor},
     Image, RunnableImage,
 };
-use bollard_stubs::models::ContainerInspectResponse;
-
-use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 
 /// Represents a running docker container.
 ///
 /// Containers have a [`custom destructor`][drop_impl] that removes them as soon as they go out of scope:
 ///
-/// ```rust
+/// ```rust,no_run
 /// use testcontainers::*;
 /// #[test]
 /// fn a_test() {
@@ -22,7 +23,6 @@ use std::{fmt, marker::PhantomData, net::IpAddr, str::FromStr};
 ///         // Docker container is stopped/removed at the end of this scope.
 ///     }
 /// }
-///
 /// ```
 ///
 /// [drop_impl]: struct.Container.html#impl-Drop

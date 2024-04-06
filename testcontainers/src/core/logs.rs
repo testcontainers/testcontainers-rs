@@ -93,8 +93,8 @@ fn end_of_stream(lines: Vec<String>) -> WaitError {
 pub enum WaitError {
     /// Indicates the stream ended before finding the log line you were looking for.
     /// Contains all the lines that were read for debugging purposes.
-    EndOfStream(Vec<String>),
-    Io(io::Error),
+    EndOfStream(#[allow(dead_code)] Vec<String>), // todo: tuple is used by Debug impl, remove once nightly clippy is fixed
+    Io(#[allow(dead_code)] io::Error),
 }
 
 impl From<io::Error> for WaitError {
