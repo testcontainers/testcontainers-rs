@@ -4,9 +4,9 @@ version = "0.15.0"
 authors.workspace = true
 categories = ["development-tools::testing"]
 edition.workspace = true
-keywords = ["docker", "testcontainers"]
+keywords.workspace = true
 license.workspace = true
-repository = "https://github.com/testcontainers/testcontainers-rs"
+repository.workspace = true
 rust-version.workspace = true
 description = "A library for integration-testing against docker containers from within Rust."
 
