@@ -1,13 +1,12 @@
 [package]
 name = "testcontainers"
 version = "0.15.0"
-authors = [ "CoBloX developers <team@coblox.tech>" ]
-categories = [ "development-tools::testing" ]
-edition = "2021"
-keywords = [ "docker", "testcontainers" ]
-license = "MIT OR Apache-2.0"
+authors.workspace = true
+categories = ["development-tools::testing"]
+edition.workspace = true
+keywords = ["docker", "testcontainers"]
 repository = "https://github.com/testcontainers/testcontainers-rs"
-rust-version = "1.63"
+rust-version.workspace = true
 description = "A library for integration-testing against docker containers from within Rust."
 
 [dependencies]
@@ -20,19 +19,19 @@ hex = "0.4"
 hmac = "0.12"
 log = "0.4"
 rand = "0.8"
-serde = { version = "1", features = [ "derive" ] }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 signal-hook = { version = "0.3", optional = true }
-tokio = { version = "1", features = [ "macros" ], optional = true }
+tokio = { version = "1", features = ["macros"], optional = true }
 
 [features]
-default = [ ]
-watchdog = [ "signal-hook", "conquer-once" ]
-experimental = [ "async-trait", "bollard", "tokio" ]
+default = []
+experimental = ["async-trait", "bollard", "tokio"]
+watchdog = ["signal-hook", "conquer-once"]
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
-reqwest = { version = "0.11.14", features = [ "blocking" ] }
-testimages = { path = "../testimages" }
-tokio = { version = "1", features = [ "macros" ] }
+reqwest = { version = "0.11.14", features = ["blocking"] }
+testimages.workspace = true
+tokio = { version = "1", features = ["macros"] }

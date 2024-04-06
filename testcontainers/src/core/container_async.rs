@@ -27,7 +27,6 @@ use tokio::time::sleep;
 ///         // Docker container is stopped/removed at the end of this scope.
 ///     }
 /// }
-///
 /// ```
 ///
 /// [drop_impl]: struct.ContainerAsync.html#impl-Drop
