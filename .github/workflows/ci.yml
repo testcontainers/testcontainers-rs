@@ -20,7 +20,7 @@ jobs:
       - name: Get current MSRV from Cargo.toml
         id: current_msrv
         run: |
-          msrv=$(cat Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
+          msrv=$(cat testcontainers/Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
           echo "::set-output name=msrv::$msrv"
       - uses: dtolnay/rust-toolchain@master
         with:
