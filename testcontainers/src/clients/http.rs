@@ -84,6 +84,7 @@ impl Http {
         if let Some(name) = image.container_name() {
             create_options = Some(CreateContainerOptions {
                 name: name.to_owned(),
+                platform: None,
             })
         }
 
