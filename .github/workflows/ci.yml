@@ -48,7 +48,7 @@ jobs:
           sudo systemctl daemon-reload
           sudo systemctl restart docker
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.7.1
+      - uses: Swatinem/rust-cache@v2.7.3
       - run: cargo ${{ matrix['cargo-cmd'] }}
 
   style:
@@ -65,8 +65,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.67
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: stable
           components: clippy
-      - uses: Swatinem/rust-cache@v2.7.1
+      - uses: Swatinem/rust-cache@v2.7.3
       - run: cargo clippy --all-targets -- -D warnings
+
+  prlint:
+    name: PR name check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: CondeNast/conventional-pull-request-action@v0.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # For PRs we gonna use squash-strategy, so commits names not so matter
+          ignoreCommits: "true"

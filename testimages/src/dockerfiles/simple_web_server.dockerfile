@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.70.0 as chef
+FROM lukemathwalker/cargo-chef:latest-rust-latest as chef
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 
@@ -15,7 +15,7 @@ COPY . .
 # Build our project
 RUN cargo build -v --release --bin simple_web_server
 
-FROM debian:bullseye-slim AS runtime
+FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends openssl \

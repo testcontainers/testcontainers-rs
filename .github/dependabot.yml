@@ -11,6 +11,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      bollard:
+        patterns:
+          - "bollard"
+          - "bollard-stubs"
     commit-message:
       prefix: chore
       prefix-development: test
