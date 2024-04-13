@@ -249,7 +249,7 @@ impl<I: Image> RunnableImage<I> {
 }
 
 impl<I: Image> RunnableImage<I> {
-    /// Returns a new instance of RunnableImage with the specified arguments.
+    /// Returns a new RunnableImage with the specified arguments.
 
     /// # Examples
     /// ```
