@@ -256,14 +256,12 @@ impl<I: Image> RunnableImage<I> {
     /// use testcontainers::core::RunnableImage;
     /// use testcontainers::GenericImage;
     /// let image = GenericImage::default();
-    /// let runnable_image = RunnableImage::from(image.clone());
-    ///
     /// let args = vec!["arg1".to_string(), "arg2".to_string()];
-    /// let runnable_image_with_args = runnable_image.with_args(args.clone());
-
-    /// assert_eq!(runnable_image_with_args.args(), &args);
+    /// let runnable_image = RunnableImage::from(image.clone()).with_args(args.clone());
     ///
-    /// let another_runnable_image_with_args = RunnableImage::from((image, args));
+    /// assert_eq!(runnable_image.args(), &args);
+    ///
+    /// let another_runnable_image = RunnableImage::from((image, args));
     ///
     /// assert_eq!(another_runnable_image_with_args.args(), runnable_image_with_args.args());
     /// ```
