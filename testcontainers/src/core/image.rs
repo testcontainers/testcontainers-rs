@@ -264,7 +264,7 @@ impl<I: Image> RunnableImage<I> {
     ///
     /// let another_runnable_image = RunnableImage::from((image, args));
     ///
-    /// assert_eq!(another_runnable_image.args(), runnable_image_with_args.args());
+    /// assert_eq!(another_runnable_image.args(), runnable_image.args());
     /// ```
     pub fn with_args(self, args: I::Args) -> Self {
         Self {
