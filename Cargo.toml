@@ -1,5 +1,18 @@
 [workspace]
+resolver = "2"
 members = [
     "testcontainers",
     "testimages",
 ]
+
+[workspace.package]
+authors = ["CoBloX developers <team@coblox.tech>"]
+edition = "2021"
+keywords = ["docker", "testcontainers"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/testcontainers/testcontainers-rs"
+rust-version = "1.66"
+
+[workspace.dependencies]
+testimages = { path = "testimages" }

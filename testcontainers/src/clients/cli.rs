@@ -1,3 +1,14 @@
+use std::{
+    collections::HashMap,
+    ffi::{OsStr, OsString},
+    process::{Child, Command, Stdio},
+    sync::{Arc, RwLock},
+    thread::sleep,
+    time::{Duration, Instant},
+};
+
+use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
+
 use crate::{
     core::{
         env::{self, GetEnvValue},
@@ -6,15 +17,6 @@ use crate::{
         ContainerState, Docker, WaitFor,
     },
     Container, Image, ImageArgs, RunnableImage,
-};
-use bollard_stubs::models::{ContainerInspectResponse, HealthStatusEnum};
-use std::{
-    collections::HashMap,
-    ffi::{OsStr, OsString},
-    process::{Child, Command, Stdio},
-    sync::{Arc, RwLock},
-    thread::sleep,
-    time::{Duration, Instant},
 };
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
@@ -480,9 +482,10 @@ impl Drop for Client {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{core::WaitFor, images::generic::GenericImage, Image};
     use std::collections::BTreeMap;
+
+    use super::*;
+    use crate::images::generic::GenericImage;
 
     #[derive(Default)]
     struct HelloWorld {

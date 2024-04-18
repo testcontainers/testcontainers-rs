@@ -6,8 +6,8 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.56"
-axum = { version = "0.6.20", features = [ "http2" ] }
-tokio = { version = "1.17.0", features = [ "full" ] }
+axum = { version = "0.7.5", features = ["http2"] }
+tokio = { version = "1.17.0", features = ["full"] }
 
 [build-dependencies]
 anyhow = "1.0.56"
