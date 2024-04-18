@@ -249,6 +249,29 @@ impl<I: Image> RunnableImage<I> {
 }
 
 impl<I: Image> RunnableImage<I> {
+    /// Returns a new RunnableImage with the specified arguments.
+
+    /// # Examples
+    /// ```
+    /// use testcontainers::{core::RunnableImage, GenericImage};
+    ///
+    /// let image = GenericImage::default();
+    /// let args = vec!["arg1".to_string(), "arg2".to_string()];
+    /// let runnable_image = RunnableImage::from(image.clone()).with_args(args.clone());
+    ///
+    /// assert_eq!(runnable_image.args(), &args);
+    ///
+    /// let another_runnable_image = RunnableImage::from((image, args));
+    ///
+    /// assert_eq!(another_runnable_image.args(), runnable_image.args());
+    /// ```
+    pub fn with_args(self, args: I::Args) -> Self {
+        Self {
+            image_args: args,
+            ..self
+        }
+    }
+
     /// There is no guarantee that the specified tag for an image would result in a
     /// running container. Users of this API are advised to use this at their own risk.
     pub fn with_tag(self, tag: impl Into<String>) -> Self {
