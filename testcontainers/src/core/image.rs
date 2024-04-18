@@ -253,7 +253,7 @@ impl<I: Image> RunnableImage<I> {
 
     /// # Examples
     /// ```
-    /// use testcontainers::{GenericImage,core::RunnableImage};
+    /// use testcontainers::{core::RunnableImage, GenericImage};
     ///
     /// let image = GenericImage::default();
     /// let args = vec!["arg1".to_string(), "arg2".to_string()];
