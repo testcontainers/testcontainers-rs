@@ -29,10 +29,17 @@ where
         let client = Client::lazy_client().await;
         let runnable_image = self.into();
         let mut create_options: Option<CreateContainerOptions<String>> = None;
+
+        let extra_hosts: Vec<_> = runnable_image
+            .hosts()
+            .map(|(key, value)| format!("{key}:{value}"))
+            .collect();
+
         let mut config: Config<String> = Config {
             image: Some(runnable_image.descriptor()),
             host_config: Some(HostConfig {
                 privileged: Some(runnable_image.privileged()),
+                extra_hosts: Some(extra_hosts),
                 ..Default::default()
             }),
             ..Default::default()
@@ -135,6 +142,8 @@ where
                 host_config
             });
         }
+
+        // extra hosts
 
         let args = runnable_image
             .args()
