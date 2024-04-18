@@ -9,7 +9,7 @@ members = [
 authors = ["CoBloX developers <team@coblox.tech>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-rust-version = "1.66"
+rust-version = "1.70"
 
 [workspace.dependencies]
 testimages = { path = "testimages" }

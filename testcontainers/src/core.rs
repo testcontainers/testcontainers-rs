@@ -1,20 +1,22 @@
-pub(crate) use container::Docker;
-#[cfg(feature = "experimental")]
-pub(crate) use container_async::DockerAsync;
-
 pub use self::{
-    container::Container,
+    container_async::ContainerAsync,
     image::{ContainerState, ExecCommand, Host, Image, ImageArgs, Port, RunnableImage, WaitFor},
 };
 
-#[cfg(feature = "experimental")]
-pub use self::container_async::ContainerAsync;
+#[cfg(feature = "blocking")]
+pub use self::container::Container;
 
+#[cfg(feature = "blocking")]
 mod container;
-#[cfg(feature = "experimental")]
 mod container_async;
-pub mod env;
 mod image;
 
+/// Helper traits to start containers.
+pub mod runners;
+
+pub(crate) mod client;
+pub(crate) mod env;
 pub(crate) mod logs;
+pub(crate) mod network;
 pub(crate) mod ports;
+pub(crate) mod utils;
