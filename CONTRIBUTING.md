@@ -31,4 +31,4 @@ git config core.hookspath .githooks
 
 ## Contact
 
-Feel free to drop by in our Matrix chat room: https://matrix.to/#/#testcontainers-rs:matrix.org
+Feel free to drop by in the [testcontainers-rust channel](https://testcontainers.slack.com/archives/C048EPGRCER) of our [Slack workspace](https://testcontainers.slack.com).

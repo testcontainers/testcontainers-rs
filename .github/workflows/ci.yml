@@ -8,25 +8,27 @@ on:
 
 jobs:
   msrv:
+    name: Build with MSRV
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        cargo-cmd:
-          - build --all-features
-          - build --no-default-features
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Get current MSRV from Cargo.toml
         id: current_msrv
         run: |
-          msrv=$(cat testcontainers/Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
-          echo "::set-output name=msrv::$msrv"
-      - uses: dtolnay/rust-toolchain@master
+          msrv=$(cat Cargo.toml | grep rust-version | sed 's/.* = "//; s/"//')
+          echo "msrv=$msrv" >> $GITHUB_OUTPUT
+      - name: Setup Rust version
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{steps.current_msrv.outputs.msrv}}
       - uses: Swatinem/rust-cache@v2.7.3
-      - run: cargo ${{ matrix['cargo-cmd'] }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+      - name: Build
+        run: cargo hack build --each-feature --keep-going
 
   test:
     runs-on: ubuntu-latest
