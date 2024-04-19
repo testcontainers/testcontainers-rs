@@ -13,6 +13,10 @@ use std::collections::HashMap;
 pub trait AsyncRunner<I: Image> {
     /// Starts the container and returns an instance of `ContainerAsync`.
     async fn start(self) -> ContainerAsync<I>;
+
+    /// Pulls the image from the registry.
+    /// Useful if you want to pull the image before starting the container.
+    async fn pull_image(self) -> RunnableImage<I>;
 }
 
 #[async_trait]
@@ -194,6 +198,14 @@ where
         }
 
         container
+    }
+
+    async fn pull_image(self) -> RunnableImage<I> {
+        let runnable_image = self.into();
+        let client = Client::lazy_client().await;
+        client.pull_image(&runnable_image.descriptor()).await;
+
+        runnable_image
     }
 }
 

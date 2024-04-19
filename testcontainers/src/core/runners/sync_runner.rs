@@ -3,6 +3,10 @@ use crate::{Container, Image, RunnableImage};
 pub trait SyncRunner<I: Image> {
     /// Starts the container and returns an instance of `Container`.
     fn start(self) -> Container<I>;
+
+    /// Pulls the image from the registry.
+    /// Useful if you want to pull the image before starting the container.
+    fn pull_image(self) -> RunnableImage<I>;
 }
 
 impl<T, I> SyncRunner<I> for T
@@ -11,14 +15,23 @@ where
     I: Image,
 {
     fn start(self) -> Container<I> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("failed to build sync runner");
+        let rt = build_sync_runner();
         let async_container = rt.block_on(super::AsyncRunner::start(self));
 
         Container::new(rt, async_container)
     }
+
+    fn pull_image(self) -> RunnableImage<I> {
+        let rt = build_sync_runner();
+        rt.block_on(super::AsyncRunner::pull_image(self))
+    }
+}
+
+fn build_sync_runner() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build sync runner")
 }
 
 #[cfg(test)]
