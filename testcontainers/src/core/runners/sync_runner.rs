@@ -3,10 +3,6 @@ use crate::{Container, Image, RunnableImage};
 pub trait SyncRunner<I: Image> {
     /// Starts the container and returns an instance of `Container`.
     fn start(self) -> Container<I>;
-
-    // /// Pulls the image from the registry.
-    // /// Useful if you want to pull the image before starting the container.
-    // fn pull_image(&self);
 }
 
 impl<T, I> SyncRunner<I> for T
@@ -23,10 +19,6 @@ where
 
         Container::new(rt, async_container)
     }
-
-    // fn pull_image(&self) {
-    //     AsyncRunner::pull_image(self);
-    // }
 }
 
 #[cfg(test)]
