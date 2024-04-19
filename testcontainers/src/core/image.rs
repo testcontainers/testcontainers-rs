@@ -170,6 +170,7 @@ impl Display for Host {
 pub struct RunnableImage<I: Image> {
     image: I,
     image_args: I::Args,
+    image_name: Option<String>,
     image_tag: Option<String>,
     container_name: Option<String>,
     network: Option<String>,
@@ -228,11 +229,13 @@ impl<I: Image> RunnableImage<I> {
     }
 
     pub fn descriptor(&self) -> String {
-        if let Some(tag) = &self.image_tag {
-            format!("{}:{tag}", self.image.name())
-        } else {
-            format!("{}:{}", self.image.name(), self.image.tag())
-        }
+        let original_name = self.image.name();
+        let original_tag = self.image.tag();
+
+        let name = self.image_name.as_ref().unwrap_or(&original_name);
+        let tag = self.image_tag.as_ref().unwrap_or(&original_tag);
+
+        format!("{name}:{tag}")
     }
 
     pub fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -268,6 +271,15 @@ impl<I: Image> RunnableImage<I> {
     pub fn with_args(self, args: I::Args) -> Self {
         Self {
             image_args: args,
+            ..self
+        }
+    }
+
+    /// Overrides the fully qualified image name (consists of `{domain}/{owner}/{image}`).
+    /// Can be used to specify a custom registry or owner.
+    pub fn with_name(self, name: impl Into<String>) -> Self {
+        Self {
+            image_name: Some(name.into()),
             ..self
         }
     }
@@ -350,6 +362,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
         Self {
             image,
             image_args,
+            image_name: None,
             image_tag: None,
             container_name: None,
             network: None,
