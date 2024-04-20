@@ -37,8 +37,8 @@
 //!
 //! [tc_website]: https://testcontainers.org
 //! [`Docker`]: https://docker.com
-//! [`AsyncRunner`]: core::runners::AsyncRunner
-//! [`SyncRunner`]: core::runners::SyncRunner
+//! [`AsyncRunner`]: runners::AsyncRunner
+//! [`SyncRunner`]: runners::SyncRunner
 //! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
 
 pub mod core;

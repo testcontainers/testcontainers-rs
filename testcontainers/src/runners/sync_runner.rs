@@ -144,7 +144,7 @@ mod tests {
     fn sync_run_command_should_include_network() {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
-            .with_network("sync-sync-awesome-net-1")
+            .with_network("sync-awesome-net-1")
             .start();
 
         let container_details = inspect(container.id());
@@ -155,7 +155,7 @@ mod tests {
             .unwrap();
 
         assert!(
-            networks.contains_key("sync-sync-awesome-net-1"),
+            networks.contains_key("sync-awesome-net-1"),
             "Networks is {networks:?}"
         );
     }
