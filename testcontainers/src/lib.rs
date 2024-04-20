@@ -40,19 +40,16 @@
 //! [`AsyncRunner`]: core::runners::AsyncRunner
 //! [`SyncRunner`]: core::runners::SyncRunner
 //! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
-pub use crate::core::{ContainerAsync, Image, ImageArgs, RunnableImage};
 
-#[cfg(feature = "blocking")]
-#[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
-pub use crate::core::Container;
+pub mod core;
+pub use crate::core::{containers::*, Image, ImageArgs, RunnableImage};
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]
 pub(crate) mod watchdog;
 
-pub mod core;
-
 /// All available Docker images.
 mod images;
-
 pub use images::generic::GenericImage;
+
+pub mod runners;

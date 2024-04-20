@@ -19,7 +19,7 @@ use tokio::runtime::RuntimeFlavor;
 ///
 /// ```rust
 /// use testcontainers::*;
-/// #[tokio::test(flavor = "multi_thread")]
+/// #[tokio::test]
 /// async fn a_test() {
 ///     let container = MyImage::default().start().await;
 ///     // Docker container is stopped/removed at the end of this scope.

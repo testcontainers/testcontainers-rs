@@ -1,5 +1,6 @@
 use crate::{Container, Image, RunnableImage};
 
+/// Helper trait to start containers synchronously.
 pub trait SyncRunner<I: Image> {
     /// Starts the container and returns an instance of `Container`.
     fn start(self) -> Container<I>;

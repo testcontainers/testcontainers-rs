@@ -10,6 +10,7 @@ use bollard::{
 use std::collections::HashMap;
 
 #[async_trait]
+/// Helper trait to start containers asynchronously.
 pub trait AsyncRunner<I: Image> {
     /// Starts the container and returns an instance of `ContainerAsync`.
     async fn start(self) -> ContainerAsync<I>;
