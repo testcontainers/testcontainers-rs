@@ -4,7 +4,7 @@ use crate::{
         env,
         network::Network,
         ports::Ports,
-        utils, ExecCommand, WaitFor,
+        utils, ContainerState, ExecCommand, WaitFor,
     },
     Image, RunnableImage,
 };
@@ -202,7 +202,13 @@ where
     }
 
     pub async fn start(&self) {
-        self.docker_client.start(&self.id).await
+        self.docker_client.start(&self.id).await;
+        for cmd in self
+            .image
+            .exec_after_start(ContainerState::new(self.ports().await))
+        {
+            self.exec(cmd).await;
+        }
     }
 
     pub async fn stop(&self) {
