@@ -10,6 +10,10 @@ repository.workspace = true
 rust-version.workspace = true
 description = "A library for integration-testing against docker containers from within Rust."
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 async-trait = { version = "0.1" }
 bollard = { version = "0.16.1", features = ["ssl"] }
