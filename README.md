@@ -22,11 +22,7 @@ The crate provides an API for working with containers in a test environment.
 - Blocking API (under `blocking` feature)
 
 ```rust
-use testcontainers::{
-    GenericImage,
-    core::{WaitFor},
-    runners::SyncRunner,
-};
+use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
 
 #[test]
 fn test_redis() {
@@ -40,11 +36,7 @@ fn test_redis() {
 - Async API
 
 ```rust
-use testcontainers::{
-    GenericImage,
-    core::{WaitFor},
-    runners::AsyncRunner,
-};
+use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage};
 
 #[tokio::test]
 async fn test_redis() {
