@@ -1,7 +1,8 @@
 #![cfg(feature = "blocking")]
 
 use testcontainers::{
-    core::{runners::SyncRunner, Host, WaitFor},
+    core::{Host, WaitFor},
+    runners::SyncRunner,
     *,
 };
 

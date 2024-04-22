@@ -1,9 +1,6 @@
 use bollard::Docker;
 use std::time::Duration;
-use testcontainers::{
-    core::{runners::AsyncRunner, WaitFor},
-    GenericImage, *,
-};
+use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage, *};
 
 #[derive(Debug, Default)]
 pub struct HelloWorld;

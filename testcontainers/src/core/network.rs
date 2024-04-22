@@ -1,4 +1,4 @@
-use crate::core::{client::Client, env, utils};
+use crate::core::{client::Client, env, macros};
 use std::{
     collections::HashMap,
     fmt,
@@ -57,13 +57,24 @@ impl Drop for Network {
             let drop_task = async move {
                 log::trace!("Drop was called for network {name}, cleaning up");
                 let mut guard = created_networks().lock().await;
-                guard.remove(&name);
-                client.remove_network(&name).await;
 
-                log::debug!("Network {name} was successfully dropped");
+                // check the strong count under the lock to avoid any possible race-conditions.
+                let is_network_in_use = guard
+                    .get(&name)
+                    .filter(|weak| weak.strong_count() > 0)
+                    .is_some();
+
+                if is_network_in_use {
+                    log::trace!("Network {name} was not dropped because it is still in use");
+                } else {
+                    guard.remove(&name);
+                    client.remove_network(&name).await;
+
+                    log::trace!("Network {name} was successfully dropped");
+                }
             };
 
-            utils::block_on!(drop_task, "failed to remove network on drop");
+            macros::block_on!(drop_task, "failed to remove network on drop");
         }
     }
 }
