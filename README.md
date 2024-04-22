@@ -15,7 +15,38 @@ The crate provides an API for working with containers in a test environment.
 
 1. Depend on `testcontainers`
 2. Implement `testcontainers::core::Image` for necessary docker-images
-3. Run it with any available client `testcontainers::clients::*`
+3. Run it with any available runner `testcontainers::runners::*` (use `blocking` feature for synchronous API)
+
+#### Example:
+
+- Blocking API (under `blocking` feature)
+
+```rust
+use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
+
+#[test]
+fn test_redis() {
+    let container = GenericImage::new("redis", "7.2.4")
+        .with_exposed_port(6379)
+        .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
+        .start();
+}
+```
+
+- Async API
+
+```rust
+use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage};
+
+#[tokio::test]
+async fn test_redis() {
+    let container = GenericImage::new("redis", "7.2.4")
+        .with_exposed_port(6379)
+        .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
+        .start()
+        .await;
+}
+```
 
 ### Ready-to-use images
 

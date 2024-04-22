@@ -1,5 +1,8 @@
+#![cfg(feature = "blocking")]
+
 use testcontainers::{
     core::{Host, WaitFor},
+    runners::SyncRunner,
     *,
 };
 
@@ -27,25 +30,21 @@ impl Image for HelloWorld {
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn cli_can_run_hello_world() {
+#[test]
+fn sync_can_run_hello_world() {
     let _ = pretty_env_logger::try_init();
-
-    let docker = clients::Cli::default();
-
-    let _container = docker.run(HelloWorld);
+    let _container = HelloWorld.start();
 }
 
 #[test]
 fn generic_image_with_custom_entrypoint() {
-    let docker = clients::Cli::default();
     let generic = get_server_container(None);
 
-    let node = docker.run(generic);
+    let node = generic.start();
     let port = node.get_host_port_ipv4(80);
     assert_eq!(
         "foo",
-        reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
+        reqwest::blocking::get(format!("http://{}:{port}", node.get_host_ip_address()))
             .unwrap()
             .text()
             .unwrap()
@@ -53,11 +52,11 @@ fn generic_image_with_custom_entrypoint() {
 
     let generic = get_server_container(None).with_entrypoint("./bar");
 
-    let node = docker.run(generic);
+    let node = generic.start();
     let port = node.get_host_port_ipv4(80);
     assert_eq!(
         "bar",
-        reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
+        reqwest::blocking::get(format!("http://{}:{port}", node.get_host_ip_address()))
             .unwrap()
             .text()
             .unwrap()
@@ -67,7 +66,6 @@ fn generic_image_with_custom_entrypoint() {
 #[test]
 fn generic_image_exposed_ports() {
     let _ = pretty_env_logger::try_init();
-    let docker = clients::Cli::default();
 
     let target_port = 8080;
 
@@ -77,7 +75,7 @@ fn generic_image_exposed_ports() {
         // Explicitly expose the port, which otherwise would not be available.
         .with_exposed_port(target_port);
 
-    let node = docker.run(generic_server);
+    let node = generic_server.start();
     let port = node.get_host_port_ipv4(target_port);
     assert!(reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
         .unwrap()
@@ -87,10 +85,8 @@ fn generic_image_exposed_ports() {
 
 #[test]
 fn generic_image_running_with_extra_hosts_added() {
-    let docker = clients::Cli::default();
-
     let server_1 = get_server_container(None);
-    let node = docker.run(server_1);
+    let node = server_1.start();
     let port = node.get_host_port_ipv4(80);
 
     let msg = WaitFor::message_on_stdout("foo");
@@ -103,22 +99,32 @@ fn generic_image_running_with_extra_hosts_added() {
     let server_2 = RunnableImage::from((server_2, vec![format!("http://custom-host:{port}")]))
         .with_host("custom-host", Host::HostGateway);
 
-    docker.run(server_2);
+    server_2.start();
 }
 
 #[test]
 #[should_panic]
 fn generic_image_port_not_exposed() {
     let _ = pretty_env_logger::try_init();
-    let docker = clients::Cli::default();
 
     let target_port = 8080;
 
     // This image binds to 0.0.0.0:8080, does not EXPOSE ports in its dockerfile.
     let generic_server = GenericImage::new("no_expose_port", "latest")
         .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"));
-    let node = docker.run(generic_server);
+    let node = generic_server.start();
 
     // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.
     node.get_host_port_ipv4(target_port);
+}
+
+#[test]
+fn start_multiple_containers() {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
+
+    let _container_1 = image.clone().start();
+    let _container_2 = image.clone().start();
+    let _container_3 = image.start();
 }

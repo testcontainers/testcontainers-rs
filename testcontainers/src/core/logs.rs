@@ -1,25 +1,18 @@
-#[cfg(feature = "experimental")]
 use futures::{stream::BoxStream, StreamExt};
-use std::{
-    fmt, io,
-    io::{BufRead, BufReader, Read},
-};
+use std::{fmt, io};
 
-#[cfg(feature = "experimental")]
 pub(crate) struct LogStreamAsync<'d> {
-    inner: BoxStream<'d, Result<String, std::io::Error>>,
+    inner: BoxStream<'d, Result<String, io::Error>>,
 }
 
-#[cfg(feature = "experimental")]
 impl<'d> fmt::Debug for LogStreamAsync<'d> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LogStreamAsync").finish()
     }
 }
 
-#[cfg(feature = "experimental")]
 impl<'d> LogStreamAsync<'d> {
-    pub fn new(stream: BoxStream<'d, Result<String, std::io::Error>>) -> Self {
+    pub fn new(stream: BoxStream<'d, Result<String, io::Error>>) -> Self {
         Self { inner: stream }
     }
 
@@ -28,37 +21,6 @@ impl<'d> LogStreamAsync<'d> {
 
         while let Some(line) = self.inner.next().await.transpose()? {
             if handle_line(line, message, &mut lines) {
-                return Ok(());
-            }
-        }
-
-        Err(end_of_stream(lines))
-    }
-}
-
-pub(crate) struct LogStream {
-    inner: Box<dyn Read>,
-}
-
-impl fmt::Debug for LogStream {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LogStream").finish()
-    }
-}
-
-impl LogStream {
-    pub fn new(stream: impl Read + 'static) -> Self {
-        Self {
-            inner: Box::new(stream),
-        }
-    }
-
-    pub fn wait_for_message(self, message: &str) -> Result<(), WaitError> {
-        let logs = BufReader::new(self.inner);
-        let mut lines = vec![];
-
-        for line in logs.lines() {
-            if handle_line(line?, message, &mut lines) {
                 return Ok(());
             }
         }
@@ -107,18 +69,16 @@ impl From<io::Error> for WaitError {
 mod tests {
     use super::*;
 
-    #[test]
-    fn given_logs_when_line_contains_message_should_find_it() {
-        let log_stream = LogStream::new(
-            r"
+    #[tokio::test(flavor = "multi_thread")]
+    async fn given_logs_when_line_contains_message_should_find_it() {
+        let log_stream = LogStreamAsync::new(Box::pin(futures::stream::iter([Ok(r"
             Message one
             Message two
             Message three
         "
-            .as_bytes(),
-        );
+        .to_string())])));
 
-        let result = log_stream.wait_for_message("Message three");
+        let result = log_stream.wait_for_message("Message three").await;
 
         assert!(result.is_ok())
     }

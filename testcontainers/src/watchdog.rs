@@ -1,4 +1,4 @@
-use crate::{clients::Cli, core::Docker};
+use crate::core::client::Client;
 use conquer_once::Lazy;
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
@@ -8,22 +8,29 @@ use std::{collections::BTreeSet, sync::Mutex, thread};
 
 static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
     thread::spawn(move || {
-        let signal_docker = Cli::default();
-        let mut signals =
-            Signals::new([SIGTERM, SIGINT, SIGQUIT]).expect("failed to register signal handler");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to start watchdog runtime in background");
 
-        for signal in &mut signals {
-            for container_id in WATCHDOG
-                .lock()
-                .map(|s| s.containers.clone())
-                .unwrap_or_default()
-            {
-                signal_docker.stop(&container_id);
-                signal_docker.rm(&container_id);
+        runtime.block_on(async {
+            let signal_docker = Client::lazy_client().await;
+            let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])
+                .expect("failed to register signal handler");
+
+            for signal in &mut signals {
+                for container_id in WATCHDOG
+                    .lock()
+                    .map(|s| s.containers.clone())
+                    .unwrap_or_default()
+                {
+                    signal_docker.stop(&container_id).await;
+                    signal_docker.rm(&container_id).await;
+                }
+
+                let _ = signal_hook::low_level::emulate_default_handler(signal);
             }
-
-            let _ = signal_hook::low_level::emulate_default_handler(signal);
-        }
+        });
     });
 
     Mutex::new(Watchdog::default())

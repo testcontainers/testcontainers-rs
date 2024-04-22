@@ -18,8 +18,8 @@ use super::ports::Ports;
 /// [docker_run]: trait.Docker.html#tymethod.run
 pub trait Image
 where
-    Self: Sized,
-    Self::Args: ImageArgs + Clone + Debug,
+    Self: Sized + Sync + Send,
+    Self::Args: ImageArgs + Clone + Debug + Sync + Send,
 {
     /// A type representing the arguments for an Image.
     ///
@@ -101,12 +101,40 @@ where
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct ExecCommand {
+    pub(super) cmd: Vec<String>,
+    pub(super) cmd_ready_condition: WaitFor,
+    pub(super) container_ready_conditions: Vec<WaitFor>,
+}
+
+impl ExecCommand {
     /// Command to be executed
-    pub cmd: String,
+    pub fn new(cmd: Vec<String>) -> Self {
+        Self {
+            cmd,
+            cmd_ready_condition: WaitFor::Nothing,
+            container_ready_conditions: vec![],
+        }
+    }
+
     /// Conditions to be checked on related container
-    pub ready_conditions: Vec<WaitFor>,
+    pub fn with_container_ready_conditions(mut self, ready_conditions: Vec<WaitFor>) -> Self {
+        self.container_ready_conditions = ready_conditions;
+        self
+    }
+
+    /// Conditions to be checked on executed command output
+    pub fn with_cmd_ready_condition(mut self, ready_conditions: WaitFor) -> Self {
+        self.cmd_ready_condition = ready_conditions;
+        self
+    }
+}
+
+impl Default for ExecCommand {
+    fn default() -> Self {
+        Self::new(vec![])
+    }
 }
 
 #[derive(Debug)]
@@ -117,14 +145,6 @@ pub struct ContainerState {
 impl ContainerState {
     pub fn new(ports: Ports) -> Self {
         Self { ports }
-    }
-
-    #[deprecated(
-        since = "0.13.1",
-        note = "Use `host_port_ipv4()` or `host_port_ipv6()` instead."
-    )]
-    pub fn host_port(&self, internal_port: u16) -> u16 {
-        self.host_port_ipv4(internal_port)
     }
 
     pub fn host_port_ipv4(&self, internal_port: u16) -> u16 {
@@ -150,7 +170,7 @@ impl ImageArgs for () {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Host {
     Addr(IpAddr),
     HostGateway,
@@ -166,7 +186,7 @@ impl Display for Host {
 }
 
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RunnableImage<I: Image> {
     image: I,
     image_args: I::Args,
@@ -183,7 +203,7 @@ pub struct RunnableImage<I: Image> {
 }
 
 impl<I: Image> RunnableImage<I> {
-    pub fn inner(&self) -> &I {
+    pub fn image(&self) -> &I {
         &self.image
     }
 

@@ -19,36 +19,39 @@
 //!
 //! Unsurprisingly, working with testcontainers is very similar to working with Docker itself.
 //!
-//! First you choose a [`Client`]. Given a client instance, you can [`run`][docker_run] [`Images`]. This gives you back a [`Container`]. Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
+//! First, you need to define the [`Image`] that you want to run, and then simply call the `start` method on it from either the [`AsyncRunner`] or [`SyncRunner`] trait.
+//! This will return you [`ContainerAsync`] or [`Container`] respectively.
+//! Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
 //!
-//! # Usage in production code
-//!
-//! Although nothing inherently prevents testcontainers from being used in production code, the library itself was not designed with that in mind. For example, many methods will panic if something goes wrong but because the usage is intended to be within tests, this is deemed acceptable.
+//! See examples in the corresponding runner ([`AsyncRunner`] and [`SyncRunner`])
 //!
 //! # Ecosystem
 //!
 //! `testcontainers` is the core crate that provides an API for working with containers in a test environment.
-//!  However, it does not provide ready-to-use modules, you can implement your [`Image`]s using the library directly or use community supported [`testcontainers-modules`].
+//! The only image that is provided by the core crate is the [`GenericImage`], which is a simple wrapper around any docker image.
+//!
+//! However, it does not provide ready-to-use modules, you can implement your [`Image`]s using the library directly or use community supported [`testcontainers-modules`].
+//!
+//! # Usage in production code
+//!
+//! Although nothing inherently prevents testcontainers from being used in production code, the library itself was not designed with that in mind.
+//! For example, many methods will panic if something goes wrong but because the usage is intended to be within tests, this is deemed acceptable.
 //!
 //! [tc_website]: https://testcontainers.org
 //! [`Docker`]: https://docker.com
-//! [docker_run]: trait.Docker.html#tymethod.run
-//! [`Client`]: trait.Docker.html#implementors
-//! [`Images`]: trait.Image.html#implementors
-//! [`Container`]: struct.Container.html
+//! [`AsyncRunner`]: runners::AsyncRunner
+//! [`SyncRunner`]: runners::SyncRunner
 //! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
-pub use crate::core::{Container, Image, ImageArgs, RunnableImage};
 
-#[cfg(feature = "experimental")]
-pub use crate::core::ContainerAsync;
+pub mod core;
+pub use crate::core::{containers::*, Image, ImageArgs, RunnableImage};
 
 #[cfg(feature = "watchdog")]
+#[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]
 pub(crate) mod watchdog;
 
-/// All available Docker clients.
-pub mod clients;
-pub mod core;
 /// All available Docker images.
 mod images;
-
 pub use images::generic::GenericImage;
+
+pub mod runners;
