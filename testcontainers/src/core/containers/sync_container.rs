@@ -47,7 +47,7 @@ impl<I: Image> Container<I> {
     pub(crate) fn new(runtime: tokio::runtime::Runtime, async_impl: ContainerAsync<I>) -> Self {
         Self {
             inner: Some(ActiveContainer {
-                runtime: runtime,
+                runtime,
                 async_impl,
             }),
         }

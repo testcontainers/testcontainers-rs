@@ -54,6 +54,17 @@ async fn bollard_pull_missing_image_hello_world() {
 }
 
 #[tokio::test]
+async fn explicit_call_to_pull_missing_image_hello_world() {
+    let _ = pretty_env_logger::try_init();
+    cleanup_hello_world_image().await;
+    let _container = RunnableImage::from(HelloWorld)
+        .pull_image()
+        .await
+        .start()
+        .await;
+}
+
+#[tokio::test]
 async fn start_containers_in_parallel() {
     let _ = pretty_env_logger::try_init();
 

@@ -7,7 +7,6 @@ use crate::{Container, Image, RunnableImage};
 /// ```rust
 /// use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
 ///
-/// #[test]
 /// fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
 ///         .with_exposed_port(6379)
@@ -18,6 +17,10 @@ use crate::{Container, Image, RunnableImage};
 pub trait SyncRunner<I: Image> {
     /// Starts the container and returns an instance of `Container`.
     fn start(self) -> Container<I>;
+
+    /// Pulls the image from the registry.
+    /// Useful if you want to pull the image before starting the container.
+    fn pull_image(self) -> RunnableImage<I>;
 }
 
 impl<T, I> SyncRunner<I> for T
@@ -26,14 +29,23 @@ where
     I: Image,
 {
     fn start(self) -> Container<I> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("failed to build sync runner");
+        let runtime = build_sync_runner();
         let async_container = runtime.block_on(super::AsyncRunner::start(self));
 
         Container::new(runtime, async_container)
     }
+
+    fn pull_image(self) -> RunnableImage<I> {
+        let runtime = build_sync_runner();
+        runtime.block_on(super::AsyncRunner::pull_image(self))
+    }
+}
+
+fn build_sync_runner() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build sync runner")
 }
 
 #[cfg(test)]
