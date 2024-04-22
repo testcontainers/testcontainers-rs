@@ -26,7 +26,7 @@ use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
 
 #[test]
 fn test_redis() {
-    let container = GenericImage::new("redis", "latest")
+    let container = GenericImage::new("redis", "7.2.4")
         .with_exposed_port(6379)
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
         .start();
@@ -40,7 +40,7 @@ use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage};
 
 #[tokio::test]
 async fn test_redis() {
-    let container = GenericImage::new("redis", "latest")
+    let container = GenericImage::new("redis", "7.2.4")
         .with_exposed_port(6379)
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
         .start()

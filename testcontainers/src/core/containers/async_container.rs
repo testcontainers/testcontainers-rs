@@ -1,10 +1,10 @@
 use crate::{
     core::{
         client::{Client, DesiredLogStream},
-        env,
+        env, macros,
         network::Network,
         ports::Ports,
-        utils, ContainerState, ExecCommand, WaitFor,
+        ContainerState, ExecCommand, WaitFor,
     },
     Image, RunnableImage,
 };
@@ -270,7 +270,7 @@ where
                 log::debug!("Container {id} was successfully dropped");
             };
 
-            utils::block_on!(drop_task, "failed to remove container on drop");
+            macros::block_on!(drop_task, "failed to remove container on drop");
         }
     }
 }

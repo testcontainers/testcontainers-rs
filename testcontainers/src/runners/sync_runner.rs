@@ -1,6 +1,20 @@
 use crate::{Container, Image, RunnableImage};
 
 /// Helper trait to start containers synchronously.
+///
+/// ## Example
+///
+/// ```rust
+/// use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
+///
+/// #[test]
+/// fn test_redis() {
+///     let container = GenericImage::new("redis", "7.2.4")
+///         .with_exposed_port(6379)
+///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
+///         .start();
+/// }
+/// ```
 pub trait SyncRunner<I: Image> {
     /// Starts the container and returns an instance of `Container`.
     fn start(self) -> Container<I>;
@@ -12,13 +26,13 @@ where
     I: Image,
 {
     fn start(self) -> Container<I> {
-        let rt = tokio::runtime::Builder::new_current_thread()
+        let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("failed to build sync runner");
-        let async_container = rt.block_on(super::AsyncRunner::start(self));
+        let async_container = runtime.block_on(super::AsyncRunner::start(self));
 
-        Container::new(rt, async_container)
+        Container::new(runtime, async_container)
     }
 }
 

@@ -25,7 +25,7 @@ pub struct Container<I: Image> {
 
 /// Internal representation of a running docker container, to be able to terminate runtime correctly when `Container` is dropped.
 struct ActiveContainer<I: Image> {
-    rt: tokio::runtime::Runtime,
+    runtime: tokio::runtime::Runtime,
     async_impl: ContainerAsync<I>,
 }
 
@@ -44,9 +44,12 @@ where
 }
 
 impl<I: Image> Container<I> {
-    pub(crate) fn new(rt: tokio::runtime::Runtime, async_impl: ContainerAsync<I>) -> Self {
+    pub(crate) fn new(runtime: tokio::runtime::Runtime, async_impl: ContainerAsync<I>) -> Self {
         Self {
-            inner: Some(ActiveContainer { rt, async_impl }),
+            inner: Some(ActiveContainer {
+                runtime: runtime,
+                async_impl,
+            }),
         }
     }
 }
@@ -138,13 +141,13 @@ where
 
     pub fn rm(mut self) {
         if let Some(active) = self.inner.take() {
-            active.rt.block_on(active.async_impl.rm());
+            active.runtime.block_on(active.async_impl.rm());
         }
     }
 
     /// Returns reference to inner `Runtime`. It's safe to unwrap because it's `Some` until `Container` is dropped.
     fn rt(&self) -> &tokio::runtime::Runtime {
-        &self.inner.as_ref().unwrap().rt
+        &self.inner.as_ref().unwrap().runtime
     }
 
     /// Returns reference to inner `ContainerAsync`. It's safe to unwrap because it's `Some` until `Container` is dropped.
@@ -156,7 +159,7 @@ where
 impl<I: Image> Drop for Container<I> {
     fn drop(&mut self) {
         if let Some(mut active) = self.inner.take() {
-            active.rt.block_on(async {
+            active.runtime.block_on(async {
                 drop(active.async_impl.network.take());
                 match active.async_impl.docker_client.config.command() {
                     env::Command::Remove => active.async_impl.rm().await,

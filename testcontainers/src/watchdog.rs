@@ -8,12 +8,12 @@ use std::{collections::BTreeSet, sync::Mutex, thread};
 
 static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
     thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
+        let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("failed to start watchdog runtime in background");
 
-        rt.block_on(async {
+        runtime.block_on(async {
             let signal_docker = Client::lazy_client().await;
             let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])
                 .expect("failed to register signal handler");

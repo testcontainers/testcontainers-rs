@@ -23,6 +23,8 @@
 //! This will return you [`ContainerAsync`] or [`Container`] respectively.
 //! Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
 //!
+//! See examples in the corresponding runner ([`AsyncRunner`] and [`SyncRunner`])
+//!
 //! # Ecosystem
 //!
 //! `testcontainers` is the core crate that provides an API for working with containers in a test environment.

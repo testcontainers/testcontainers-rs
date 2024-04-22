@@ -1,4 +1,4 @@
-use crate::core::{client::Client, env, utils};
+use crate::core::{client::Client, env, macros};
 use std::{
     collections::HashMap,
     fmt,
@@ -74,7 +74,7 @@ impl Drop for Network {
                 }
             };
 
-            utils::block_on!(drop_task, "failed to remove network on drop");
+            macros::block_on!(drop_task, "failed to remove network on drop");
         }
     }
 }
