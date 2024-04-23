@@ -95,11 +95,16 @@ where
         config.env = Some(envs);
 
         // volumes
-        let vols: HashMap<String, HashMap<(), ()>> = runnable_image
+        let binds: Vec<String> = runnable_image
             .volumes()
-            .map(|(orig, dest)| (format!("{orig}:{dest}"), HashMap::new()))
+            .map(|(orig, dest)| format!("{orig}:{dest}"))
             .collect();
-        config.volumes = Some(vols);
+        if !binds.is_empty() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.binds = Some(binds);
+                host_config
+            });
+        }
 
         // entrypoint
         if let Some(entrypoint) = runnable_image.entrypoint() {
