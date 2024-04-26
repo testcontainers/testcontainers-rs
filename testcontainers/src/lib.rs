@@ -22,6 +22,7 @@
 //! First, you need to define the [`Image`] that you want to run, and then simply call the `start` method on it from either the [`AsyncRunner`] or [`SyncRunner`] trait.
 //! This will return you [`ContainerAsync`] or [`Container`] respectively.
 //! Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
+//! To disable this behavior, you can set ENV variable `TESTCONTAINERS_COMMAND` to `keep`.
 //!
 //! See examples in the corresponding runner ([`AsyncRunner`] and [`SyncRunner`])
 //!
