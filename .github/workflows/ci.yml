@@ -4,7 +4,7 @@ on:
   pull_request:
   merge_group:
   push:
-    branches: [ master, dev ]
+    branches: [ main ]
 
 jobs:
   msrv:
@@ -31,15 +31,22 @@ jobs:
         run: cargo hack build --each-feature --keep-going
 
   test:
+    name: Test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        cargo-cmd:
-          - test --all-features
-          - test --no-default-features
+        toolchain:
+          - stable
+          - nightly
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
       - name: Enable Docker Remote API on Localhost
         shell: bash
         run: |
@@ -47,30 +54,54 @@ jobs:
           sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
           sudo systemctl daemon-reload
           sudo systemctl restart docker
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2.7.3
-      - run: cargo ${{ matrix['cargo-cmd'] }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+      - name: Tests
+        run: cargo hack test --each-feature --clean-per-run
 
-  style:
+  fmt:
+    name: Rustfmt check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
-          components: rustfmt
-      - uses: dprint/check@v2.2
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@master
-        with:
+          profile: minimal
           toolchain: stable
+          components: rustfmt
+          override: true
+      - name: Rustfmt check
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+          - nightly
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
           components: clippy
-      - uses: Swatinem/rust-cache@v2.7.3
-      - run: cargo clippy --all-targets -- -D warnings
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
 
   prlint:
     name: PR name check
