@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-authors = ["CoBloX developers <team@coblox.tech>"]
+authors = ["Thomas Eizinger", "Artem Medvedev <i@ddtkey.com>", "Mervyn McCreight"]
 edition = "2021"
 keywords = ["docker", "testcontainers"]
 license = "MIT OR Apache-2.0"

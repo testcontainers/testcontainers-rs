@@ -1,6 +1,6 @@
 # Testcontainers-rs
 
-![Continuous Integration](https://github.com/testcontainers/testcontainers-rs/workflows/Continuous%20Integration/badge.svg?branch=dev)
+![Continuous Integration](https://github.com/testcontainers/testcontainers-rs/workflows/Continuous%20Integration/badge.svg?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
 [![Docs.rs](https://docs.rs/testcontainers/badge.svg)](https://docs.rs/testcontainers)
 [![Slack](https://img.shields.io/badge/Slack-join-orange?style=flat&logo=slack&)](https://join.slack.com/t/testcontainers/shared_invite/zt-2gra37tid-n9xDJGjjVb7hMRanGjowkw)
