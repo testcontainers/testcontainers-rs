@@ -1,0 +1,8 @@
+[workspace]
+changelog_config = "cliff.toml" # use a custom git-cliff configuration
+git_release_enable = true # enable GitHub releases
+pr_labels = ["release"] # add the `release` label to the release Pull Request
+
+[[package]]
+name = "testimages"
+release = false
