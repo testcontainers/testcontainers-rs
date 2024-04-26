@@ -96,6 +96,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: clippy
       - name: Clippy check
         uses: actions-rs/clippy-check@v1
         with:
