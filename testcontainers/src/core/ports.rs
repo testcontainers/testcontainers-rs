@@ -1,5 +1,6 @@
-use bollard_stubs::models::{PortBinding, PortMap};
 use std::{collections::HashMap, net::IpAddr};
+
+use bollard_stubs::models::{PortBinding, PortMap};
 
 /// The exposed ports of a running container.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -101,8 +102,9 @@ fn parse_port(port: &str) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bollard_stubs::models::ContainerInspectResponse;
+
+    use super::*;
 
     #[test]
     fn can_deserialize_docker_inspect_response_into_api_ports() {

@@ -1,10 +1,12 @@
-use crate::core::{client::Client, env, macros};
 use std::{
     collections::HashMap,
     fmt,
     sync::{Arc, OnceLock, Weak},
 };
+
 use tokio::{runtime::RuntimeFlavor, sync::Mutex};
+
+use crate::core::{client::Client, env, macros};
 
 pub(crate) static CREATED_NETWORKS: OnceLock<Mutex<HashMap<String, Weak<Network>>>> =
     OnceLock::new();

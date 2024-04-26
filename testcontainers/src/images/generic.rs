@@ -1,5 +1,6 @@
-use crate::{core::WaitFor, Image, ImageArgs};
 use std::collections::BTreeMap;
+
+use crate::{core::WaitFor, Image, ImageArgs};
 
 impl ImageArgs for Vec<String> {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {

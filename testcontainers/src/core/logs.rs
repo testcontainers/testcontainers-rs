@@ -1,5 +1,6 @@
-use futures::{stream::BoxStream, StreamExt};
 use std::{fmt, io};
+
+use futures::{stream::BoxStream, StreamExt};
 
 pub(crate) struct LogStreamAsync<'d> {
     inner: BoxStream<'d, Result<String, io::Error>>,

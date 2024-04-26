@@ -1,6 +1,8 @@
-use crate::core::client::Client;
 use std::sync::{Arc, OnceLock, Weak};
+
 use tokio::sync::Mutex;
+
+use crate::core::client::Client;
 
 // We use `Weak` in order not to prevent `Drop` of being called.
 // Instead, we re-create the client if it was dropped and asked one more time.

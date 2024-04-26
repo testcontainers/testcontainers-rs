@@ -1,4 +1,5 @@
-use crate::core::{env, logs::LogStreamAsync, ports::Ports, WaitFor};
+use std::{io, time::Duration};
+
 use bollard::{
     container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
@@ -8,7 +9,8 @@ use bollard::{
 };
 use bollard_stubs::models::{ContainerCreateResponse, ContainerInspectResponse, HealthStatusEnum};
 use futures::{StreamExt, TryStreamExt};
-use std::{io, time::Duration};
+
+use crate::core::{env, logs::LogStreamAsync, ports::Ports, WaitFor};
 
 mod bollard_client;
 mod factory;

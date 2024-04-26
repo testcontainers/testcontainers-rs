@@ -1,5 +1,6 @@
-use bollard::Docker;
 use std::time::Duration;
+
+use bollard::Docker;
 use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage, *};
 
 #[derive(Debug, Default)]

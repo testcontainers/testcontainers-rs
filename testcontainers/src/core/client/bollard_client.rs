@@ -1,6 +1,8 @@
-use crate::core::env;
-use bollard::{Docker, API_DEFAULT_VERSION};
 use std::time::Duration;
+
+use bollard::{Docker, API_DEFAULT_VERSION};
+
+use crate::core::env;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 

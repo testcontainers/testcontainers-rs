@@ -1,13 +1,15 @@
-use crate::{
-    core::{client::Client, network::Network, ContainerState},
-    ContainerAsync, Image, ImageArgs, RunnableImage,
-};
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use bollard::{
     container::{Config, CreateContainerOptions},
     models::{HostConfig, PortBinding},
 };
-use std::collections::HashMap;
+
+use crate::{
+    core::{client::Client, network::Network, ContainerState},
+    ContainerAsync, Image, ImageArgs, RunnableImage,
+};
 
 #[async_trait]
 /// Helper trait to start containers asynchronously.

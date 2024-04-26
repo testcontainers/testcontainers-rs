@@ -1,4 +1,4 @@
-format_code_in_doc_comments = true
+group_imports = "StdExternalCrate"
 imports_granularity = "Crate"
 indent_style = "Block"
 merge_derives = true

@@ -1,8 +1,7 @@
-pub use self::image::{
-    ContainerState, ExecCommand, Host, Image, ImageArgs, Port, RunnableImage, WaitFor,
+pub use self::{
+    containers::*,
+    image::{ContainerState, ExecCommand, Host, Image, ImageArgs, Port, RunnableImage, WaitFor},
 };
-
-pub use self::containers::*;
 
 mod image;
 

@@ -1,10 +1,12 @@
-use crate::core::client::Client;
+use std::{collections::BTreeSet, sync::Mutex, thread};
+
 use conquer_once::Lazy;
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
     iterator::Signals,
 };
-use std::{collections::BTreeSet, sync::Mutex, thread};
+
+use crate::core::client::Client;
 
 static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
     thread::spawn(move || {

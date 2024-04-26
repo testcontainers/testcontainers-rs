@@ -1,3 +1,7 @@
+use std::{fmt, net::IpAddr, str::FromStr, sync::Arc};
+
+use tokio::runtime::RuntimeFlavor;
+
 use crate::{
     core::{
         client::{Client, DesiredLogStream},
@@ -8,8 +12,6 @@ use crate::{
     },
     Image, RunnableImage,
 };
-use std::{fmt, net::IpAddr, str::FromStr, sync::Arc};
-use tokio::runtime::RuntimeFlavor;
 
 /// Represents a running docker container that has been started using an async client.
 ///

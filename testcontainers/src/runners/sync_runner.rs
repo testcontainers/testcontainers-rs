@@ -50,16 +50,19 @@ fn build_sync_runner() -> tokio::runtime::Runtime {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::{client::Client, WaitFor};
-    use bollard_stubs::models::ContainerInspectResponse;
     use std::{
         collections::BTreeMap,
         sync::{Arc, OnceLock},
     };
+
+    use bollard_stubs::models::ContainerInspectResponse;
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::images::generic::GenericImage;
+    use crate::{
+        core::{client::Client, WaitFor},
+        images::generic::GenericImage,
+    };
 
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 

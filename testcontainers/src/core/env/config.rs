@@ -1,11 +1,13 @@
-use crate::core::env::GetEnvValue;
-use serde::Deserialize;
-use serde_with::serde_as;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
+
+use serde::Deserialize;
+use serde_with::serde_as;
 use url::Url;
+
+use crate::core::env::GetEnvValue;
 
 const TESTCONTAINERS_PROPERTIES: &str = ".testcontainers.properties";
 
