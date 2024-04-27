@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.2] - 2024-04-27
+### Details
+#### Documentation
+- Fix `docsrs` attributes
 ## [0.16.1] - 2024-04-27
 ### Details
 #### Documentation
