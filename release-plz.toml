@@ -19,14 +19,21 @@ trim = true
 protect_breaking_commits = true
 commit_preprocessors = []
 commit_parsers = [
-    { message = "^.*: add", group = "Added" },
-    { message = "^.*: support", group = "Added" },
-    { message = "^.*: remove", group = "Removed" },
-    { message = "^.*: delete", group = "Removed" },
-    { message = "^test", group = "Fixed" },
-    { message = "^fix", group = "Fixed" },
-    { message = "^.*: fix", group = "Fixed" },
-    { message = "^.*", group = "Changed" },
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactor" },
+    { message = "^style", group = "Styling" },
+    { message = "^test", group = "Testing" },
+    { message = "^ci\\(deps\\)", skip = true },
+    { message = "^build\\(deps\\)", skip = true },
+    { message = "^chore: release", skip = true },
+    { message = "^chore\\(pr\\)", skip = true },
+    { message = "^chore\\(pull\\)", skip = true },
+    { message = "^chore|ci", group = "Miscellaneous Tasks" },
+    { body = ".*security", group = "Security" },
+    { message = "^revert", group = "Revert" },
 ]
 header = """
 # Changelog\n
@@ -51,7 +58,7 @@ body = """
 {% for group, commits in commits | group_by(attribute="group") %}
     #### {{ group | upper_first }}
     {%- for commit in commits %}
-        - {{ commit.message | upper_first | trim }}\
+        - {% if commit.breaking %}[❗]{% endif %}{{ commit.message | upper_first | trim }}\
             {% if commit.github.username %} by @{{ commit.github.username }}{%- endif -%}
             {% if commit.github.pr_number %} in \
               [#{{ commit.github.pr_number }}]({{ self::remote_url() }}/pull/{{ commit.github.pr_number }}) \
