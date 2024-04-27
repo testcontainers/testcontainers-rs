@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.3] - 2024-04-27
+### Details
+#### Bug Fixes
+- Expose mount-related types ([#603](https://github.com/testcontainers/testcontainers-rs/pull/603))
 ## [0.16.2] - 2024-04-27
 ### Details
 #### Documentation
