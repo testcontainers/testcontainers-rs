@@ -19,7 +19,7 @@ use crate::{
 /// go out of scope. However, async drop is not available in rust yet. This implementation
 /// is using block_on.
 ///
-/// ```rust
+/// ```rust,no_run
 /// use testcontainers::*;
 /// #[tokio::test]
 /// async fn a_test() {

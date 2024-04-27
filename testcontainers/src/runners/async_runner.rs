@@ -21,7 +21,7 @@ use crate::{
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,no_run
 /// use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage};
 ///
 /// async fn test_redis() {

@@ -4,7 +4,7 @@ use crate::{Container, Image, RunnableImage};
 ///
 /// ## Example
 ///
-/// ```rust
+/// ```rust,no_run
 /// use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
 ///
 /// fn test_redis() {
