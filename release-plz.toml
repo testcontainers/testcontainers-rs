@@ -5,8 +5,10 @@ pr_labels = ["release"] # add the `release` label to the release Pull Request
 
 [[package]]
 name = "testcontainers"
+git_tag_name = "{{ version }}"
 changelog_path = "CHANGELOG.md"
 
 [[package]]
 name = "testimages"
 release = false
+changelog_update = false
