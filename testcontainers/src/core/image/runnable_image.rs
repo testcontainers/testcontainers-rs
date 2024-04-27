@@ -111,7 +111,7 @@ impl<I: Image> RunnableImage<I> {
     /// Returns a new RunnableImage with the specified arguments.
     ///
     /// # Examples
-    /// ```
+    /// ```rust,no_run
     /// use testcontainers::{core::RunnableImage, GenericImage};
     ///
     /// let image = GenericImage::default();
