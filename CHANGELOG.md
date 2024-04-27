@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2024-04-27
+### Details
+#### Added
+- Support for docker cli flag `--add-host` ([#547](https://github.com/testcontainers/testcontainers-rs/pull/547))
+- Add `name` parameter to `RunnableImage` ([#549](https://github.com/testcontainers/testcontainers-rs/pull/549))
+- Add ability to pull-image explicitly ([#579](https://github.com/testcontainers/testcontainers-rs/pull/579))
+
+#### Changed
+- Derive `Default` to fix clippy lint ([#525](https://github.com/testcontainers/testcontainers-rs/pull/525))
+- Merge branch 'dev' into merge-master-to-dev
+- Actually map exposed ports for HTTP client ([#531](https://github.com/testcontainers/testcontainers-rs/pull/531))
+- Actualize formatting configs ([#567](https://github.com/testcontainers/testcontainers-rs/pull/567))
+- Update reqwest requirement from 0.11.14 to 0.12.3 ([#569](https://github.com/testcontainers/testcontainers-rs/pull/569))
+- Update bollard and bollard-stubs ([#574](https://github.com/testcontainers/testcontainers-rs/pull/574))
+- Reuse workspace level configs ([#568](https://github.com/testcontainers/testcontainers-rs/pull/568))
+- Allow to override args in a `RunnableImage` ([#558](https://github.com/testcontainers/testcontainers-rs/pull/558))
+- Container-centric API with refactored underlying layer ([#575](https://github.com/testcontainers/testcontainers-rs/pull/575))
+- Enable `StdExternalCrate` grouping
+- Mention a way to preserve running containers ([#586](https://github.com/testcontainers/testcontainers-rs/pull/586))
+
+#### Fixed
+- Use the binds option instead of volumes for mounts ([#581](https://github.com/testcontainers/testcontainers-rs/pull/581))
+
+#### Removed
+- Remove `spectral` from `dev-dependencies` ([#526](https://github.com/testcontainers/testcontainers-rs/pull/526))
 ## [0.15.0] - 2023-09-28
 
 ### Added
