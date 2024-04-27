@@ -22,6 +22,7 @@ conquer-once = { version = "0.4", optional = true }
 dirs = "5.0.1"
 futures = "0.3"
 log = "0.4"
+parse-display = "0.9.0"
 serde = { version = "1", features = ["derive"] }
 serde-java-properties = "0.1.1"
 serde_json = "1"
