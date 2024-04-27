@@ -1,12 +1,66 @@
 [workspace]
-changelog_config = "cliff.toml" # use a custom git-cliff configuration
 git_release_enable = true # enable GitHub releases
 pr_labels = ["release"] # add the `release` label to the release Pull Request
 
 [[package]]
 name = "testcontainers"
+git_tag_name = "{{ version }}"
 changelog_path = "CHANGELOG.md"
 
 [[package]]
 name = "testimages"
 release = false
+changelog_update = false
+
+[changelog]
+tag_pattern = "[0-9].*"
+sort_commits = "oldest"
+trim = true
+protect_breaking_commits = true
+commit_preprocessors = []
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactor" },
+    { message = "^style", group = "Styling" },
+    { message = "^test", group = "Testing" },
+    { message = "^ci\\(deps\\)", skip = true },
+    { message = "^build\\(deps\\)", skip = true },
+    { message = "^chore: release", skip = true },
+    { message = "^chore\\(pr\\)", skip = true },
+    { message = "^chore\\(pull\\)", skip = true },
+    { message = "^chore|ci", group = "Miscellaneous Tasks" },
+    { body = ".*security", group = "Security" },
+    { message = "^revert", group = "Revert" },
+]
+header = """
+# Changelog\n
+All notable changes to this project will be documented in this file.
+
+"""
+body = """
+{%- macro remote_url() -%}
+  https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
+{%- endmacro -%}
+
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+
+### Details\
+
+{% for group, commits in commits | group_by(attribute="group") %}
+    #### {{ group | upper_first }}
+    {%- for commit in commits %}
+        - {% if commit.breaking %}[❗] {% endif %}{{ commit.message | upper_first | trim }}\
+            {% if commit.github.username %} by @{{ commit.github.username }}{%- endif -%}
+            {% if commit.github.pr_number %} in \
+              [#{{ commit.github.pr_number }}]({{ self::remote_url() }}/pull/{{ commit.github.pr_number }}) \
+            {%- endif -%}
+    {% endfor %}
+{% endfor %}
+"""
