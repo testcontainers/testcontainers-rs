@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use crate::{core::WaitFor, Image, ImageArgs};
+use crate::{
+    core::{mounts::Mount, WaitFor},
+    Image, ImageArgs,
+};
 
 impl ImageArgs for Vec<String> {
     fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
@@ -13,7 +16,7 @@ impl ImageArgs for Vec<String> {
 pub struct GenericImage {
     name: String,
     tag: String,
-    volumes: BTreeMap<String, String>,
+    mounts: Vec<Mount>,
     env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
@@ -25,7 +28,7 @@ impl Default for GenericImage {
         Self {
             name: "".to_owned(),
             tag: "".to_owned(),
-            volumes: BTreeMap::new(),
+            mounts: Vec::new(),
             env_vars: BTreeMap::new(),
             wait_for: Vec::new(),
             entrypoint: None,
@@ -43,8 +46,8 @@ impl GenericImage {
         }
     }
 
-    pub fn with_volume<F: Into<String>, D: Into<String>>(mut self, from: F, dest: D) -> Self {
-        self.volumes.insert(from.into(), dest.into());
+    pub fn with_mount(mut self, mount: impl Into<Mount>) -> Self {
+        self.mounts.push(mount.into());
         self
     }
 
@@ -88,8 +91,8 @@ impl Image for GenericImage {
         Box::new(self.env_vars.iter())
     }
 
-    fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.volumes.iter())
+    fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
+        Box::new(self.mounts.iter())
     }
 
     fn entrypoint(&self) -> Option<String> {

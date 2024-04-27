@@ -7,7 +7,12 @@ use bollard::{
 };
 
 use crate::{
-    core::{client::Client, network::Network, ContainerState},
+    core::{
+        client::Client,
+        mounts::{AccessMode, Mount, MountType},
+        network::Network,
+        ContainerState,
+    },
     ContainerAsync, Image, ImageArgs, RunnableImage,
 };
 
@@ -96,14 +101,12 @@ where
             .collect();
         config.env = Some(envs);
 
-        // volumes
-        let binds: Vec<String> = runnable_image
-            .volumes()
-            .map(|(orig, dest)| format!("{orig}:{dest}"))
-            .collect();
-        if !binds.is_empty() {
+        // mounts and volumes
+        let mounts: Vec<_> = runnable_image.mounts().map(Into::into).collect();
+
+        if !mounts.is_empty() {
             config.host_config = config.host_config.map(|mut host_config| {
-                host_config.binds = Some(binds);
+                host_config.mounts = Some(mounts);
                 host_config
             });
         }
@@ -231,6 +234,26 @@ where
     }
 }
 
+impl From<&Mount> for bollard::models::Mount {
+    fn from(mount: &Mount) -> Self {
+        let mount_type = match mount.mount_type() {
+            MountType::Bind => bollard::models::MountTypeEnum::BIND,
+            MountType::Volume => bollard::models::MountTypeEnum::VOLUME,
+            MountType::Tmpfs => bollard::models::MountTypeEnum::TMPFS,
+        };
+
+        let is_read_only = matches!(mount.access_mode(), AccessMode::ReadOnly);
+
+        Self {
+            target: mount.target().map(str::to_string),
+            source: mount.source().map(str::to_string),
+            typ: Some(mount_type),
+            read_only: Some(is_read_only),
+            ..Default::default()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,7 +266,6 @@ mod tests {
             .start()
             .await;
 
-        // inspect volume and env
         let container_details = client.inspect(container.id()).await;
         let publish_ports = container_details
             .host_config

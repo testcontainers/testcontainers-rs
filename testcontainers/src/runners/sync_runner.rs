@@ -60,7 +60,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        core::{client::Client, WaitFor},
+        core::{client::Client, mounts::Mount, WaitFor},
         images::generic::GenericImage,
     };
 
@@ -89,7 +89,7 @@ mod tests {
 
     #[derive(Default)]
     struct HelloWorld {
-        volumes: BTreeMap<String, String>,
+        mounts: Vec<Mount>,
         env_vars: BTreeMap<String, String>,
     }
 
@@ -112,8 +112,8 @@ mod tests {
             Box::new(self.env_vars.iter())
         }
 
-        fn volumes(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-            Box::new(self.volumes.iter())
+        fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
+            Box::new(self.mounts.iter())
         }
     }
 
@@ -121,7 +121,6 @@ mod tests {
     fn sync_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
         let container = RunnableImage::from(GenericImage::new("hello-world", "latest")).start();
 
-        // inspect volume and env
         let container_details = inspect(container.id());
         let publish_ports = container_details
             .host_config
