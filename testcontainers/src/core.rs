@@ -3,6 +3,7 @@ pub use self::{
     image::{
         ContainerState, ExecCommand, Host, Image, ImageArgs, PortMapping, RunnableImage, WaitFor,
     },
+    mounts::{AccessMode, Mount, MountType},
 };
 
 mod image;
