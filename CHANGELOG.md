@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.1] - 2024-04-27
+### Details
+#### Documentation
+- Add readme to crates.io and fix documentation builds ([#598](https://github.com/testcontainers/testcontainers-rs/pull/598))
+- Fix symlink to readme ([#600](https://github.com/testcontainers/testcontainers-rs/pull/600))
 ## [0.16.0] - 2024-04-27
 ### Details
 #### Bug Fixes
