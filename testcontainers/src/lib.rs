@@ -70,7 +70,7 @@
 //! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
 
 pub mod core;
-pub use crate::core::{containers::*, Image, ImageArgs, RunnableImage};
+pub use crate::core::{containers::*, CgroupnsMode, Image, ImageArgs, RunnableImage};
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]

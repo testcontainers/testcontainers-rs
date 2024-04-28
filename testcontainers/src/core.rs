@@ -1,7 +1,8 @@
 pub use self::{
     containers::*,
     image::{
-        ContainerState, ExecCommand, Host, Image, ImageArgs, PortMapping, RunnableImage, WaitFor,
+        CgroupnsMode, ContainerState, ExecCommand, Host, Image, ImageArgs, PortMapping,
+        RunnableImage, WaitFor,
     },
     mounts::{AccessMode, Mount, MountType},
 };

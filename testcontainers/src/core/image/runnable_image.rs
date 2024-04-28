@@ -21,6 +21,7 @@ pub struct RunnableImage<I: Image> {
     ports: Option<Vec<PortMapping>>,
     privileged: bool,
     shm_size: Option<u64>,
+    cgroupns_mode: Option<CgroupnsMode>,
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
@@ -36,6 +37,12 @@ pub enum Host {
     Addr(IpAddr),
     #[display("host-gateway")]
     HostGateway,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CgroupnsMode {
+    Host,
+    Private,
 }
 
 impl<I: Image> RunnableImage<I> {
@@ -73,6 +80,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn privileged(&self) -> bool {
         self.privileged
+    }
+
+    pub fn cgroupns_mode(&self) -> Option<CgroupnsMode> {
+        self.cgroupns_mode
     }
 
     /// Shared memory size in bytes
@@ -201,6 +212,17 @@ impl<I: Image> RunnableImage<I> {
         Self { privileged, ..self }
     }
 
+    /// cgroup namespace mode for the container. Possible values are:
+    /// - `\"private\"`: the container runs in its own private cgroup namespace
+    /// - `\"host\"`: use the host system's cgroup namespace
+    /// If not specified, the daemon default is used, which can either be `\"private\"` or `\"host\"`, depending on daemon version, kernel support and configuration.
+    pub fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> Self {
+        Self {
+            cgroupns_mode: Some(cgroupns_mode),
+            ..self
+        }
+    }
+
     /// Sets the shared memory size in bytes
     pub fn with_shm_size(self, bytes: u64) -> Self {
         Self {
@@ -235,6 +257,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             ports: None,
             privileged: false,
             shm_size: None,
+            cgroupns_mode: None,
         }
     }
 }

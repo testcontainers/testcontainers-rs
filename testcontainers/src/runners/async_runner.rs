@@ -5,6 +5,7 @@ use bollard::{
     container::{Config, CreateContainerOptions},
     models::{HostConfig, PortBinding},
 };
+use bollard_stubs::models::HostConfigCgroupnsModeEnum;
 
 use crate::{
     core::{
@@ -13,7 +14,7 @@ use crate::{
         network::Network,
         ContainerState,
     },
-    ContainerAsync, Image, ImageArgs, RunnableImage,
+    CgroupnsMode, ContainerAsync, Image, ImageArgs, RunnableImage,
 };
 
 #[async_trait]
@@ -62,6 +63,7 @@ where
             host_config: Some(HostConfig {
                 privileged: Some(runnable_image.privileged()),
                 extra_hosts: Some(extra_hosts),
+                cgroupns_mode: runnable_image.cgroupns_mode().map(|mode| mode.into()),
                 ..Default::default()
             }),
             ..Default::default()
@@ -255,6 +257,15 @@ impl From<&Mount> for bollard::models::Mount {
     }
 }
 
+impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
+    fn from(value: CgroupnsMode) -> Self {
+        match value {
+            CgroupnsMode::Host => Self::HOST,
+            CgroupnsMode::Private => Self::PRIVATE,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -400,5 +411,53 @@ mod tests {
 
         let privileged = container_details.host_config.unwrap().privileged.unwrap();
         assert!(privileged, "privileged must be `true`");
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_host_cgroupns_mode() {
+        let image = GenericImage::new("hello-world", "latest");
+        let container = RunnableImage::from(image)
+            .with_cgroupns_mode(CgroupnsMode::Host)
+            .start()
+            .await;
+
+        let client = Client::lazy_client().await;
+        let container_details = client.inspect(container.id()).await;
+
+        let cgroupns_mode = container_details
+            .host_config
+            .unwrap()
+            .cgroupns_mode
+            .unwrap();
+
+        assert_eq!(
+            HostConfigCgroupnsModeEnum::HOST,
+            cgroupns_mode,
+            "cgroupns mode must be `host`"
+        );
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_private_cgroupns_mode() {
+        let image = GenericImage::new("hello-world", "latest");
+        let container = RunnableImage::from(image)
+            .with_cgroupns_mode(CgroupnsMode::Private)
+            .start()
+            .await;
+
+        let client = Client::lazy_client().await;
+        let container_details = client.inspect(container.id()).await;
+
+        let cgroupns_mode = container_details
+            .host_config
+            .unwrap()
+            .cgroupns_mode
+            .unwrap();
+
+        assert_eq!(
+            HostConfigCgroupnsModeEnum::PRIVATE,
+            cgroupns_mode,
+            "cgroupns mode must be `private`"
+        );
     }
 }
