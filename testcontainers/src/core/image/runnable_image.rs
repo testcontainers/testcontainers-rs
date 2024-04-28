@@ -22,6 +22,7 @@ pub struct RunnableImage<I: Image> {
     privileged: bool,
     shm_size: Option<u64>,
     cgroupns_mode: Option<CgroupnsMode>,
+    userns_mode: Option<String>,
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
@@ -84,6 +85,10 @@ impl<I: Image> RunnableImage<I> {
 
     pub fn cgroupns_mode(&self) -> Option<CgroupnsMode> {
         self.cgroupns_mode
+    }
+
+    pub fn userns_mode(&self) -> Option<String> {
+        self.userns_mode.clone()
     }
 
     /// Shared memory size in bytes
@@ -223,6 +228,14 @@ impl<I: Image> RunnableImage<I> {
         }
     }
 
+    /// Sets the usernamespace mode for the container when usernamespace remapping option is enabled.
+    pub fn with_userns_mode(self, userns_mode: &str) -> Self {
+        Self {
+            userns_mode: Some(String::from(userns_mode)),
+            ..self
+        }
+    }
+
     /// Sets the shared memory size in bytes
     pub fn with_shm_size(self, bytes: u64) -> Self {
         Self {
@@ -258,6 +271,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             privileged: false,
             shm_size: None,
             cgroupns_mode: None,
+            userns_mode: None,
         }
     }
 }

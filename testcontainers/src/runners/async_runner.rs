@@ -64,6 +64,7 @@ where
                 privileged: Some(runnable_image.privileged()),
                 extra_hosts: Some(extra_hosts),
                 cgroupns_mode: runnable_image.cgroupns_mode().map(|mode| mode.into()),
+                userns_mode: runnable_image.userns_mode(),
                 ..Default::default()
             }),
             ..Default::default()
@@ -459,5 +460,20 @@ mod tests {
             cgroupns_mode,
             "cgroupns mode must be `private`"
         );
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_host_userns_mode() {
+        let image = GenericImage::new("hello-world", "latest");
+        let container = RunnableImage::from(image)
+            .with_userns_mode("host")
+            .start()
+            .await;
+
+        let client = Client::lazy_client().await;
+        let container_details = client.inspect(container.id()).await;
+
+        let userns_mode = container_details.host_config.unwrap().userns_mode.unwrap();
+        assert_eq!("host", userns_mode, "userns mode must be `host`");
     }
 }
