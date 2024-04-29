@@ -33,6 +33,7 @@ pub struct ContainerAsync<I: Image> {
     id: String,
     image: RunnableImage<I>,
     pub(super) docker_client: Arc<Client>,
+    #[allow(dead_code)]
     network: Option<Arc<Network>>,
     dropped: bool,
 }
@@ -163,12 +164,24 @@ where
     }
 
     /// Returns the host ip address of docker container
+    #[deprecated(since = "0.16.6", note = "Please use `get_host` instead")]
     pub async fn get_host_ip_address(&self) -> IpAddr {
-        let host_ip = self.docker_client.docker_host_ip_address().await;
+        let host_name = self.docker_client.docker_hostname().await;
 
-        host_ip
-            .parse()
-            .unwrap_or_else(|e| panic!("invalid host ip: '{host_ip}', error: {e}"))
+        match host_name {
+            // todo: drop `dns_lookup` dependency after dropping this method
+            url::Host::Domain(domain) => dns_lookup::lookup_host(&domain)
+                .ok()
+                .and_then(|ips| ips.into_iter().next())
+                .unwrap_or(IpAddr::from([127, 0, 0, 1])),
+            url::Host::Ipv4(ip) => ip.into(),
+            url::Host::Ipv6(ip) => ip.into(),
+        }
+    }
+
+    /// Returns the Docker container's host name, suitable for URL usage.
+    pub async fn get_host(&self) -> url::Host {
+        self.docker_client.docker_hostname().await
     }
 
     pub async fn exec(&self, cmd: ExecCommand) {
