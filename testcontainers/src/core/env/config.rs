@@ -3,12 +3,11 @@ use std::{
     str::FromStr,
 };
 
-use serde::Deserialize;
-use serde_with::serde_as;
 use url::Url;
 
 use crate::core::env::GetEnvValue;
 
+#[cfg(feature = "properties-config")]
 const TESTCONTAINERS_PROPERTIES: &str = ".testcontainers.properties";
 
 /// The default `DOCKER_HOST` address that we will try to connect to.
@@ -29,8 +28,8 @@ pub(crate) struct Config {
 }
 
 #[cfg(feature = "properties-config")]
-#[serde_as]
-#[derive(Debug, Default, Deserialize)]
+#[serde_with::serde_as]
+#[derive(Debug, Default, serde::Deserialize)]
 struct TestcontainersProperties {
     #[serde(rename = "tc.host")]
     tc_host: Option<Url>,
