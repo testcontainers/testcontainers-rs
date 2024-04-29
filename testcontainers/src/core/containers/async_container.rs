@@ -164,11 +164,11 @@ where
 
     /// Returns the host ip address of docker container
     pub async fn get_host_ip_address(&self) -> IpAddr {
-        self.docker_client
-            .docker_host_ip_address()
-            .await
+        let host_ip = self.docker_client.docker_host_ip_address().await;
+
+        host_ip
             .parse()
-            .expect("invalid host IP")
+            .expect(format!("invalid host ip: '{host_ip}'"))
     }
 
     pub async fn exec(&self, cmd: ExecCommand) {
