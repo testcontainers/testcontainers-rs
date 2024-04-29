@@ -28,6 +28,19 @@
 //!
 //! See examples in the corresponding runner ([`AsyncRunner`] and [`SyncRunner`])
 //!
+//! ### Docker host resolution
+//!
+//! You can change the configuration of the Docker host used by the client in two ways:
+//! - environment variables
+//! - `~/.testcontainers.properties` file (a Java properties file, enabled by the `properties-config` feature)
+//!
+//! ##### The host is resolved in the following order:
+//!
+//! 1. Docker host from the `tc.host` property in the `~/.testcontainers.properties` file.
+//! 2. `DOCKER_HOST` environment variable.
+//! 3. Docker host from the "docker.host" property in the `~/.testcontainers.properties` file.
+//! 4. Else, the default Docker socket will be returned.
+//!
 //! # Ecosystem
 //!
 //! `testcontainers` is the core crate that provides an API for working with containers in a test environment.

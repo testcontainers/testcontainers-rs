@@ -25,7 +25,7 @@ futures = "0.3"
 log = "0.4"
 parse-display = "0.9.0"
 serde = { version = "1", features = ["derive"] }
-serde-java-properties = "0.1.1"
+serde-java-properties = { version = "0.1.1", optional = true }
 serde_json = "1"
 serde_with = "3.7.0"
 signal-hook = { version = "0.3", optional = true }
@@ -37,6 +37,7 @@ url = { version = "2", features = ["serde"] }
 default = []
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
+properties-config = ["serde-java-properties"]
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
