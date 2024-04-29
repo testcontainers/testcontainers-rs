@@ -122,19 +122,28 @@ where
             .map(|network| network.starts_with("container:"))
             .unwrap_or(false);
 
-        // exposed ports
+        // expose ports
         if !is_container_networked {
-            config.exposed_ports = Some(
-                runnable_image
-                    .expose_ports()
-                    .into_iter()
-                    .map(|p| (format!("{p}/tcp"), HashMap::new()))
-                    .collect(),
-            );
+            let mapped_ports = runnable_image
+                .ports()
+                .as_ref()
+                .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            let ports_to_expose = runnable_image
+                .expose_ports()
+                .iter()
+                .copied()
+                .chain(mapped_ports)
+                .map(|p| (format!("{p}/tcp"), HashMap::new()))
+                .collect();
+
+            // exposed ports of the image + mapped ports
+            config.exposed_ports = Some(ports_to_expose);
         }
 
         // ports
-        if runnable_image.ports().is_some() || !runnable_image.expose_ports().is_empty() {
+        if runnable_image.ports().is_some() {
             let empty: Vec<_> = Vec::new();
             let bindings = runnable_image
                 .ports()
@@ -149,13 +158,7 @@ where
                             host_port: Some(p.local.to_string()),
                         }]),
                     )
-                })
-                .chain(
-                    runnable_image
-                        .expose_ports()
-                        .into_iter()
-                        .map(|p| (format!("{}/tcp", p), Some(vec![PortBinding::default()]))),
-                );
+                });
 
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.port_bindings = Some(bindings.collect());
@@ -167,8 +170,6 @@ where
                 host_config
             });
         }
-
-        // extra hosts
 
         let args = runnable_image
             .args()
