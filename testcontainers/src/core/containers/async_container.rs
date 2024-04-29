@@ -168,7 +168,7 @@ where
 
         host_ip
             .parse()
-            .expect(format!("invalid host ip: '{host_ip}'"))
+            .unwrap_or_else(|e| panic!("invalid host ip: '{host_ip}', error: {e}"))
     }
 
     pub async fn exec(&self, cmd: ExecCommand) {
