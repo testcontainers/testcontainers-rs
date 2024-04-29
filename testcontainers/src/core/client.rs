@@ -1,6 +1,7 @@
 use std::{io, time::Duration};
 
 use bollard::{
+    auth::DockerCredentials,
     container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
@@ -243,7 +244,8 @@ impl Client {
             from_image: descriptor,
             ..Default::default()
         });
-        let mut pulling = self.bollard.create_image(pull_options, None, None);
+        let credentials = self.credentials_for_image(descriptor).await;
+        let mut pulling = self.bollard.create_image(pull_options, None, credentials);
         while let Some(result) = pulling.next().await {
             result.unwrap_or_else(|err| {
                 panic!("Error pulling the image: '{descriptor}', error: {err}")
@@ -283,5 +285,37 @@ impl Client {
                 .unwrap_or_else(|| "localhost".to_string()),
             _ => unreachable!("docker host is already validated in the config"),
         }
+    }
+
+    async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
+        let auth_config = self.config.docker_auth_config()?.to_string();
+        let (server, _) = descriptor.split_once('/')?;
+
+        // `docker_credential` uses blocking API, thus we spawn blocking task to prevent executor from being blocked
+        let cloned_server = server.to_string();
+        let credentials = tokio::task::spawn_blocking(move || {
+            docker_credential::get_credential_from_reader(auth_config.as_bytes(), &cloned_server)
+                .ok()
+        })
+        .await
+        .unwrap()?;
+
+        let bollard_credentials = match credentials {
+            docker_credential::DockerCredential::IdentityToken(token) => DockerCredentials {
+                identitytoken: Some(token),
+                serveraddress: Some(server.to_string()),
+                ..DockerCredentials::default()
+            },
+            docker_credential::DockerCredential::UsernamePassword(username, password) => {
+                DockerCredentials {
+                    username: Some(username),
+                    password: Some(password),
+                    serveraddress: Some(server.to_string()),
+                    ..DockerCredentials::default()
+                }
+            }
+        };
+
+        Some(bollard_credentials)
     }
 }

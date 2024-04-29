@@ -41,6 +41,16 @@
 //! 3. Docker host from the "docker.host" property in the `~/.testcontainers.properties` file.
 //! 4. Else, the default Docker socket will be returned.
 //!
+//! ### Docker authentication
+//!
+//! Sometimes the Docker images you use live in a private Docker registry.
+//! For that reason, Testcontainers for Rust gives you the ability to read the Docker configuration and retrieve the authentication for a given registry.
+//! Configuration is fetched in the following order:
+//!
+//! 1. `DOCKER_AUTH_CONFIG` environment variable, unmarshalling the string value from its JSON representation and using it as the Docker config.
+//! 2. `DOCKER_CONFIG` environment variable, as an alternative path to the Docker config file.
+//! 3. else it will load the default Docker config file, which lives in the user's home, e.g. `~/.docker/config.json`.
+//!
 //! # Ecosystem
 //!
 //! `testcontainers` is the core crate that provides an API for working with containers in a test environment.
