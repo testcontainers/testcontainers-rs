@@ -134,7 +134,7 @@ where
         }
 
         // ports
-        if runnable_image.ports().is_some() || !runnable_image.expose_ports().is_empty() {
+        if runnable_image.ports().is_some() {
             let empty: Vec<_> = Vec::new();
             let bindings = runnable_image
                 .ports()
@@ -149,13 +149,7 @@ where
                             host_port: Some(p.local.to_string()),
                         }]),
                     )
-                })
-                .chain(
-                    runnable_image
-                        .expose_ports()
-                        .into_iter()
-                        .map(|p| (format!("{}/tcp", p), Some(vec![PortBinding::default()]))),
-                );
+                });
 
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.port_bindings = Some(bindings.collect());
@@ -167,8 +161,6 @@ where
                 host_config
             });
         }
-
-        // extra hosts
 
         let args = runnable_image
             .args()
