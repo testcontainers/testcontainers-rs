@@ -164,7 +164,7 @@ where
     }
 
     /// Returns the host ip address of docker container
-    #[deprecated(since = "0.16.6", note = "Please use `get_hostname` instead")]
+    #[deprecated(since = "0.16.6", note = "Please use `get_host` instead")]
     pub async fn get_host_ip_address(&self) -> IpAddr {
         let host_name = self.docker_client.docker_hostname().await;
 
@@ -179,8 +179,8 @@ where
         }
     }
 
-    /// the Docker container's hostname, suitable for URL usage.
-    pub async fn get_hostname(&self) -> url::Host {
+    /// Returns the Docker container's host name, suitable for URL usage.
+    pub async fn get_host(&self) -> url::Host {
         self.docker_client.docker_hostname().await
     }
 

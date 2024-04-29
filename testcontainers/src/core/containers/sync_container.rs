@@ -123,15 +123,15 @@ where
     }
 
     /// Returns the host ip address of docker container
-    #[deprecated(since = "0.16.6", note = "Please use `get_hostname` instead")]
+    #[deprecated(since = "0.16.6", note = "Please use `get_host` instead")]
     pub fn get_host_ip_address(&self) -> IpAddr {
         #[allow(deprecated)]
         self.rt().block_on(self.async_impl().get_host_ip_address())
     }
 
-    /// Returns the Docker container's hostname, suitable for URL usage.
-    pub fn get_hostname(&self) -> url::Host {
-        self.rt().block_on(self.async_impl().get_hostname())
+    /// Returns the Docker container's host name, suitable for URL usage.
+    pub fn get_host(&self) -> url::Host {
+        self.rt().block_on(self.async_impl().get_host())
     }
 
     pub fn exec(&self, cmd: ExecCommand) {

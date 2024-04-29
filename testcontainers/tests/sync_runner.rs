@@ -44,7 +44,7 @@ fn generic_image_with_custom_entrypoint() {
     let port = node.get_host_port_ipv4(80);
     assert_eq!(
         "foo",
-        reqwest::blocking::get(format!("http://{}:{port}", node.get_hostname()))
+        reqwest::blocking::get(format!("http://{}:{port}", node.get_host()))
             .unwrap()
             .text()
             .unwrap()
@@ -56,7 +56,7 @@ fn generic_image_with_custom_entrypoint() {
     let port = node.get_host_port_ipv4(80);
     assert_eq!(
         "bar",
-        reqwest::blocking::get(format!("http://{}:{port}", node.get_hostname()))
+        reqwest::blocking::get(format!("http://{}:{port}", node.get_host()))
             .unwrap()
             .text()
             .unwrap()
