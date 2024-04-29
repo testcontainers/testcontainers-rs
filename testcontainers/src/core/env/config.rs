@@ -28,6 +28,7 @@ pub(crate) struct Config {
     command: Option<Command>,
 }
 
+#[cfg(feature = "properties-config")]
 #[serde_as]
 #[derive(Debug, Default, Deserialize)]
 struct TestcontainersProperties {
@@ -42,6 +43,7 @@ struct TestcontainersProperties {
     cert_path: Option<PathBuf>,
 }
 
+#[cfg(feature = "properties-config")]
 impl TestcontainersProperties {
     async fn load() -> Option<Self> {
         let home_dir = dirs::home_dir()?;
@@ -61,16 +63,22 @@ impl Config {
         E: GetEnvValue,
     {
         let env_config = Self::load_from_env_config::<E>();
-        let properties = TestcontainersProperties::load().await.unwrap_or_default();
 
-        // Environment variables take precedence over properties
-        Self {
-            tc_host: env_config.tc_host.or(properties.tc_host),
-            host: env_config.host.or(properties.host),
-            tls_verify: env_config.tls_verify.or(properties.tls_verify),
-            cert_path: env_config.cert_path.or(properties.cert_path),
-            command: env_config.command,
+        #[cfg(feature = "properties-config")]
+        {
+            let properties = TestcontainersProperties::load().await.unwrap_or_default();
+
+            // Environment variables take precedence over properties
+            Self {
+                tc_host: env_config.tc_host.or(properties.tc_host),
+                host: env_config.host.or(properties.host),
+                tls_verify: env_config.tls_verify.or(properties.tls_verify),
+                cert_path: env_config.cert_path.or(properties.cert_path),
+                command: env_config.command,
+            }
         }
+        #[cfg(not(feature = "properties-config"))]
+        env_config
     }
 
     fn load_from_env_config<E>() -> Self
@@ -140,5 +148,36 @@ impl FromStr for Command {
                 panic!("unknown command '{other}' provided via TESTCONTAINERS_COMMAND env variable",)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "properties-config")]
+    #[test]
+    fn deserialize_java_properties() {
+        let tc_host = Url::parse("http://tc-host").unwrap();
+        let docker_host = Url::parse("http://docker-host").unwrap();
+        let tls_verify = 1;
+        let cert_path = "/path/to/cert";
+
+        let file_content = format!(
+            r"
+            tc.host={tc_host}
+            docker.host={docker_host}
+            docker.tls.verify={tls_verify}
+            docker.cert.path={cert_path}
+        "
+        );
+        let properties: TestcontainersProperties =
+            serde_java_properties::from_slice(file_content.as_bytes())
+                .expect("Failed to parse properties");
+
+        assert_eq!(properties.tc_host, Some(tc_host));
+        assert_eq!(properties.host, Some(docker_host));
+        assert_eq!(properties.tls_verify, Some(tls_verify == 1));
+        assert_eq!(properties.cert_path, Some(PathBuf::from(cert_path)));
     }
 }
