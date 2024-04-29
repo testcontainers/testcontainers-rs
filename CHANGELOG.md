@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.5] - 2024-04-29
+### Details
+#### Bug Fixes
+- Correct drop of a network for sync container ([#612](https://github.com/testcontainers/testcontainers-rs/pull/612))
+- Correct default for `get_host_ip_address` in case of `unix` or `npipe` ([#613](https://github.com/testcontainers/testcontainers-rs/pull/613))
+
+#### Miscellaneous Tasks
+- Update `serde-java-properties` to `0.2.0` ([#614](https://github.com/testcontainers/testcontainers-rs/pull/614))
 ## [0.16.4] - 2024-04-29
 ### Details
 #### Bug Fixes
