@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.4] - 2024-04-29
+### Details
+#### Bug Fixes
+- Properly expose mapped ports ([#610](https://github.com/testcontainers/testcontainers-rs/pull/610))
+
+#### Features
+- Introduce `properties-config` cargo feature ([#608](https://github.com/testcontainers/testcontainers-rs/pull/608))
+- Support docker auth configuration for image pulling ([#609](https://github.com/testcontainers/testcontainers-rs/pull/609))
 ## [0.16.3] - 2024-04-27
 ### Details
 #### Bug Fixes
