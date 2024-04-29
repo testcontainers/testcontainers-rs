@@ -144,8 +144,8 @@ mod tests {
     fn sync_run_command_should_expose_only_requested_ports() {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
-            .with_mapped_port((123, 456))
-            .with_mapped_port((555, 888))
+            .with_mapped_port((124, 456))
+            .with_mapped_port((556, 888))
             .start();
 
         let container_details = inspect(container.id());

@@ -282,7 +282,7 @@ impl Client {
                 .into_iter()
                 .filter_map(|ipam_cfg| ipam_cfg.gateway)
                 .next()
-                .unwrap_or_else(|| "localhost".to_string()),
+                .unwrap_or_else(|| "127.0.0.1".to_string()),
             _ => unreachable!("docker host is already validated in the config"),
         }
     }
