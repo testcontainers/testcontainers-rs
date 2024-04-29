@@ -1,7 +1,6 @@
 use std::{fmt, net::IpAddr, str::FromStr, sync::Arc};
 
 use tokio::runtime::RuntimeFlavor;
-use url::Host;
 
 use crate::{
     core::{
@@ -165,17 +164,24 @@ where
     }
 
     /// Returns the host ip address of docker container
+    #[deprecated(since = "0.16.6", note = "Please use `get_hostname` instead")]
     pub async fn get_host_ip_address(&self) -> IpAddr {
-        let host_name = self.docker_client.docker_host_name().await;
+        let host_name = self.docker_client.docker_hostname().await;
 
         match host_name {
-            Host::Domain(domain) => dns_lookup::lookup_host(&domain)
+            // todo: drop `dns_lookup` dependency after dropping this method
+            url::Host::Domain(domain) => dns_lookup::lookup_host(&domain)
                 .ok()
                 .and_then(|ips| ips.into_iter().next())
                 .unwrap_or(IpAddr::from([127, 0, 0, 1])),
-            Host::Ipv4(ip) => ip.into(),
-            Host::Ipv6(ip) => ip.into(),
+            url::Host::Ipv4(ip) => ip.into(),
+            url::Host::Ipv6(ip) => ip.into(),
         }
+    }
+
+    /// the Docker container's hostname, suitable for URL usage.
+    pub async fn get_hostname(&self) -> url::Host {
+        self.docker_client.docker_hostname().await
     }
 
     pub async fn exec(&self, cmd: ExecCommand) {

@@ -267,7 +267,7 @@ impl Client {
             .expect("Failed to remove network");
     }
 
-    pub(crate) async fn docker_host_name(&self) -> url::Host {
+    pub(crate) async fn docker_hostname(&self) -> url::Host {
         let docker_host = self.config.docker_host();
         let host = match docker_host.scheme() {
             "tcp" | "http" | "https" => docker_host.host().unwrap().to_string(),
