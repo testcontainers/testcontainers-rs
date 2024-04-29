@@ -1,6 +1,7 @@
 use std::{io, time::Duration};
 
 use bollard::{
+    auth::DockerCredentials,
     container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
@@ -243,7 +244,8 @@ impl Client {
             from_image: descriptor,
             ..Default::default()
         });
-        let mut pulling = self.bollard.create_image(pull_options, None, None);
+        let credentials = self.credentials_for_image(descriptor).await;
+        let mut pulling = self.bollard.create_image(pull_options, None, credentials);
         while let Some(result) = pulling.next().await {
             result.unwrap_or_else(|err| {
                 panic!("Error pulling the image: '{descriptor}', error: {err}")
@@ -284,4 +286,42 @@ impl Client {
             _ => unreachable!("docker host is already validated in the config"),
         }
     }
+
+    async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
+        let auth_config = self.config.docker_auth_config()?;
+        let (server, _) = descriptor.split_once('/')?;
+
+        // Resolve the server as a DNS name to confirm that it is actually a registry.
+        if !is_valid_host((server, 443)).await && !is_valid_host(server).await {
+            return None;
+        }
+
+        let credentials =
+            docker_credential::get_credential_from_reader(auth_config.as_bytes(), server).ok()?;
+
+        let bollard_credentials = match credentials {
+            docker_credential::DockerCredential::IdentityToken(token) => DockerCredentials {
+                identitytoken: Some(token),
+                ..DockerCredentials::default()
+            },
+            docker_credential::DockerCredential::UsernamePassword(username, password) => {
+                DockerCredentials {
+                    username: Some(username),
+                    password: Some(password),
+                    ..DockerCredentials::default()
+                }
+            }
+        };
+
+        Some(bollard_credentials)
+    }
+}
+
+/// Returns `true` if the given argument can be resolved to `SockerAddr`
+async fn is_valid_host(maybe_host: impl tokio::net::ToSocketAddrs) -> bool {
+    tokio::net::lookup_host(maybe_host)
+        .await
+        .ok()
+        .and_then(|mut it| it.next())
+        .is_some()
 }

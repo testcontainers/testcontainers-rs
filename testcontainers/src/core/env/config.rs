@@ -7,6 +7,9 @@ use url::Url;
 
 use crate::core::env::GetEnvValue;
 
+/// The default path to the Docker configuration file.
+const DEFAULT_DOCKER_CONFIG_PATH: &str = ".docker/config.json";
+
 #[cfg(feature = "properties-config")]
 const TESTCONTAINERS_PROPERTIES: &str = ".testcontainers.properties";
 
@@ -25,6 +28,7 @@ pub(crate) struct Config {
     tls_verify: Option<bool>,
     cert_path: Option<PathBuf>,
     command: Option<Command>,
+    docker_auth_config: Option<String>,
 }
 
 #[cfg(feature = "properties-config")]
@@ -61,7 +65,7 @@ impl Config {
     where
         E: GetEnvValue,
     {
-        let env_config = Self::load_from_env_config::<E>();
+        let env_config = Self::load_from_env_config::<E>().await;
 
         #[cfg(feature = "properties-config")]
         {
@@ -74,13 +78,14 @@ impl Config {
                 tls_verify: env_config.tls_verify.or(properties.tls_verify),
                 cert_path: env_config.cert_path.or(properties.cert_path),
                 command: env_config.command,
+                docker_auth_config: None,
             }
         }
         #[cfg(not(feature = "properties-config"))]
         env_config
     }
 
-    fn load_from_env_config<E>() -> Self
+    async fn load_from_env_config<E>() -> Self
     where
         E: GetEnvValue,
     {
@@ -93,19 +98,22 @@ impl Config {
         let cert_path = E::get_env_value("DOCKER_CERT_PATH").map(PathBuf::from);
         let command = E::get_env_value("TESTCONTAINERS_COMMAND").and_then(|v| v.parse().ok());
 
+        let docker_auth_config = read_docker_auth_config::<E>().await;
+
         Config {
             host,
             tc_host: None,
             command,
             tls_verify,
             cert_path,
+            docker_auth_config,
         }
     }
 
     /// The Docker host to use. The host is resolved in the following order:
-    ///  1. Docker host from the "tc.host" property in the ~/.testcontainers.properties file.
-    ///  2. DOCKER_HOST environment variable.
-    ///  3. Docker host from the "docker.host" property in the ~/.testcontainers.properties file.
+    ///  1. Docker host from the `tc.host` property in the `~/.testcontainers.properties` file.
+    ///  2. `DOCKER_HOST` environment variable.
+    ///  3. Docker host from the `docker.host` property in the `~/.testcontainers.properties` file.
     ///  4. Else, the default Docker socket will be returned.
     pub(crate) fn docker_host(&self) -> Url {
         self.tc_host
@@ -125,6 +133,34 @@ impl Config {
 
     pub(crate) fn command(&self) -> Command {
         self.command.unwrap_or_default()
+    }
+
+    pub(crate) fn docker_auth_config(&self) -> Option<&str> {
+        self.docker_auth_config.as_deref()
+    }
+}
+
+/// Read the Docker authentication configuration in the following order:
+///
+/// 1. `DOCKER_AUTH_CONFIG` environment variable, unmarshalling the string value from its JSON representation and using it as the Docker config.
+/// 2. `DOCKER_CONFIG` environment variable, as an alternative path to the Docker config file.
+/// 3. else it will load the default Docker config file, which lives in the user's home, e.g. `~/.docker/config.json`.
+async fn read_docker_auth_config<E>() -> Option<String>
+where
+    E: GetEnvValue,
+{
+    match E::get_env_value("DOCKER_AUTH_CONFIG") {
+        Some(cfg) => Some(cfg),
+        None => {
+            let path_to_config = match E::get_env_value("DOCKER_CONFIG").map(PathBuf::from) {
+                Some(path_to_config) => path_to_config,
+                None => {
+                    let home_dir = dirs::home_dir()?;
+                    home_dir.join(DEFAULT_DOCKER_CONFIG_PATH)
+                }
+            };
+            tokio::fs::read_to_string(path_to_config).await.ok()
+        }
     }
 }
 
