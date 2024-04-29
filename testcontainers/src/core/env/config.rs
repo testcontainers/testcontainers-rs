@@ -78,7 +78,7 @@ impl Config {
                 tls_verify: env_config.tls_verify.or(properties.tls_verify),
                 cert_path: env_config.cert_path.or(properties.cert_path),
                 command: env_config.command,
-                docker_auth_config: None,
+                docker_auth_config: env_config.docker_auth_config,
             }
         }
         #[cfg(not(feature = "properties-config"))]

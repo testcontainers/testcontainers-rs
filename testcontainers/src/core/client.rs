@@ -288,21 +288,29 @@ impl Client {
     }
 
     async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
-        let auth_config = self.config.docker_auth_config()?;
+        let auth_config = self.config.docker_auth_config()?.to_string();
         let (server, _) = descriptor.split_once('/')?;
 
-        let credentials =
-            docker_credential::get_credential_from_reader(auth_config.as_bytes(), server).ok()?;
+        // `docker_credential` uses blocking API, thus we spawn blocking task to prevent executor from being blocked
+        let cloned_server = server.to_string();
+        let credentials = tokio::task::spawn_blocking(move || {
+            docker_credential::get_credential_from_reader(auth_config.as_bytes(), &cloned_server)
+                .ok()
+        })
+        .await
+        .unwrap()?;
 
         let bollard_credentials = match credentials {
             docker_credential::DockerCredential::IdentityToken(token) => DockerCredentials {
                 identitytoken: Some(token),
+                serveraddress: Some(server.to_string()),
                 ..DockerCredentials::default()
             },
             docker_credential::DockerCredential::UsernamePassword(username, password) => {
                 DockerCredentials {
                     username: Some(username),
                     password: Some(password),
+                    serveraddress: Some(server.to_string()),
                     ..DockerCredentials::default()
                 }
             }
