@@ -122,15 +122,24 @@ where
             .map(|network| network.starts_with("container:"))
             .unwrap_or(false);
 
-        // exposed ports
+        // expose ports
         if !is_container_networked {
-            config.exposed_ports = Some(
-                runnable_image
-                    .expose_ports()
-                    .into_iter()
-                    .map(|p| (format!("{p}/tcp"), HashMap::new()))
-                    .collect(),
-            );
+            let mapped_ports = runnable_image
+                .ports()
+                .as_ref()
+                .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            let ports_to_expose = runnable_image
+                .expose_ports()
+                .iter()
+                .copied()
+                .chain(mapped_ports)
+                .map(|p| (format!("{p}/tcp"), HashMap::new()))
+                .collect();
+
+            // exposed ports of the image + mapped ports
+            config.exposed_ports = Some(ports_to_expose);
         }
 
         // ports
