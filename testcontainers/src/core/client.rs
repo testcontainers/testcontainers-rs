@@ -291,11 +291,6 @@ impl Client {
         let auth_config = self.config.docker_auth_config()?;
         let (server, _) = descriptor.split_once('/')?;
 
-        // Resolve the server as a DNS name to confirm that it is actually a registry.
-        if !is_valid_host((server, 443)).await && !is_valid_host(server).await {
-            return None;
-        }
-
         let credentials =
             docker_credential::get_credential_from_reader(auth_config.as_bytes(), server).ok()?;
 
@@ -315,13 +310,4 @@ impl Client {
 
         Some(bollard_credentials)
     }
-}
-
-/// Returns `true` if the given argument can be resolved to `SockerAddr`
-async fn is_valid_host(maybe_host: impl tokio::net::ToSocketAddrs) -> bool {
-    tokio::net::lookup_host(maybe_host)
-        .await
-        .ok()
-        .and_then(|mut it| it.next())
-        .is_some()
 }
