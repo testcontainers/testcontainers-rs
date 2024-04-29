@@ -267,9 +267,9 @@ impl Client {
             .expect("Failed to remove network");
     }
 
-    pub(crate) async fn docker_host_ip_address(&self) -> String {
+    pub(crate) async fn docker_host_name(&self) -> url::Host {
         let docker_host = self.config.docker_host();
-        match docker_host.scheme() {
+        let host = match docker_host.scheme() {
             "tcp" | "http" | "https" => docker_host.host().unwrap().to_string(),
             "unix" | "npipe" => self
                 .bollard
@@ -282,9 +282,11 @@ impl Client {
                 .into_iter()
                 .filter_map(|ipam_cfg| ipam_cfg.gateway)
                 .next()
-                .unwrap_or_else(|| "127.0.0.1".to_string()),
+                .unwrap_or_else(|| "localhost".to_string()),
             _ => unreachable!("docker host is already validated in the config"),
-        }
+        };
+
+        url::Host::parse(&host).unwrap_or_else(|e| panic!("invalid host: '{host}', error: {e}"))
     }
 
     async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
