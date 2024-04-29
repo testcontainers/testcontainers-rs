@@ -160,7 +160,6 @@ impl<I: Image> Drop for Container<I> {
     fn drop(&mut self) {
         if let Some(mut active) = self.inner.take() {
             active.runtime.block_on(async {
-                drop(active.async_impl.network.take());
                 match active.async_impl.docker_client.config.command() {
                     env::Command::Remove => active.async_impl.rm().await,
                     env::Command::Keep => {}

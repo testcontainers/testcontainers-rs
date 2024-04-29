@@ -33,8 +33,7 @@ pub struct ContainerAsync<I: Image> {
     id: String,
     image: RunnableImage<I>,
     pub(super) docker_client: Arc<Client>,
-    #[cfg_attr(not(feature = "blocking"), allow(dead_code))]
-    pub(super) network: Option<Arc<Network>>,
+    network: Option<Arc<Network>>,
     dropped: bool,
 }
 
