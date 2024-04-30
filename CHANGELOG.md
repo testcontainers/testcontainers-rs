@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.6] - 2024-04-30
+### Details
+#### Features
+- Add `get_host` to `Container` and deprecate `get_host_ip_address` ([#618](https://github.com/testcontainers/testcontainers-rs/pull/618))
+- Allow cgroupns-mode and userns-mode to be configured  ([#605](https://github.com/testcontainers/testcontainers-rs/pull/605))
 ## [0.16.5] - 2024-04-29
 ### Details
 #### Bug Fixes
