@@ -2,13 +2,14 @@ use std::{fmt, net::IpAddr, str::FromStr, sync::Arc};
 
 use tokio::runtime::RuntimeFlavor;
 
+use crate::core::logs::LogStreamAsync;
 use crate::{
     core::{
         client::{Client, DesiredLogStream},
         env, macros,
         network::Network,
         ports::Ports,
-        ContainerState, ExecCommand, WaitFor,
+        ContainerState, ExecCommand, ExecWithCommand, WaitFor,
     },
     Image, RunnableImage,
 };
@@ -184,6 +185,27 @@ where
         self.docker_client.docker_hostname().await
     }
 
+    pub async fn exec_with(&self, cmd: ExecWithCommand) -> LogStreamAsync<'_> {
+        let ExecWithCommand {
+            cmd,
+            attach_stdout,
+            attach_stderr,
+            container_ready_conditions,
+        } = cmd;
+
+        log::debug!("Executing command {:?}", cmd);
+
+        let output = self
+            .docker_client
+            .exec(&self.id, cmd, attach_stdout, attach_stderr)
+            .await;
+        self.docker_client
+            .block_until_ready(self.id(), &container_ready_conditions)
+            .await;
+
+        output
+    }
+
     pub async fn exec(&self, cmd: ExecCommand) {
         let ExecCommand {
             cmd,
@@ -191,17 +213,20 @@ where
             cmd_ready_condition,
         } = cmd;
 
-        log::debug!("Executing command {:?}", cmd);
+        let (attach_stdout, attach_stderr) =
+            if let WaitFor::StdErrMessage { .. } = &cmd_ready_condition {
+                (Some(false), Some(true))
+            } else {
+                (Some(true), Some(false))
+            };
 
-        let desired_log = if let WaitFor::StdErrMessage { .. } = &cmd_ready_condition {
-            DesiredLogStream::Stderr
-        } else {
-            DesiredLogStream::Stdout
-        };
-
-        let output = self.docker_client.exec(&self.id, cmd, desired_log).await;
-        self.docker_client
-            .block_until_ready(self.id(), &container_ready_conditions)
+        let output = self
+            .exec_with(ExecWithCommand {
+                cmd,
+                attach_stderr,
+                attach_stdout,
+                container_ready_conditions,
+            })
             .await;
 
         match cmd_ready_condition {

@@ -87,17 +87,13 @@ impl Client {
         &self,
         container_id: &str,
         cmd: Vec<String>,
-        desired_log: DesiredLogStream,
+        attach_stdout: Option<bool>,
+        attach_stderr: Option<bool>,
     ) -> LogStreamAsync<'_> {
-        let (stdout, stderr) = match desired_log {
-            DesiredLogStream::Stdout => (true, false),
-            DesiredLogStream::Stderr => (false, true),
-        };
-
         let config = CreateExecOptions {
             cmd: Some(cmd),
-            attach_stdout: Some(stdout),
-            attach_stderr: Some(stderr),
+            attach_stdout,
+            attach_stderr,
             ..Default::default()
         };
 

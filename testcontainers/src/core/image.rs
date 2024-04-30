@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub use exec_command::ExecCommand;
+pub use exec_command::{ExecCommand, ExecWithCommand};
 pub use runnable_image::{Host, PortMapping, RunnableImage};
 pub use wait_for::WaitFor;
 
