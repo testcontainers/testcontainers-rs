@@ -10,11 +10,22 @@ use bollard::{
 };
 use bollard_stubs::models::{ContainerCreateResponse, ContainerInspectResponse, HealthStatusEnum};
 use futures::{StreamExt, TryStreamExt};
+use tokio::sync::OnceCell;
 
 use crate::core::{env, logs::LogStreamAsync, ports::Ports, WaitFor};
 
 mod bollard_client;
 mod factory;
+
+static IN_A_CONTAINER: OnceCell<bool> = OnceCell::const_new();
+
+// See https://github.com/docker/docker/blob/a9fa38b1edf30b23cae3eade0be48b3d4b1de14b/daemon/initlayer/setup_unix.go#L25
+// and Java impl: https://github.com/testcontainers/testcontainers-java/blob/994b385761dde7d832ab7b6c10bc62747fe4b340/core/src/main/java/org/testcontainers/dockerclient/DockerClientConfigUtils.java#L16C5-L17
+async fn is_in_container() -> bool {
+    *IN_A_CONTAINER
+        .get_or_init(|| async { tokio::fs::metadata("/.dockerenv").await.is_ok() })
+        .await
+}
 
 pub(crate) struct AttachLog {
     stdout: bool,
@@ -259,24 +270,32 @@ impl Client {
 
     pub(crate) async fn docker_hostname(&self) -> url::Host {
         let docker_host = self.config.docker_host();
-        let host = match docker_host.scheme() {
-            "tcp" | "http" | "https" => docker_host.host().unwrap().to_string(),
-            "unix" | "npipe" => self
-                .bollard
-                .inspect_network::<String>("bridge", None)
-                .await
-                .ok()
-                .and_then(|net| net.ipam)
-                .and_then(|ipam| ipam.config)
-                .unwrap_or_default()
-                .into_iter()
-                .filter_map(|ipam_cfg| ipam_cfg.gateway)
-                .next()
-                .unwrap_or_else(|| "localhost".to_string()),
-            _ => unreachable!("docker host is already validated in the config"),
-        };
+        match docker_host.scheme() {
+            "tcp" | "http" | "https" => docker_host.host().unwrap().to_owned(),
+            "unix" | "npipe" => {
+                if is_in_container().await {
+                    let host = self
+                        .bollard
+                        .inspect_network::<String>("bridge", None)
+                        .await
+                        .ok()
+                        .and_then(|net| net.ipam)
+                        .and_then(|ipam| ipam.config)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter_map(|ipam_cfg| ipam_cfg.gateway)
+                        .next()
+                        .filter(|gateway| !gateway.trim().is_empty())
+                        .unwrap_or_else(|| "localhost".to_string());
 
-        url::Host::parse(&host).unwrap_or_else(|e| panic!("invalid host: '{host}', error: {e}"))
+                    url::Host::parse(&host)
+                        .unwrap_or_else(|e| panic!("invalid host: '{host}', error: {e}"))
+                } else {
+                    url::Host::Domain("localhost".to_string())
+                }
+            }
+            _ => unreachable!("docker host is already validated in the config"),
+        }
     }
 
     async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
