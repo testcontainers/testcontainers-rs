@@ -11,9 +11,9 @@ pub struct ExecCommand {
 
 impl ExecCommand {
     /// Command to be executed
-    pub fn new(cmd: Vec<String>) -> Self {
+    pub fn new(cmd: Vec<impl Into<String>>) -> Self {
         Self {
-            cmd,
+            cmd: cmd.into_iter().map(Into::into).collect(),
             cmd_ready_condition: CmdWaitFor::Nothing,
             container_ready_conditions: vec![],
         }
@@ -34,7 +34,7 @@ impl ExecCommand {
 
 impl Default for ExecCommand {
     fn default() -> Self {
-        Self::new(vec![])
+        Self::new(Vec::<String>::new())
     }
 }
 

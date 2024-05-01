@@ -101,15 +101,14 @@ async fn async_run_exec() {
     // exit code, it waits for result
     container
         .exec(
-            ExecCommand::new(vec!["sleep".to_string(), "3".to_string()])
-                .with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+            ExecCommand::new(vec!["sleep", "3"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
         )
         .await;
 
     // stdout
     container
         .exec(
-            ExecCommand::new(vec!["ls".to_string()])
+            ExecCommand::new(vec!["ls"])
                 .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
         )
         .await;
@@ -117,7 +116,7 @@ async fn async_run_exec() {
     // stdout or stderr
     container
         .exec(
-            ExecCommand::new(vec!["ls".to_string()])
+            ExecCommand::new(vec!["ls"])
                 .with_cmd_ready_condition(CmdWaitFor::message_on_stdout_or_stderr("foo")),
         )
         .await;
