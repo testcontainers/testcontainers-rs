@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.7] - 2024-05-01
+### Details
+#### Bug Fixes
+- `get_host` for `unix` and `npipe` docker hosts ([#621](https://github.com/testcontainers/testcontainers-rs/pull/621))
+
+#### Features
+- Extend `WaitFor` for `ExecCommand` ([#622](https://github.com/testcontainers/testcontainers-rs/pull/622))
 ## [0.16.6] - 2024-04-30
 ### Details
 #### Features
