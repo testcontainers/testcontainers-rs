@@ -27,10 +27,9 @@ async fn is_in_container() -> bool {
         .await
 }
 
-/// The desired log stream.
-pub(crate) enum DesiredLogStream {
-    Stdout,
-    Stderr,
+pub(crate) struct AttachLog {
+    stdout: bool,
+    stderr: bool,
 }
 
 /// The internal client.
@@ -48,11 +47,11 @@ impl Client {
     }
 
     pub(crate) fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_> {
-        self.logs(id, DesiredLogStream::Stdout)
+        self.logs(id, AttachLog::stdout())
     }
 
     pub(crate) fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_> {
-        self.logs(id, DesiredLogStream::Stderr)
+        self.logs(id, AttachLog::stderr())
     }
 
     pub(crate) async fn ports(&self, id: &str) -> Ports {
@@ -98,17 +97,12 @@ impl Client {
         &self,
         container_id: &str,
         cmd: Vec<String>,
-        desired_log: DesiredLogStream,
-    ) -> LogStreamAsync<'_> {
-        let (stdout, stderr) = match desired_log {
-            DesiredLogStream::Stdout => (true, false),
-            DesiredLogStream::Stderr => (false, true),
-        };
-
+        attach_log: AttachLog,
+    ) -> (String, LogStreamAsync<'_>) {
         let config = CreateExecOptions {
             cmd: Some(cmd),
-            attach_stdout: Some(stdout),
-            attach_stderr: Some(stderr),
+            attach_stdout: Some(attach_log.stdout),
+            attach_stderr: Some(attach_log.stderr),
             ..Default::default()
         };
 
@@ -144,7 +138,7 @@ impl Client {
                     })
                     .boxed();
 
-                LogStreamAsync::new(stream)
+                (exec.id, LogStreamAsync::new(stream))
             }
             StartExecResults::Detached => unreachable!("detach is false"),
         }
@@ -198,15 +192,11 @@ impl Client {
         log::debug!("Container {id} is now ready!");
     }
 
-    fn logs(&self, container_id: &str, desired_log: DesiredLogStream) -> LogStreamAsync<'_> {
-        let (stdout, stderr) = match desired_log {
-            DesiredLogStream::Stdout => (true, false),
-            DesiredLogStream::Stderr => (false, true),
-        };
+    fn logs(&self, container_id: &str, attach_log: AttachLog) -> LogStreamAsync<'_> {
         let options = LogsOptions {
             follow: true,
-            stdout,
-            stderr,
+            stdout: attach_log.stdout,
+            stderr: attach_log.stderr,
             tail: "all".to_owned(),
             ..Default::default()
         };
@@ -338,5 +328,35 @@ impl Client {
         };
 
         Some(bollard_credentials)
+    }
+}
+
+impl AttachLog {
+    pub(crate) fn stdout() -> Self {
+        Self {
+            stdout: true,
+            stderr: false,
+        }
+    }
+
+    pub(crate) fn stderr() -> Self {
+        Self {
+            stdout: false,
+            stderr: true,
+        }
+    }
+
+    pub(crate) fn stdout_and_stderr() -> Self {
+        Self {
+            stdout: true,
+            stderr: true,
+        }
+    }
+
+    pub(crate) fn nothing() -> Self {
+        Self {
+            stdout: false,
+            stderr: false,
+        }
     }
 }

@@ -26,7 +26,7 @@ impl<'d> LogStreamAsync<'d> {
             }
         }
 
-        Err(end_of_stream(lines))
+        Err(end_of_stream(message, lines))
     }
 }
 
@@ -42,9 +42,9 @@ fn handle_line(line: String, message: &str, lines: &mut Vec<String>) -> bool {
     false
 }
 
-fn end_of_stream(lines: Vec<String>) -> WaitError {
+fn end_of_stream(expected_msg: &str, lines: Vec<String>) -> WaitError {
     log::error!(
-        "Failed to find message in stream after comparing {} lines.",
+        "Failed to find message '{expected_msg}' in stream after comparing {} lines.",
         lines.len()
     );
 

@@ -4,11 +4,13 @@ use tokio::runtime::RuntimeFlavor;
 
 use crate::{
     core::{
-        client::{Client, DesiredLogStream},
-        env, macros,
+        client::{AttachLog, Client},
+        env,
+        image::CmdWaitFor,
+        macros,
         network::Network,
         ports::Ports,
-        ContainerState, ExecCommand, WaitFor,
+        ContainerState, ExecCommand,
     },
     Image, RunnableImage,
 };
@@ -194,22 +196,44 @@ where
 
         log::debug!("Executing command {:?}", cmd);
 
-        let desired_log = if let WaitFor::StdErrMessage { .. } = &cmd_ready_condition {
-            DesiredLogStream::Stderr
-        } else {
-            DesiredLogStream::Stdout
+        let attach_log = match cmd_ready_condition {
+            CmdWaitFor::StdOutMessage { .. } => AttachLog::stdout(),
+            CmdWaitFor::StdErrMessage { .. } => AttachLog::stderr(),
+            CmdWaitFor::StdOutOrErrMessage { .. } => AttachLog::stdout_and_stderr(),
+            _ => AttachLog::nothing(),
         };
 
-        let output = self.docker_client.exec(&self.id, cmd, desired_log).await;
+        let (exec_id, output) = self.docker_client.exec(&self.id, cmd, attach_log).await;
         self.docker_client
             .block_until_ready(self.id(), &container_ready_conditions)
             .await;
 
         match cmd_ready_condition {
-            WaitFor::StdOutMessage { message } | WaitFor::StdErrMessage { message } => {
+            CmdWaitFor::StdOutOrErrMessage { message }
+            | CmdWaitFor::StdOutMessage { message }
+            | CmdWaitFor::StdErrMessage { message } => {
                 output.wait_for_message(&message).await.unwrap();
             }
-            WaitFor::Duration { length } => {
+            CmdWaitFor::ExitCode { code } => loop {
+                let inspect = self
+                    .docker_client
+                    .bollard
+                    .inspect_exec(&exec_id)
+                    .await
+                    .unwrap();
+
+                if let Some(exit_code) = inspect.exit_code {
+                    assert_eq!(
+                        exit_code, code,
+                        "expected exit code {} but got {:?}",
+                        code, inspect.exit_code
+                    );
+                    break;
+                } else {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                }
+            },
+            CmdWaitFor::Duration { length } => {
                 tokio::time::sleep(length).await;
             }
             _ => {}
