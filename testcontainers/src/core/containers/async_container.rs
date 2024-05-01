@@ -179,7 +179,8 @@ where
         }
     }
 
-    /// Returns the Docker container's host name, suitable for URL usage.
+    /// Returns the host that this container may be reached on (may not be the local machine)
+    /// Suitable for use in URL
     pub async fn get_host(&self) -> url::Host {
         self.docker_client.docker_hostname().await
     }
