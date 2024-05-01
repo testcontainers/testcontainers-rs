@@ -1,7 +1,11 @@
 use std::time::Duration;
 
 use bollard::Docker;
-use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage, *};
+use testcontainers::{
+    core::{CmdWaitFor, ExecCommand, WaitFor},
+    runners::AsyncRunner,
+    GenericImage, *,
+};
 
 #[derive(Debug, Default)]
 pub struct HelloWorld;
@@ -83,4 +87,57 @@ async fn start_containers_in_parallel() {
     // a sequential start would mean 8 seconds, hence 5 seconds proves some form of parallelism
     let timeout = Duration::from_secs(5);
     let _containers = tokio::time::timeout(timeout, run_all).await.unwrap();
+}
+
+#[tokio::test]
+async fn async_run_exec() {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .with_wait_for(WaitFor::seconds(1));
+    let container = image.start().await;
+
+    // exit code, it waits for result
+    container
+        .exec(
+            ExecCommand::new(vec!["sleep".to_string(), "3".to_string()])
+                .with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+        )
+        .await;
+
+    // stdout
+    container
+        .exec(
+            ExecCommand::new(vec!["ls".to_string()])
+                .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
+        )
+        .await;
+
+    // stdout or stderr
+    container
+        .exec(
+            ExecCommand::new(vec!["ls".to_string()])
+                .with_cmd_ready_condition(CmdWaitFor::message_on_stdout_or_stderr("foo")),
+        )
+        .await;
+}
+
+#[tokio::test]
+#[should_panic]
+async fn async_run_exec_fails_due_to_unexpected_code() {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .with_wait_for(WaitFor::seconds(1));
+    let container = image.start().await;
+
+    // exit code, it waits for result
+    container
+        .exec(
+            ExecCommand::new(vec!["ls".to_string()])
+                .with_cmd_ready_condition(CmdWaitFor::exit_code(-1)),
+        )
+        .await;
 }

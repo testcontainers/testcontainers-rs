@@ -1,7 +1,7 @@
 #![cfg(feature = "blocking")]
 
 use testcontainers::{
-    core::{Host, WaitFor},
+    core::{CmdWaitFor, ExecCommand, Host, WaitFor},
     runners::SyncRunner,
     *,
 };
@@ -127,4 +127,32 @@ fn start_multiple_containers() {
     let _container_1 = image.clone().start();
     let _container_2 = image.clone().start();
     let _container_3 = image.start();
+}
+
+#[test]
+fn sync_run_exec() {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .with_wait_for(WaitFor::seconds(1));
+    let container = image.start();
+
+    // exit code, it waits for result
+    container.exec(
+        ExecCommand::new(vec!["sleep".to_string(), "3".to_string()])
+            .with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+    );
+
+    // stdout
+    container.exec(
+        ExecCommand::new(vec!["ls".to_string()])
+            .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
+    );
+
+    // stdout or stderr
+    container.exec(
+        ExecCommand::new(vec!["ls".to_string()])
+            .with_cmd_ready_condition(CmdWaitFor::message_on_stdout_or_stderr("foo")),
+    );
 }
