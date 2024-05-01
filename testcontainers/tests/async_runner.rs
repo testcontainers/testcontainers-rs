@@ -100,23 +100,20 @@ async fn async_run_exec() {
 
     // exit code, it waits for result
     container
-        .exec(
-            ExecCommand::new(vec!["sleep", "3"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
-        )
+        .exec(ExecCommand::new(["sleep", "3"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)))
         .await;
 
     // stdout
     container
         .exec(
-            ExecCommand::new(vec!["ls"])
-                .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
+            ExecCommand::new(["ls"]).with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
         )
         .await;
 
     // stdout or stderr
     container
         .exec(
-            ExecCommand::new(vec!["ls"])
+            ExecCommand::new(["ls"])
                 .with_cmd_ready_condition(CmdWaitFor::message_on_stdout_or_stderr("foo")),
         )
         .await;
