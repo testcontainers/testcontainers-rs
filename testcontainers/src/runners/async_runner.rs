@@ -385,6 +385,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn async_should_rely_on_default_bridge_network_when_no_network_provided_and_settings_bridge_empty(
+    ) {
+        let hello_world = GenericImage::new("simple_web_server", "latest")
+            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+            .with_wait_for(WaitFor::seconds(1));
+
+        let container = RunnableImage::from(hello_world.clone()).start().await;
+
+        assert!(!container
+            .get_bridge_ip_address()
+            .await
+            .to_string()
+            .is_empty())
+    }
+
+    #[tokio::test]
     async fn async_run_command_should_set_shared_memory_size() {
         let client = Client::lazy_client().await;
         let image = GenericImage::new("hello-world", "latest");

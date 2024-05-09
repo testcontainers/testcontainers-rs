@@ -189,6 +189,18 @@ mod tests {
     }
 
     #[test]
+    fn async_should_rely_on_default_bridge_network_when_no_network_provided_and_settings_bridge_empty(
+    ) {
+        let hello_world = GenericImage::new("simple_web_server", "latest")
+            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+            .with_wait_for(WaitFor::seconds(1));
+
+        let container = RunnableImage::from(hello_world.clone()).start();
+
+        assert!(!container.get_bridge_ip_address().to_string().is_empty())
+    }
+
+    #[test]
     fn sync_run_command_should_include_name() {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)

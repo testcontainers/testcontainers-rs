@@ -1,3 +1,4 @@
+use core::panic;
 use std::{fmt, net::IpAddr, str::FromStr, sync::Arc};
 
 use tokio::runtime::RuntimeFlavor;
@@ -139,13 +140,25 @@ where
 
     /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
     pub async fn get_bridge_ip_address(&self) -> IpAddr {
-        let result = self.docker_client.inspect(&self.id).await;
+        let container_settings = self.docker_client.inspect(&self.id).await;
 
-        let settings = result
+        let host_config = container_settings
+            .host_config
+            .unwrap_or_else(|| panic!("container {} has no host config settings", self.id));
+
+        let network_mode = host_config
+            .network_mode
+            .unwrap_or_else(|| panic!("container {} has no network mode", self.id));
+
+        if network_mode != "bridge" {
+            panic!("container {} is not in bridge mode", self.id);
+        }
+
+        let network_settings = container_settings
             .network_settings
             .unwrap_or_else(|| panic!("container {} has no network settings", self.id));
 
-        let mut networks = settings
+        let mut networks = network_settings
             .networks
             .unwrap_or_else(|| panic!("container {} has no any networks", self.id));
 
@@ -153,16 +166,27 @@ where
             .image
             .network()
             .clone()
-            .or(settings.bridge)
+            .or_else(|| {
+                network_settings
+                    .bridge
+                    .and_then(|b| if !b.is_empty() { Some(b) } else { None })
+            })
+            .or(Some("bridge".to_owned()))
             .unwrap_or_else(|| panic!("container {} has missing bridge name", self.id));
 
         let ip = networks
             .remove(&bridge_name)
             .and_then(|network| network.ip_address)
-            .unwrap_or_else(|| panic!("container {} has missing bridge IP", self.id));
+            .unwrap_or_else(|| {
+                panic!(
+                    "container {} has missing bridge IP {:?}",
+                    self.id,
+                    self.image.network()
+                )
+            });
 
         IpAddr::from_str(&ip)
-            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
+            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id,))
     }
 
     /// Returns the host ip address of docker container
