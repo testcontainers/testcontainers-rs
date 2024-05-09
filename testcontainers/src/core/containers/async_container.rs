@@ -150,39 +150,31 @@ where
             .network_mode
             .unwrap_or_else(|| panic!("container {} has no network mode", self.id));
 
-        if network_mode != "bridge" {
-            panic!("container {} is not in bridge mode", self.id);
-        }
+        let network_settings = self
+            .docker_client
+            .inspect_network(&network_mode)
+            .await
+            .unwrap_or_else(|_| panic!("container {} network mode does not exist", self.id));
 
-        let network_settings = container_settings
+        network_settings
+            .driver
+            .unwrap_or_else(|| panic!("network {} is not in bridge mode", network_mode));
+
+        let container_network_settings = container_settings
             .network_settings
             .unwrap_or_else(|| panic!("container {} has no network settings", self.id));
 
-        let mut networks = network_settings
+        let mut networks = container_network_settings
             .networks
-            .unwrap_or_else(|| panic!("container {} has no any networks", self.id));
-
-        let bridge_name = self
-            .image
-            .network()
-            .clone()
-            .or_else(|| network_settings.bridge.filter(|b| !b.is_empty()))
-            .or_else(|| Some("bridge".to_owned()))
-            .unwrap_or_else(|| panic!("container {} has missing bridge name", self.id));
+            .unwrap_or_else(|| panic!("container {} has no networks", self.id));
 
         let ip = networks
-            .remove(&bridge_name)
+            .remove(&network_mode)
             .and_then(|network| network.ip_address)
-            .unwrap_or_else(|| {
-                panic!(
-                    "container {} has missing bridge IP {:?}",
-                    self.id,
-                    self.image.network()
-                )
-            });
+            .unwrap_or_else(|| panic!("container {} has missing bridge IP", self.id));
 
         IpAddr::from_str(&ip)
-            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id,))
+            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
     }
 
     /// Returns the host ip address of docker container

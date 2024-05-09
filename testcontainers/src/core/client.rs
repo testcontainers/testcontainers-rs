@@ -5,10 +5,12 @@ use bollard::{
     container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
-    network::CreateNetworkOptions,
+    network::{CreateNetworkOptions, InspectNetworkOptions},
     Docker,
 };
-use bollard_stubs::models::{ContainerCreateResponse, ContainerInspectResponse, HealthStatusEnum};
+use bollard_stubs::models::{
+    ContainerCreateResponse, ContainerInspectResponse, HealthStatusEnum, Network,
+};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
 
@@ -230,6 +232,16 @@ impl Client {
             .unwrap();
 
         network.id
+    }
+
+    /// Inspects a network
+    pub(crate) async fn inspect_network(
+        &self,
+        name: &str,
+    ) -> Result<Network, bollard::errors::Error> {
+        self.bollard
+            .inspect_network(name, Some(InspectNetworkOptions::<String>::default()))
+            .await
     }
 
     pub(crate) async fn create_container(
