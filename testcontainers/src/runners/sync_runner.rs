@@ -189,19 +189,6 @@ mod tests {
     }
 
     #[test]
-    fn sync_should_rely_on_network_mode_when_no_network_provided_and_settings_bridge_empty() {
-        let web_server = GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-            .with_wait_for(WaitFor::seconds(1));
-
-        let container = RunnableImage::from(web_server.clone())
-            .with_network("test")
-            .start();
-
-        assert!(!container.get_bridge_ip_address().to_string().is_empty())
-    }
-
-    #[test]
     fn sync_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty() {
         let web_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
