@@ -166,12 +166,8 @@ where
             .image
             .network()
             .clone()
-            .or_else(|| {
-                network_settings
-                    .bridge
-                    .and_then(|b| if !b.is_empty() { Some(b) } else { None })
-            })
-            .or(Some("bridge".to_owned()))
+            .or_else(|| network_settings.bridge.filter(|b| !b.is_empty()))
+            .or_else(|| Some("bridge".to_owned()))
             .unwrap_or_else(|| panic!("container {} has missing bridge name", self.id));
 
         let ip = networks
