@@ -2,7 +2,8 @@ use std::{io, time::Duration};
 
 use bollard::{
     auth::DockerCredentials,
-    container::{Config, CreateContainerOptions, LogsOptions, RemoveContainerOptions},
+    container::{Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions},
+    errors::Error,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
     network::CreateNetworkOptions,
@@ -12,7 +13,12 @@ use bollard_stubs::models::{ContainerCreateResponse, ContainerInspectResponse, H
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
 
-use crate::core::{env, logs::LogStreamAsync, ports::Ports, WaitFor};
+use crate::core::{
+    env,
+    logs::{LogSource, LogStreamAsync},
+    ports::Ports,
+    WaitFor,
+};
 
 mod bollard_client;
 mod factory;
@@ -151,12 +157,12 @@ impl Client {
             match condition {
                 WaitFor::StdOutMessage { message } => self
                     .stdout_logs(id)
-                    .wait_for_message(message)
+                    .wait_for_message(message, Some(LogSource::StdOut))
                     .await
                     .unwrap(),
                 WaitFor::StdErrMessage { message } => self
                     .stderr_logs(id)
-                    .wait_for_message(message)
+                    .wait_for_message(message, Some(LogSource::StdErr))
                     .await
                     .unwrap(),
                 WaitFor::Duration { length } => {
@@ -205,13 +211,7 @@ impl Client {
             .bollard
             .logs(container_id, Some(options))
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
-            .map(|chunk| {
-                let bytes = chunk?.into_bytes();
-                let str = std::str::from_utf8(bytes.as_ref())
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-
-                Ok(String::from(str))
-            })
+            .map(|chunk| chunk?.into_bytes())
             .boxed();
 
         LogStreamAsync::new(stream)

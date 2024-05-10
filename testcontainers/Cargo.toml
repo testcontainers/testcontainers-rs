@@ -19,6 +19,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 async-trait = { version = "0.1" }
 bollard = { version = "0.16.1", features = ["ssl"] }
 bollard-stubs = "=1.44.0-rc.2"
+bytes = "1.6.0"
 conquer-once = { version = "0.4", optional = true }
 dirs = "5.0.1"
 dns-lookup = "2.0.4"

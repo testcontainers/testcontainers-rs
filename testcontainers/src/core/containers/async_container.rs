@@ -203,7 +203,7 @@ where
             _ => AttachLog::nothing(),
         };
 
-        let (exec_id, output) = self.docker_client.exec(&self.id, cmd, attach_log).await;
+        let (exec_id, mut output) = self.docker_client.exec(&self.id, cmd, attach_log).await;
         self.docker_client
             .block_until_ready(self.id(), &container_ready_conditions)
             .await;
@@ -212,7 +212,7 @@ where
             CmdWaitFor::StdOutOrErrMessage { message }
             | CmdWaitFor::StdOutMessage { message }
             | CmdWaitFor::StdErrMessage { message } => {
-                output.wait_for_message(&message).await.unwrap();
+                output.wait_for_message(&message, None).await.unwrap();
             }
             CmdWaitFor::ExitCode { code } => loop {
                 let inspect = self

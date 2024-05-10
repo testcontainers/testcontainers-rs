@@ -1,9 +1,33 @@
 use std::{fmt, io};
 
-use futures::{stream::BoxStream, StreamExt};
+use bytes::Bytes;
+use futures::{stream::BoxStream, Stream, StreamExt};
+
+/// Defines error cases when waiting for a message in a stream.
+#[derive(Debug)]
+pub enum WaitError<'a> {
+    /// Indicates the stream ended before finding the log line you were looking for.
+    /// Contains all the lines that were read for debugging purposes.
+    EndOfStream {
+        stdout: &'a Vec<String>,
+        stderr: &'a Vec<String>,
+    },
+    // todo: tuple is used by Debug impl, remove once nightly clippy is fixed
+    Io(#[allow(dead_code)] io::Error),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum LogSource {
+    StdOut,
+    StdErr,
+}
+
+pub(crate) type LogEntry = (LogSource, Bytes);
 
 pub(crate) struct LogStreamAsync<'d> {
-    inner: BoxStream<'d, Result<String, io::Error>>,
+    inner: BoxStream<'d, Result<LogEntry, io::Error>>,
+    stdout_cache: Vec<String>,
+    stderr_cache: Vec<String>,
 }
 
 impl<'d> fmt::Debug for LogStreamAsync<'d> {
@@ -13,54 +37,92 @@ impl<'d> fmt::Debug for LogStreamAsync<'d> {
 }
 
 impl<'d> LogStreamAsync<'d> {
-    pub fn new(stream: BoxStream<'d, Result<String, io::Error>>) -> Self {
-        Self { inner: stream }
+    pub fn new(stream: BoxStream<'d, Result<LogEntry, io::Error>>) -> Self {
+        Self {
+            inner: stream,
+            stdout_cache: vec![],
+            stderr_cache: vec![],
+        }
     }
 
-    pub async fn wait_for_message(mut self, message: &str) -> Result<(), WaitError> {
-        let mut lines = vec![];
-
-        while let Some(line) = self.inner.next().await.transpose()? {
-            if handle_line(line, message, &mut lines) {
+    pub async fn wait_for_message(
+        &mut self,
+        message: &str,
+        filter: Option<LogSource>,
+    ) -> Result<(), WaitError> {
+        while let Some((source, line)) = self.poll_line().await? {
+            let match_found = match (source, filter) {
+                (LogSource::StdOut, Some(LogSource::StdOut)) => {
+                    check_line(line, message, self.stdout_cache.len())
+                }
+                (LogSource::StdErr, Some(LogSource::StdErr)) => {
+                    check_line(line, message, self.stderr_cache.len())
+                }
+                (_, None) => check_line(
+                    line,
+                    message,
+                    self.stdout_cache
+                        .len()
+                        .saturating_add(self.stderr_cache.len()),
+                ),
+                _ => false,
+            };
+            if match_found {
                 return Ok(());
             }
         }
 
-        Err(end_of_stream(message, lines))
+        log::error!(
+            "Failed to find message '{message}' in stream after comparing {} lines.",
+            1
+        );
+        Err(WaitError::EndOfStream {
+            stdout: &self.stdout_cache,
+            stderr: &self.stderr_cache,
+        })
+    }
+
+    async fn poll_line(&mut self) -> Result<Option<(LogSource, &str)>, WaitError<'_>> {
+        let line = if let Some(entry) = self.inner.next().await.transpose()? {
+            match entry {
+                (LogSource::StdOut, line) => {
+                    self.stdout_cache.push(bytes_to_string(line)?);
+                    self.stdout_cache
+                        .last()
+                        .map(|s| (LogSource::StdOut, s.as_str()))
+                }
+                (LogSource::StdErr, line) => {
+                    self.stderr_cache.push(bytes_to_string(line)?);
+                    self.stderr_cache
+                        .last()
+                        .map(|s| (LogSource::StdErr, s.as_str()))
+                }
+            }
+        } else {
+            None
+        };
+
+        Ok(line)
     }
 }
 
-fn handle_line(line: String, message: &str, lines: &mut Vec<String>) -> bool {
+fn check_line(line: &str, message: &str, handled_lines: usize) -> bool {
     if line.contains(message) {
-        log::info!("Found message after comparing {} lines", lines.len());
+        log::info!("Found message after comparing {handled_lines} lines");
 
         return true;
     }
 
-    lines.push(line);
-
     false
 }
 
-fn end_of_stream(expected_msg: &str, lines: Vec<String>) -> WaitError {
-    log::error!(
-        "Failed to find message '{expected_msg}' in stream after comparing {} lines.",
-        lines.len()
-    );
-
-    WaitError::EndOfStream(lines)
+fn bytes_to_string(bytes: Bytes) -> Result<String, WaitError<'static>> {
+    std::str::from_utf8(bytes.as_ref())
+        .map_err(|e| WaitError::Io(io::Error::new(io::ErrorKind::Other, e)))
+        .map(String::from)
 }
 
-/// Defines error cases when waiting for a message in a stream.
-#[derive(Debug)]
-pub enum WaitError {
-    /// Indicates the stream ended before finding the log line you were looking for.
-    /// Contains all the lines that were read for debugging purposes.
-    EndOfStream(#[allow(dead_code)] Vec<String>), // todo: tuple is used by Debug impl, remove once nightly clippy is fixed
-    Io(#[allow(dead_code)] io::Error),
-}
-
-impl From<io::Error> for WaitError {
+impl From<io::Error> for WaitError<'_> {
     fn from(e: io::Error) -> Self {
         WaitError::Io(e)
     }
@@ -72,14 +134,17 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn given_logs_when_line_contains_message_should_find_it() {
-        let log_stream = LogStreamAsync::new(Box::pin(futures::stream::iter([Ok(r"
+        let mut log_stream = LogStreamAsync::new(Box::pin(futures::stream::iter([Ok((
+            LogSource::StdOut,
+            r"
             Message one
             Message two
             Message three
         "
-        .to_string())])));
+            .to_string(),
+        ))])));
 
-        let result = log_stream.wait_for_message("Message three").await;
+        let result = log_stream.wait_for_message("Message three", None).await;
 
         assert!(result.is_ok())
     }
