@@ -52,11 +52,13 @@ fn end_of_stream(expected_msg: &str, lines: Vec<String>) -> WaitError {
 }
 
 /// Defines error cases when waiting for a message in a stream.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum WaitError {
     /// Indicates the stream ended before finding the log line you were looking for.
     /// Contains all the lines that were read for debugging purposes.
+    #[error("End of stream reached: {0:?}")]
     EndOfStream(Vec<String>),
+    #[error(transparent)]
     Io(io::Error),
 }
 

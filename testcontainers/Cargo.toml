@@ -33,6 +33,7 @@ serde_with = "3.7.0"
 signal-hook = { version = "0.3", optional = true }
 tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
 tokio-util = "0.7.10"
+thiserror = "1.0.60"
 url = { version = "2", features = ["serde"] }
 
 [features]
