@@ -12,9 +12,9 @@ use crate::{
         client::Client,
         mounts::{AccessMode, Mount, MountType},
         network::Network,
-        ContainerState,
+        CgroupnsMode, ContainerState,
     },
-    CgroupnsMode, ContainerAsync, Image, ImageArgs, RunnableImage,
+    ContainerAsync, Image, ImageArgs, RunnableImage,
 };
 
 #[async_trait]
