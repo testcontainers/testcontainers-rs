@@ -122,13 +122,6 @@ where
             .block_on(self.async_impl().get_bridge_ip_address())
     }
 
-    /// Returns the host ip address of docker container
-    #[deprecated(since = "0.16.6", note = "Please use `get_host` instead")]
-    pub fn get_host_ip_address(&self) -> IpAddr {
-        #[allow(deprecated)]
-        self.rt().block_on(self.async_impl().get_host_ip_address())
-    }
-
     /// Returns the host that this container may be reached on (may not be the local machine)
     /// Suitable for use in URL
     pub fn get_host(&self) -> url::Host {
