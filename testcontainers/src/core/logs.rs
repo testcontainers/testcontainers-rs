@@ -4,16 +4,13 @@ use bytes::Bytes;
 use futures::{stream::BoxStream, Stream, StreamExt};
 
 /// Defines error cases when waiting for a message in a stream.
-#[derive(Debug)]
-pub enum WaitError<'a> {
+#[derive(Debug, thiserror::Error)]
+pub enum WaitError {
     /// Indicates the stream ended before finding the log line you were looking for.
     /// Contains all the lines that were read for debugging purposes.
-    EndOfStream {
-        stdout: &'a Vec<String>,
-        stderr: &'a Vec<String>,
-    },
-    // todo: tuple is used by Debug impl, remove once nightly clippy is fixed
-    Io(#[allow(dead_code)] io::Error),
+    #[error("End of stream reached: {0:?}")]
+    EndOfStream(Vec<String>),
+    Io(io::Error),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -122,7 +119,7 @@ fn bytes_to_string(bytes: Bytes) -> Result<String, WaitError<'static>> {
         .map(String::from)
 }
 
-impl From<io::Error> for WaitError<'_> {
+impl From<io::Error> for WaitError {
     fn from(e: io::Error) -> Self {
         WaitError::Io(e)
     }

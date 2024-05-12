@@ -12,9 +12,9 @@ use crate::{
         client::Client,
         mounts::{AccessMode, Mount, MountType},
         network::Network,
-        ContainerState,
+        CgroupnsMode, ContainerState,
     },
-    CgroupnsMode, ContainerAsync, Image, ImageArgs, RunnableImage,
+    ContainerAsync, Image, ImageArgs, RunnableImage,
 };
 
 #[async_trait]
@@ -382,6 +382,40 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         let client = Client::lazy_client().await;
         assert!(!client.network_exists("awesome-net-2").await)
+    }
+
+    #[tokio::test]
+    async fn async_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty()
+    {
+        let web_server = GenericImage::new("simple_web_server", "latest")
+            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+            .with_wait_for(WaitFor::seconds(1));
+
+        let container = RunnableImage::from(web_server.clone())
+            .with_network("bridge")
+            .start()
+            .await;
+
+        assert!(!container
+            .get_bridge_ip_address()
+            .await
+            .to_string()
+            .is_empty())
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn async_should_panic_when_non_bridged_network_selected() {
+        let web_server = GenericImage::new("simple_web_server", "latest")
+            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+            .with_wait_for(WaitFor::seconds(1));
+
+        let container = RunnableImage::from(web_server.clone())
+            .with_network("host")
+            .start()
+            .await;
+
+        container.get_bridge_ip_address().await;
     }
 
     #[tokio::test]
