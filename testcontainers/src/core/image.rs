@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 
-pub use exec_command::{CmdWaitFor, ExecCommand};
+pub use exec::{CmdWaitFor, ExecCommand};
 pub use runnable_image::{CgroupnsMode, Host, PortMapping, RunnableImage};
 pub use wait_for::WaitFor;
 
 use super::ports::Ports;
 use crate::core::mounts::Mount;
 
-mod exec_command;
+mod exec;
 mod runnable_image;
 mod wait_for;
 

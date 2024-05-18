@@ -7,6 +7,7 @@ pub use self::{
     mounts::{AccessMode, Mount, MountType},
 };
 
+pub mod errors;
 mod image;
 
 pub(crate) mod client;
