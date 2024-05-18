@@ -1,5 +1,6 @@
 use crate::core::logs::WaitLogError;
 
+/// Error type for exec operation.
 #[derive(Debug, thiserror::Error)]
 pub enum ExecError {
     #[error("failed to start exec process: {0}")]
@@ -12,6 +13,7 @@ pub enum ExecError {
     WaitContainer(#[from] WaitContainerError),
 }
 
+/// Error type for waiting for container readiness based on [`crate::core::WaitFor`] conditions.
 #[derive(Debug, thiserror::Error)]
 pub enum WaitContainerError {
     #[error("failed to wait for container log: {0}")]

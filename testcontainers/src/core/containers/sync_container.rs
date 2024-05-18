@@ -5,7 +5,7 @@ use crate::{
     ContainerAsync, Image,
 };
 
-mod exec;
+pub(super) mod exec;
 
 /// Represents a running docker container.
 ///
@@ -131,9 +131,9 @@ where
     }
 
     /// Executes a command in the container.
-    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult<'_>, ExecError> {
+    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::SyncExecResult<'_>, ExecError> {
         let async_exec = self.rt().block_on(self.async_impl().exec(cmd))?;
-        Ok(exec::ExecResult {
+        Ok(exec::SyncExecResult {
             inner: async_exec,
             runtime: self.rt(),
         })
