@@ -208,21 +208,24 @@ where
             CmdWaitFor::StdErrMessage { message } => {
                 exec.stderr().wait_for_message(&message).await.unwrap();
             }
-            CmdWaitFor::ExitCode { code } => loop {
-                let inspect = self.docker_client.inspect_exec(exec.id()).await.unwrap();
+            CmdWaitFor::ExitCode { code } => {
+                let exec_id = exec.id().to_string();
+                loop {
+                    let inspect = self.docker_client.inspect_exec(&exec_id).await.unwrap();
 
-                if let Some(actual) = inspect.exit_code {
-                    if actual != code {
-                        return Err(ExecError::ExitCodeMismatch {
-                            expected: code,
-                            actual,
-                        });
+                    if let Some(actual) = inspect.exit_code {
+                        if actual != code {
+                            return Err(ExecError::ExitCodeMismatch {
+                                expected: code,
+                                actual,
+                            });
+                        }
+                        break;
+                    } else {
+                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                     }
-                    break;
-                } else {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 }
-            },
+            }
             CmdWaitFor::Duration { length } => {
                 tokio::time::sleep(length).await;
             }

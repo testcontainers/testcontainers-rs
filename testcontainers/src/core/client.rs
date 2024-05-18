@@ -153,8 +153,8 @@ impl Client {
                     let mut output = output;
                     while let Some(chunk) = output.next().await {
                         // don't produce extra messages until the receiver is ready to consume them
-                        sender_backpressure.forget_permits(1);
                         handle_error!(sender_backpressure.acquire().await);
+                        sender_backpressure.forget_permits(1);
                         match chunk {
                             Ok(LogOutput::StdOut { message }) => {
                                 handle_error!(stdout_tx.send(Ok(message)));
