@@ -1,6 +1,4 @@
-use std::{fmt, io, io::Read};
-
-use tokio_util::io::SyncIoBridge;
+use std::{fmt, io};
 
 /// Represents the result of an executed command in a container.
 pub struct SyncExecResult<'a> {
@@ -16,33 +14,13 @@ impl<'a> SyncExecResult<'a> {
     }
 
     /// Returns stdout as a vector of bytes.
-    /// If you want to read stdout in asynchronous manner, use `stdout_reader` instead.
     pub fn stdout(&mut self) -> Result<Vec<u8>, io::Error> {
         self.runtime.block_on(self.inner.stdout())
     }
 
     /// Returns stderr as a vector of bytes.
-    /// If you want to read stderr in asynchronous manner, use `stderr_reader` instead.
     pub fn stderr(&mut self) -> Result<Vec<u8>, io::Error> {
         self.runtime.block_on(self.inner.stderr())
-    }
-
-    /// Returns an asynchronous reader for stdout.
-    pub fn stdout_reader<'b>(&'b mut self) -> Box<dyn Read + 'b> {
-        let reader = self.inner.stdout_reader();
-        Box::new(SyncIoBridge::new_with_handle(
-            reader,
-            self.runtime.handle().clone(),
-        ))
-    }
-
-    /// Returns an asynchronous reader for stderr.
-    pub fn stderr_reader<'b>(&'b mut self) -> Box<dyn Read + 'b> {
-        let reader = self.inner.stderr_reader();
-        Box::new(SyncIoBridge::new_with_handle(
-            reader,
-            self.runtime.handle().clone(),
-        ))
     }
 }
 

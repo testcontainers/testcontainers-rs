@@ -167,11 +167,9 @@ fn sync_run_exec() {
         ]))
         .unwrap();
 
-    let mut stdout = String::new();
-    res.stdout_reader().read_to_string(&mut stdout).unwrap();
+    let stdout = String::from_utf8(res.stdout().unwrap()).unwrap();
     assert_eq!(stdout, "stdout 1\nstdout 2\n");
 
-    let mut stderr = String::new();
-    res.stderr_reader().read_to_string(&mut stderr).unwrap();
+    let stderr = String::from_utf8(res.stderr().unwrap()).unwrap();
     assert_eq!(stderr, "stderr 1\nstderr 2\n");
 }
