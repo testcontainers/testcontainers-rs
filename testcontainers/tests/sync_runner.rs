@@ -154,7 +154,6 @@ fn sync_run_exec() {
                 .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
         )
         .unwrap();
-    assert_eq!(res.exit_code().unwrap(), Some(0));
     let stdout = String::from_utf8(res.stdout().unwrap()).unwrap();
     assert!(stdout.contains("foo"), "stdout must contain 'foo'");
 

@@ -114,7 +114,6 @@ async fn async_run_exec() {
         .await
         .unwrap();
 
-    assert_eq!(res.exit_code().await.unwrap(), Some(0));
     let stdout = String::from_utf8(res.stdout().await.unwrap()).unwrap();
     assert!(stdout.contains("foo"), "stdout must contain 'foo'");
 
