@@ -1,14 +1,16 @@
 use std::{env::var, time::Duration};
 
+use bytes::Bytes;
+
 /// Represents a condition that needs to be met before a container is considered ready.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum WaitFor {
     /// An empty condition. Useful for default cases or fallbacks.
     Nothing,
     /// Wait for a message on the stdout stream of the container's logs.
-    StdOutMessage { message: String },
+    StdOutMessage { message: Bytes },
     /// Wait for a message on the stderr stream of the container's logs.
-    StdErrMessage { message: String },
+    StdErrMessage { message: Bytes },
     /// Wait for a certain amount of time.
     Duration { length: Duration },
     /// Wait for the container's status to become `healthy`.
@@ -16,15 +18,15 @@ pub enum WaitFor {
 }
 
 impl WaitFor {
-    pub fn message_on_stdout<S: Into<String>>(message: S) -> WaitFor {
+    pub fn message_on_stdout(message: impl AsRef<[u8]>) -> WaitFor {
         WaitFor::StdOutMessage {
-            message: message.into(),
+            message: Bytes::from(message.as_ref().to_vec()),
         }
     }
 
-    pub fn message_on_stderr<S: Into<String>>(message: S) -> WaitFor {
+    pub fn message_on_stderr(message: impl AsRef<[u8]>) -> WaitFor {
         WaitFor::StdErrMessage {
-            message: message.into(),
+            message: Bytes::from(message.as_ref().to_vec()),
         }
     }
 
