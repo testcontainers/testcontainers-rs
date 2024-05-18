@@ -134,10 +134,7 @@ impl Client {
             StartExecResults::Attached { output, .. } => {
                 let (stdout_tx, stdout_rx) = tokio::sync::mpsc::unbounded_channel();
                 let (stderr_tx, stderr_rx) = tokio::sync::mpsc::unbounded_channel();
-                let stdout_notifier = Arc::new(tokio::sync::Semaphore::new(100));
-                let stderr_notifier = stdout_notifier.clone();
 
-                let sender_backpressure = stdout_notifier.clone();
                 tokio::spawn(async move {
                     macro_rules! handle_error {
                         ($res:expr) => {
@@ -152,9 +149,6 @@ impl Client {
                     }
                     let mut output = output;
                     while let Some(chunk) = output.next().await {
-                        // don't produce extra messages until the receiver is ready to consume them
-                        handle_error!(sender_backpressure.acquire().await);
-                        sender_backpressure.forget_permits(1);
                         match chunk {
                             Ok(LogOutput::StdOut { message }) => {
                                 handle_error!(stdout_tx.send(Ok(message)));
@@ -177,18 +171,10 @@ impl Client {
                     }
                 });
 
-                let stdout = LogStreamAsync::new(
-                    UnboundedReceiverStream::new(stdout_rx)
-                        .inspect(move |_| stdout_notifier.add_permits(1))
-                        .boxed(),
-                )
-                .enable_cache();
-                let stderr = LogStreamAsync::new(
-                    UnboundedReceiverStream::new(stderr_rx)
-                        .inspect(move |_| stderr_notifier.add_permits(1))
-                        .boxed(),
-                )
-                .enable_cache();
+                let stdout = LogStreamAsync::new(UnboundedReceiverStream::new(stdout_rx).boxed())
+                    .enable_cache();
+                let stderr = LogStreamAsync::new(UnboundedReceiverStream::new(stderr_rx).boxed())
+                    .enable_cache();
 
                 Ok(ExecResult {
                     id: exec.id,
