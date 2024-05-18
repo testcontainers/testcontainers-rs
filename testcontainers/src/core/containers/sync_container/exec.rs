@@ -16,18 +16,18 @@ impl<'a> SyncExecResult<'a> {
     }
 
     /// Returns stdout as a vector of bytes.
-    /// If you want to read stdout in asynchronous manner, use `stdout_reader` instead.
+    /// If you want to lazily read stdout, use `stdout_reader` instead.
     pub fn stdout(&mut self) -> Result<Vec<u8>, io::Error> {
         self.runtime.block_on(self.inner.stdout())
     }
 
     /// Returns stderr as a vector of bytes.
-    /// If you want to read stderr in asynchronous manner, use `stderr_reader` instead.
+    /// If you want to lazily read stderr, use `stderr_reader` instead.
     pub fn stderr(&mut self) -> Result<Vec<u8>, io::Error> {
         self.runtime.block_on(self.inner.stderr())
     }
 
-    /// Returns an asynchronous reader for stdout.
+    /// Returns a reader for stdout.
     pub fn stdout_reader<'b>(&'b mut self) -> Box<dyn Read + 'b> {
         let reader = self.inner.stdout_reader();
         Box::new(SyncIoBridge::new_with_handle(
@@ -36,7 +36,7 @@ impl<'a> SyncExecResult<'a> {
         ))
     }
 
-    /// Returns an asynchronous reader for stderr.
+    /// Returns a reader for stderr.
     pub fn stderr_reader<'b>(&'b mut self) -> Box<dyn Read + 'b> {
         let reader = self.inner.stderr_reader();
         Box::new(SyncIoBridge::new_with_handle(
