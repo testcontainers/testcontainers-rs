@@ -1,9 +1,11 @@
 use std::{fmt, net::IpAddr};
 
 use crate::{
-    core::{env, ports::Ports, ExecCommand},
+    core::{env, errors::ExecError, ports::Ports, ExecCommand},
     ContainerAsync, Image,
 };
+
+mod exec;
 
 /// Represents a running docker container.
 ///
@@ -128,8 +130,13 @@ where
         self.rt().block_on(self.async_impl().get_host())
     }
 
-    pub fn exec(&self, cmd: ExecCommand) {
-        self.rt().block_on(self.async_impl().exec(cmd));
+    /// Executes a command in the container.
+    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult<'_>, ExecError> {
+        let async_exec = self.rt().block_on(self.async_impl().exec(cmd))?;
+        Ok(exec::ExecResult {
+            inner: async_exec,
+            runtime: self.rt(),
+        })
     }
 
     pub fn stop(&self) {

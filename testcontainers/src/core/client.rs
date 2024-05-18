@@ -1,28 +1,32 @@
-use std::{io, time::Duration};
+use std::{io, sync::Arc, time::Duration};
 
 use bollard::{
     auth::DockerCredentials,
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions},
-    errors::Error,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
     network::{CreateNetworkOptions, InspectNetworkOptions},
     Docker,
 };
 use bollard_stubs::models::{
-    ContainerCreateResponse, ContainerInspectResponse, HealthStatusEnum, Network,
+    ContainerCreateResponse, ContainerInspectResponse, ExecInspectResponse, HealthStatusEnum,
+    Network,
 };
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::core::{
+    client::exec::ExecResult,
     env,
+    errors::WaitContainerError,
     logs::{LogSource, LogStreamAsync},
     ports::Ports,
     WaitFor,
 };
 
 mod bollard_client;
+mod exec;
 mod factory;
 
 static IN_A_CONTAINER: OnceCell<bool> = OnceCell::const_new();
@@ -33,11 +37,6 @@ async fn is_in_container() -> bool {
     *IN_A_CONTAINER
         .get_or_init(|| async { tokio::fs::metadata("/.dockerenv").await.is_ok() })
         .await
-}
-
-pub(crate) struct AttachLog {
-    stdout: bool,
-    stderr: bool,
 }
 
 /// The internal client.
@@ -55,16 +54,17 @@ impl Client {
     }
 
     pub(crate) fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_> {
-        self.logs(id, AttachLog::stdout())
+        self.logs(id, LogSource::StdOut)
     }
 
     pub(crate) fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_> {
-        self.logs(id, AttachLog::stderr())
+        self.logs(id, LogSource::StdErr)
     }
 
     pub(crate) async fn ports(&self, id: &str) -> Ports {
         self.inspect(id)
             .await
+            .unwrap()
             .network_settings
             .unwrap_or_default()
             .ports
@@ -72,8 +72,11 @@ impl Client {
             .unwrap_or_default()
     }
 
-    pub(crate) async fn inspect(&self, id: &str) -> ContainerInspectResponse {
-        self.bollard.inspect_container(id, None).await.unwrap()
+    pub(crate) async fn inspect(
+        &self,
+        id: &str,
+    ) -> Result<ContainerInspectResponse, bollard::errors::Error> {
+        self.bollard.inspect_container(id, None).await
     }
 
     pub(crate) async fn rm(&self, id: &str) {
@@ -105,20 +108,15 @@ impl Client {
         &self,
         container_id: &str,
         cmd: Vec<String>,
-        attach_log: AttachLog,
-    ) -> (String, LogStreamAsync<'_>) {
+    ) -> Result<ExecResult<'_>, bollard::errors::Error> {
         let config = CreateExecOptions {
             cmd: Some(cmd),
-            attach_stdout: Some(attach_log.stdout),
-            attach_stderr: Some(attach_log.stderr),
+            attach_stdout: Some(true),
+            attach_stderr: Some(true),
             ..Default::default()
         };
 
-        let exec = self
-            .bollard
-            .create_exec(container_id, config)
-            .await
-            .expect("failed to create exec");
+        let exec = self.bollard.create_exec(container_id, config).await?;
 
         let res = self
             .bollard
@@ -130,43 +128,100 @@ impl Client {
                     output_capacity: None,
                 }),
             )
-            .await
-            .expect("failed to start exec");
+            .await?;
 
         match res {
             StartExecResults::Attached { output, .. } => {
-                let stream = output
-                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
-                    .map(|chunk| {
-                        let bytes = chunk?.into_bytes();
-                        let str = std::str::from_utf8(bytes.as_ref())
-                            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                let (stdout_tx, stdout_rx) = tokio::sync::mpsc::unbounded_channel();
+                let (stderr_tx, stderr_rx) = tokio::sync::mpsc::unbounded_channel();
+                let stdout_notifier = Arc::new(tokio::sync::Semaphore::new(100));
+                let stderr_notifier = stdout_notifier.clone();
 
-                        Ok(str.to_string())
-                    })
-                    .boxed();
+                let sender_backpressure = stdout_notifier.clone();
+                tokio::spawn(async move {
+                    macro_rules! handle_error {
+                        ($res:expr) => {
+                            if let Err(err) = $res {
+                                log::debug!(
+                                    "Receiver has been dropped, stop producing messages: {}",
+                                    err
+                                );
+                                break;
+                            }
+                        };
+                    }
+                    let mut output = output;
+                    while let Some(chunk) = output.next().await {
+                        // don't produce extra messages until the receiver is ready to consume them
+                        sender_backpressure.forget_permits(1);
+                        handle_error!(sender_backpressure.acquire().await);
+                        match chunk {
+                            Ok(LogOutput::StdOut { message }) => {
+                                handle_error!(stdout_tx.send(Ok(message)));
+                            }
+                            Ok(LogOutput::StdErr { message }) => {
+                                handle_error!(stderr_tx.send(Ok(message)));
+                            }
+                            Err(err) => {
+                                let err = Arc::new(err);
+                                handle_error!(stdout_tx
+                                    .send(Err(io::Error::new(io::ErrorKind::Other, err.clone()))));
+                                handle_error!(
+                                    stderr_tx.send(Err(io::Error::new(io::ErrorKind::Other, err)))
+                                );
+                            }
+                            Ok(_) => {
+                                unreachable!("only stdout and stderr are supported")
+                            }
+                        }
+                    }
+                });
 
-                (exec.id, LogStreamAsync::new(stream))
+                let stdout = LogStreamAsync::new(
+                    UnboundedReceiverStream::new(stdout_rx)
+                        .inspect(move |_| stdout_notifier.add_permits(1))
+                        .boxed(),
+                )
+                .enable_cache();
+                let stderr = LogStreamAsync::new(
+                    UnboundedReceiverStream::new(stderr_rx)
+                        .inspect(move |_| stderr_notifier.add_permits(1))
+                        .boxed(),
+                )
+                .enable_cache();
+
+                Ok(ExecResult {
+                    id: exec.id,
+                    stdout,
+                    stderr,
+                })
             }
             StartExecResults::Detached => unreachable!("detach is false"),
         }
     }
 
-    pub(crate) async fn block_until_ready(&self, id: &str, ready_conditions: &[WaitFor]) {
+    pub(crate) async fn inspect_exec(
+        &self,
+        exec_id: &str,
+    ) -> Result<ExecInspectResponse, bollard::errors::Error> {
+        self.bollard.inspect_exec(exec_id).await
+    }
+
+    pub(crate) async fn block_until_ready(
+        &self,
+        id: &str,
+        ready_conditions: &[WaitFor],
+    ) -> Result<(), WaitContainerError> {
         log::debug!("Waiting for container {id} to be ready");
 
         for condition in ready_conditions {
             match condition {
-                WaitFor::StdOutMessage { message } => self
-                    .stdout_logs(id)
-                    .wait_for_message(message, Some(LogSource::StdOut))
-                    .await
-                    .unwrap(),
-                WaitFor::StdErrMessage { message } => self
-                    .stderr_logs(id)
-                    .wait_for_message(message, Some(LogSource::StdErr))
-                    .await
-                    .unwrap(),
+                WaitFor::StdOutMessage { message } => {
+                    self.stdout_logs(id).wait_for_message(message).await?
+                }
+                WaitFor::StdErrMessage { message } => {
+                    self.stderr_logs(id).wait_for_message(message).await?
+                }
                 WaitFor::Duration { length } => {
                     tokio::time::sleep(*length).await;
                 }
@@ -176,18 +231,20 @@ impl Client {
                     let health_status = self
                         .inspect(id)
                         .await
+                        .map_err(WaitContainerError::Inspect)?
                         .state
-                        .unwrap_or_else(|| panic!("Container state not available"))
+                        .ok_or(WaitContainerError::StateUnavailable)?
                         .health
-                        .unwrap_or_else(|| panic!("Health state not available"))
-                        .status;
+                        .and_then(|health| health.status);
 
                     match health_status {
                         Some(HEALTHY) => break,
                         None | Some(EMPTY) | Some(NONE) => {
-                            panic!("Healthcheck not configured for container")
+                            return Err(WaitContainerError::HealthCheckNotConfigured(
+                                id.to_string(),
+                            ))
                         }
-                        Some(UNHEALTHY) => panic!("Healthcheck reports unhealthy"),
+                        Some(UNHEALTHY) => return Err(WaitContainerError::Unhealthy),
                         Some(STARTING) => {
                             tokio::time::sleep(Duration::from_millis(100)).await;
                         }
@@ -198,13 +255,14 @@ impl Client {
         }
 
         log::debug!("Container {id} is now ready!");
+        Ok(())
     }
 
-    fn logs(&self, container_id: &str, attach_log: AttachLog) -> LogStreamAsync<'_> {
+    fn logs(&self, container_id: &str, log_source: LogSource) -> LogStreamAsync<'_> {
         let options = LogsOptions {
             follow: true,
-            stdout: attach_log.stdout,
-            stderr: attach_log.stderr,
+            stdout: log_source.is_stdout(),
+            stderr: log_source.is_stderr(),
             tail: "all".to_owned(),
             ..Default::default()
         };
@@ -212,10 +270,9 @@ impl Client {
         let stream = self
             .bollard
             .logs(container_id, Some(options))
+            .map_ok(|chunk| chunk.into_bytes())
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
-            .map(|chunk| chunk?.into_bytes())
             .boxed();
-
         LogStreamAsync::new(stream)
     }
 
@@ -340,35 +397,5 @@ impl Client {
         };
 
         Some(bollard_credentials)
-    }
-}
-
-impl AttachLog {
-    pub(crate) fn stdout() -> Self {
-        Self {
-            stdout: true,
-            stderr: false,
-        }
-    }
-
-    pub(crate) fn stderr() -> Self {
-        Self {
-            stdout: false,
-            stderr: true,
-        }
-    }
-
-    pub(crate) fn stdout_and_stderr() -> Self {
-        Self {
-            stdout: true,
-            stderr: true,
-        }
-    }
-
-    pub(crate) fn nothing() -> Self {
-        Self {
-            stdout: false,
-            stderr: false,
-        }
     }
 }

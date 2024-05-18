@@ -6,6 +6,7 @@ use testcontainers::{
     runners::AsyncRunner,
     GenericImage, *,
 };
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Default)]
 pub struct HelloWorld;
@@ -99,24 +100,48 @@ async fn async_run_exec() {
     let container = image.start().await;
 
     // exit code, it waits for result
-    container
+    let res = container
         .exec(ExecCommand::new(["sleep", "3"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)))
-        .await;
+        .await
+        .unwrap();
+    assert_eq!(res.exit_code().await.unwrap(), Some(0));
 
     // stdout
-    container
+    let mut res = container
         .exec(
             ExecCommand::new(["ls"]).with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
         )
-        .await;
+        .await
+        .unwrap();
 
-    // stdout or stderr
-    container
-        .exec(
-            ExecCommand::new(["ls"])
-                .with_cmd_ready_condition(CmdWaitFor::message_on_stdout_or_stderr("foo")),
-        )
-        .await;
+    assert_eq!(res.exit_code().await.unwrap(), Some(0));
+    let stdout = String::from_utf8(res.stdout().await.unwrap()).unwrap();
+    assert!(stdout.contains("foo"), "stdout must contain 'foo'");
+
+    // stdout and stderr readers
+    let mut res = container
+        .exec(ExecCommand::new([
+            "/bin/bash",
+            "-c",
+            "echo 'stdout 1' >&1 && echo 'stderr 1' >&2 \
+            && echo 'stderr 2' >&2 && echo 'stdout 2' >&1",
+        ]))
+        .await
+        .unwrap();
+
+    let mut stdout = String::new();
+    res.stdout_reader()
+        .read_to_string(&mut stdout)
+        .await
+        .unwrap();
+    assert_eq!(stdout, "stdout 1\nstdout 2\n");
+
+    let mut stderr = String::new();
+    res.stderr_reader()
+        .read_to_string(&mut stderr)
+        .await
+        .unwrap();
+    assert_eq!(stderr, "stderr 1\nstderr 2\n");
 }
 
 #[tokio::test]
@@ -135,5 +160,6 @@ async fn async_run_exec_fails_due_to_unexpected_code() {
             ExecCommand::new(vec!["ls".to_string()])
                 .with_cmd_ready_condition(CmdWaitFor::exit_code(-1)),
         )
-        .await;
+        .await
+        .unwrap();
 }

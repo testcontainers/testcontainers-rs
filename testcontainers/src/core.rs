@@ -12,6 +12,7 @@ mod image;
 pub(crate) mod client;
 pub(crate) mod containers;
 pub(crate) mod env;
+pub(crate) mod errors;
 pub(crate) mod logs;
 pub(crate) mod macros;
 pub(crate) mod mounts;

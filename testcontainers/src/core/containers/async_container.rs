@@ -5,8 +5,9 @@ use tokio::runtime::RuntimeFlavor;
 
 use crate::{
     core::{
-        client::{AttachLog, Client},
+        client::Client,
         env,
+        errors::{ExecError, WaitContainerError},
         image::CmdWaitFor,
         macros,
         network::Network,
@@ -15,6 +16,8 @@ use crate::{
     },
     Image, RunnableImage,
 };
+
+pub(super) mod exec;
 
 /// Represents a running docker container that has been started using an async client.
 ///
@@ -60,7 +63,7 @@ where
             network,
             dropped: false,
         };
-        container.block_until_ready().await;
+        container.block_until_ready().await.unwrap();
         container
     }
 
@@ -140,7 +143,7 @@ where
 
     /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
     pub async fn get_bridge_ip_address(&self) -> IpAddr {
-        let container_settings = self.docker_client.inspect(&self.id).await;
+        let container_settings = self.docker_client.inspect(&self.id).await.unwrap();
 
         let host_config = container_settings
             .host_config
@@ -183,7 +186,8 @@ where
         self.docker_client.docker_hostname().await
     }
 
-    pub async fn exec(&self, cmd: ExecCommand) {
+    /// Executes a command in the container.
+    pub async fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult<'_>, ExecError> {
         let ExecCommand {
             cmd,
             container_ready_conditions,
@@ -192,38 +196,28 @@ where
 
         log::debug!("Executing command {:?}", cmd);
 
-        let attach_log = match cmd_ready_condition {
-            CmdWaitFor::StdOutMessage { .. } => AttachLog::stdout(),
-            CmdWaitFor::StdErrMessage { .. } => AttachLog::stderr(),
-            CmdWaitFor::StdOutOrErrMessage { .. } => AttachLog::stdout_and_stderr(),
-            _ => AttachLog::nothing(),
-        };
-
-        let (exec_id, mut output) = self.docker_client.exec(&self.id, cmd, attach_log).await;
+        let mut exec = self.docker_client.exec(&self.id, cmd).await?;
         self.docker_client
             .block_until_ready(self.id(), &container_ready_conditions)
-            .await;
+            .await?;
 
         match cmd_ready_condition {
-            CmdWaitFor::StdOutOrErrMessage { message }
-            | CmdWaitFor::StdOutMessage { message }
-            | CmdWaitFor::StdErrMessage { message } => {
-                output.wait_for_message(&message, None).await.unwrap();
+            CmdWaitFor::StdOutMessage { message } => {
+                exec.stdout().wait_for_message(&message).await.unwrap();
+            }
+            CmdWaitFor::StdErrMessage { message } => {
+                exec.stderr().wait_for_message(&message).await.unwrap();
             }
             CmdWaitFor::ExitCode { code } => loop {
-                let inspect = self
-                    .docker_client
-                    .bollard
-                    .inspect_exec(&exec_id)
-                    .await
-                    .unwrap();
+                let inspect = self.docker_client.inspect_exec(exec.id()).await.unwrap();
 
-                if let Some(exit_code) = inspect.exit_code {
-                    assert_eq!(
-                        exit_code, code,
-                        "expected exit code {} but got {:?}",
-                        code, inspect.exit_code
-                    );
+                if let Some(actual) = inspect.exit_code {
+                    if actual != code {
+                        return Err(ExecError::ExitCodeMismatch {
+                            expected: code,
+                            actual,
+                        });
+                    }
                     break;
                 } else {
                     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -234,6 +228,13 @@ where
             }
             _ => {}
         }
+
+        Ok(exec::ExecResult {
+            client: self.docker_client.clone(),
+            id: exec.id,
+            stdout: exec.stdout.into_inner(),
+            stderr: exec.stderr.into_inner(),
+        })
     }
 
     pub async fn start(&self) {
@@ -242,7 +243,7 @@ where
             .image
             .exec_after_start(ContainerState::new(self.ports().await))
         {
-            self.exec(cmd).await;
+            self.exec(cmd).await.unwrap();
         }
     }
 
@@ -263,10 +264,10 @@ where
         self.dropped = true;
     }
 
-    async fn block_until_ready(&self) {
+    async fn block_until_ready(&self) -> Result<(), WaitContainerError> {
         self.docker_client
             .block_until_ready(self.id(), &self.image().ready_conditions())
-            .await;
+            .await
     }
 }
 

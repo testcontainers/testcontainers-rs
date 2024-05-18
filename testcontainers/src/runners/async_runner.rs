@@ -223,7 +223,7 @@ where
             .image()
             .exec_after_start(ContainerState::new(container.ports().await))
         {
-            container.exec(cmd).await;
+            container.exec(cmd).await.unwrap();
         }
 
         container
@@ -279,7 +279,7 @@ mod tests {
             .start()
             .await;
 
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
         let publish_ports = container_details
             .host_config
             .unwrap()
@@ -308,7 +308,7 @@ mod tests {
             .start()
             .await;
 
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
 
         let port_bindings = container_details
             .host_config
@@ -328,7 +328,7 @@ mod tests {
             .start()
             .await;
 
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
         let networks = container_details
             .network_settings
             .unwrap()
@@ -350,7 +350,7 @@ mod tests {
             .start()
             .await;
 
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
         let container_name = container_details.name.unwrap();
         assert!(container_name.ends_with("async_hello_container"));
     }
@@ -427,7 +427,7 @@ mod tests {
             .start()
             .await;
 
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
         let shm_size = container_details.host_config.unwrap().shm_size.unwrap();
 
         assert_eq!(shm_size, 1_000_000);
@@ -442,7 +442,7 @@ mod tests {
             .await;
 
         let client = Client::lazy_client().await;
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
 
         let privileged = container_details.host_config.unwrap().privileged.unwrap();
         assert!(privileged, "privileged must be `true`");
@@ -457,7 +457,7 @@ mod tests {
             .await;
 
         let client = Client::lazy_client().await;
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
 
         let cgroupns_mode = container_details
             .host_config
@@ -481,7 +481,7 @@ mod tests {
             .await;
 
         let client = Client::lazy_client().await;
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
 
         let cgroupns_mode = container_details
             .host_config
@@ -505,7 +505,7 @@ mod tests {
             .await;
 
         let client = Client::lazy_client().await;
-        let container_details = client.inspect(container.id()).await;
+        let container_details = client.inspect(container.id()).await.unwrap();
 
         let userns_mode = container_details.host_config.unwrap().userns_mode.unwrap();
         assert_eq!("host", userns_mode, "userns mode must be `host`");

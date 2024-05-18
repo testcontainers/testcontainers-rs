@@ -46,8 +46,6 @@ pub enum CmdWaitFor {
     StdOutMessage { message: String },
     /// Wait for a message on the stderr stream of the command's output.
     StdErrMessage { message: String },
-    /// Wait for a message on the stdout or stderr stream of the command's output.
-    StdOutOrErrMessage { message: String },
     /// Wait for a certain amount of time.
     Duration { length: Duration },
     /// Wait for the command's exit code to be equal to the provided one.
@@ -63,12 +61,6 @@ impl CmdWaitFor {
 
     pub fn message_on_stderr<S: Into<String>>(message: S) -> Self {
         Self::StdErrMessage {
-            message: message.into(),
-        }
-    }
-
-    pub fn message_on_stdout_or_stderr<S: Into<String>>(message: S) -> Self {
-        Self::StdOutOrErrMessage {
             message: message.into(),
         }
     }

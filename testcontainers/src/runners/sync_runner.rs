@@ -80,7 +80,7 @@ mod tests {
     }
 
     fn inspect(id: &str) -> ContainerInspectResponse {
-        runtime().block_on(docker_client().inspect(id))
+        runtime().block_on(docker_client().inspect(id)).unwrap()
     }
 
     fn network_exists(client: &Arc<Client>, name: &str) -> bool {

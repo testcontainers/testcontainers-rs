@@ -1,127 +1,98 @@
-use std::{fmt, io};
+use std::{borrow::Cow, fmt, io};
 
 use bytes::Bytes;
-use futures::{stream::BoxStream, Stream, StreamExt};
+use futures::{stream::BoxStream, StreamExt};
+use memchr::memmem::Finder;
 
 /// Defines error cases when waiting for a message in a stream.
 #[derive(Debug, thiserror::Error)]
-pub enum WaitError {
+pub enum WaitLogError {
     /// Indicates the stream ended before finding the log line you were looking for.
     /// Contains all the lines that were read for debugging purposes.
-    #[error("End of stream reached: {0:?}")]
-    EndOfStream(Vec<String>),
-    Io(io::Error),
+    #[error("End of stream reached before finding message: {:?}", display_bytes(.0))]
+    EndOfStream(Vec<Bytes>),
+    #[error(transparent)]
+    Io(#[from] io::Error),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, parse_display::Display)]
+#[display(style = "lowercase")]
 pub(crate) enum LogSource {
     StdOut,
     StdErr,
 }
 
-pub(crate) type LogEntry = (LogSource, Bytes);
+impl LogSource {
+    pub(super) fn is_stdout(&self) -> bool {
+        matches!(self, Self::StdOut)
+    }
 
-pub(crate) struct LogStreamAsync<'d> {
-    inner: BoxStream<'d, Result<LogEntry, io::Error>>,
-    stdout_cache: Vec<String>,
-    stderr_cache: Vec<String>,
-}
-
-impl<'d> fmt::Debug for LogStreamAsync<'d> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LogStreamAsync").finish()
+    pub(super) fn is_stderr(&self) -> bool {
+        matches!(self, Self::StdErr)
     }
 }
 
-impl<'d> LogStreamAsync<'d> {
-    pub fn new(stream: BoxStream<'d, Result<LogEntry, io::Error>>) -> Self {
+pub(crate) struct LogStreamAsync<'a> {
+    inner: BoxStream<'a, Result<Bytes, io::Error>>,
+    cache: Vec<Result<Bytes, io::Error>>,
+    enable_cache: bool,
+}
+
+impl<'a> LogStreamAsync<'a> {
+    pub fn new(stream: BoxStream<'a, Result<Bytes, io::Error>>) -> Self {
         Self {
             inner: stream,
-            stdout_cache: vec![],
-            stderr_cache: vec![],
+            cache: vec![],
+            enable_cache: false,
         }
     }
 
-    pub async fn wait_for_message(
+    pub fn enable_cache(mut self) -> Self {
+        self.enable_cache = true;
+        self
+    }
+
+    pub(crate) async fn wait_for_message(
         &mut self,
-        message: &str,
-        filter: Option<LogSource>,
-    ) -> Result<(), WaitError> {
-        while let Some((source, line)) = self.poll_line().await? {
-            let match_found = match (source, filter) {
-                (LogSource::StdOut, Some(LogSource::StdOut)) => {
-                    check_line(line, message, self.stdout_cache.len())
-                }
-                (LogSource::StdErr, Some(LogSource::StdErr)) => {
-                    check_line(line, message, self.stderr_cache.len())
-                }
-                (_, None) => check_line(
-                    line,
-                    message,
-                    self.stdout_cache
-                        .len()
-                        .saturating_add(self.stderr_cache.len()),
-                ),
-                _ => false,
-            };
+        message: impl AsRef<[u8]>,
+    ) -> Result<(), WaitLogError> {
+        let msg_finder = Finder::new(message.as_ref());
+        let mut messages = Vec::new();
+        while let Some(message) = self.inner.next().await.transpose()? {
+            messages.push(message.clone());
+            if self.enable_cache {
+                self.cache.push(Ok(message.clone()));
+            }
+            let match_found = msg_finder.find(message.as_ref()).is_some();
             if match_found {
+                log::debug!("Found message after comparing {} lines", messages.len());
                 return Ok(());
             }
         }
 
-        log::error!(
-            "Failed to find message '{message}' in stream after comparing {} lines.",
-            1
+        log::warn!(
+            "Failed to find message '{}' after comparing {} lines.",
+            String::from_utf8_lossy(message.as_ref()),
+            messages.len()
         );
-        Err(WaitError::EndOfStream {
-            stdout: &self.stdout_cache,
-            stderr: &self.stderr_cache,
-        })
+        Err(WaitLogError::EndOfStream(messages))
     }
 
-    async fn poll_line(&mut self) -> Result<Option<(LogSource, &str)>, WaitError<'_>> {
-        let line = if let Some(entry) = self.inner.next().await.transpose()? {
-            match entry {
-                (LogSource::StdOut, line) => {
-                    self.stdout_cache.push(bytes_to_string(line)?);
-                    self.stdout_cache
-                        .last()
-                        .map(|s| (LogSource::StdOut, s.as_str()))
-                }
-                (LogSource::StdErr, line) => {
-                    self.stderr_cache.push(bytes_to_string(line)?);
-                    self.stderr_cache
-                        .last()
-                        .map(|s| (LogSource::StdErr, s.as_str()))
-                }
-            }
-        } else {
-            None
-        };
-
-        Ok(line)
+    pub(crate) fn into_inner(self) -> BoxStream<'a, Result<Bytes, io::Error>> {
+        futures::stream::iter(self.cache).chain(self.inner).boxed()
     }
 }
 
-fn check_line(line: &str, message: &str, handled_lines: usize) -> bool {
-    if line.contains(message) {
-        log::info!("Found message after comparing {handled_lines} lines");
-
-        return true;
-    }
-
-    false
+fn display_bytes(bytes: &[Bytes]) -> Vec<Cow<'_, str>> {
+    bytes
+        .iter()
+        .map(|m| String::from_utf8_lossy(m.as_ref()))
+        .collect::<Vec<_>>()
 }
 
-fn bytes_to_string(bytes: Bytes) -> Result<String, WaitError<'static>> {
-    std::str::from_utf8(bytes.as_ref())
-        .map_err(|e| WaitError::Io(io::Error::new(io::ErrorKind::Other, e)))
-        .map(String::from)
-}
-
-impl From<io::Error> for WaitError {
-    fn from(e: io::Error) -> Self {
-        WaitError::Io(e)
+impl<'a> fmt::Debug for LogStreamAsync<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LogStreamAsync").finish()
     }
 }
 
@@ -131,17 +102,14 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn given_logs_when_line_contains_message_should_find_it() {
-        let mut log_stream = LogStreamAsync::new(Box::pin(futures::stream::iter([Ok((
-            LogSource::StdOut,
-            r"
+        let mut log_stream = LogStreamAsync::new(Box::pin(futures::stream::iter([Ok(r"
             Message one
             Message two
             Message three
         "
-            .to_string(),
-        ))])));
+        .into())])));
 
-        let result = log_stream.wait_for_message("Message three", None).await;
+        let result = log_stream.wait_for_message("Message three").await;
 
         assert!(result.is_ok())
     }

@@ -139,20 +139,40 @@ fn sync_run_exec() {
     let container = image.start();
 
     // exit code, it waits for result
-    container.exec(
-        ExecCommand::new(vec!["sleep".to_string(), "3".to_string()])
-            .with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
-    );
+    let res = container
+        .exec(
+            ExecCommand::new(vec!["sleep".to_string(), "3".to_string()])
+                .with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+        )
+        .unwrap();
+    assert_eq!(res.exit_code().unwrap(), Some(0));
 
     // stdout
-    container.exec(
-        ExecCommand::new(vec!["ls".to_string()])
-            .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
-    );
+    let mut res = container
+        .exec(
+            ExecCommand::new(vec!["ls".to_string()])
+                .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
+        )
+        .unwrap();
+    assert_eq!(res.exit_code().unwrap(), Some(0));
+    let stdout = String::from_utf8(res.stdout().unwrap()).unwrap();
+    assert!(stdout.contains("foo"), "stdout must contain 'foo'");
 
-    // stdout or stderr
-    container.exec(
-        ExecCommand::new(vec!["ls".to_string()])
-            .with_cmd_ready_condition(CmdWaitFor::message_on_stdout_or_stderr("foo")),
-    );
+    // stdout and stderr readers
+    let mut res = container
+        .exec(ExecCommand::new([
+            "/bin/bash",
+            "-c",
+            "echo 'stdout 1' >&1 && echo 'stderr 1' >&2 \
+            && echo 'stderr 2' >&2 && echo 'stdout 2' >&1",
+        ]))
+        .unwrap();
+
+    let mut stdout = String::new();
+    res.stdout_reader().read_to_string(&mut stdout).unwrap();
+    assert_eq!(stdout, "stdout 1\nstdout 2\n");
+
+    let mut stderr = String::new();
+    res.stderr_reader().read_to_string(&mut stderr).unwrap();
+    assert_eq!(stderr, "stderr 1\nstderr 2\n");
 }
