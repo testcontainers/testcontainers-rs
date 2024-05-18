@@ -65,10 +65,9 @@ impl Config {
     where
         E: GetEnvValue,
     {
-        let env_config = Self::load_from_env_config::<E>().await;
-
         #[cfg(feature = "properties-config")]
         {
+            let env_config = Self::load_from_env_config::<E>().await;
             let properties = TestcontainersProperties::load().await.unwrap_or_default();
 
             // Environment variables take precedence over properties
@@ -82,7 +81,7 @@ impl Config {
             }
         }
         #[cfg(not(feature = "properties-config"))]
-        env_config
+        Self::load_from_env_config::<E>().await
     }
 
     async fn load_from_env_config<E>() -> Self
