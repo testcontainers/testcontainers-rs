@@ -154,8 +154,24 @@ fn sync_run_exec() {
                 .with_cmd_ready_condition(CmdWaitFor::message_on_stdout("foo")),
         )
         .unwrap();
-    let stdout = String::from_utf8(res.stdout().unwrap()).unwrap();
+    let stdout = String::from_utf8(res.stdout_to_vec().unwrap()).unwrap();
     assert!(stdout.contains("foo"), "stdout must contain 'foo'");
+
+    // stdout and stderr to vec
+    let mut res = container
+        .exec(ExecCommand::new([
+            "/bin/bash",
+            "-c",
+            "echo 'stdout 1' >&1 && echo 'stderr 1' >&2 \
+            && echo 'stderr 2' >&2 && echo 'stdout 2' >&1",
+        ]))
+        .unwrap();
+
+    let stdout = String::from_utf8(res.stdout_to_vec().unwrap()).unwrap();
+    assert_eq!(stdout, "stdout 1\nstdout 2\n");
+
+    let stderr = String::from_utf8(res.stderr_to_vec().unwrap()).unwrap();
+    assert_eq!(stderr, "stderr 1\nstderr 2\n");
 
     // stdout and stderr readers
     let mut res = container
@@ -167,9 +183,11 @@ fn sync_run_exec() {
         ]))
         .unwrap();
 
-    let stdout = String::from_utf8(res.stdout().unwrap()).unwrap();
+    let mut stdout = String::new();
+    res.stdout().read_to_string(&mut stdout).unwrap();
     assert_eq!(stdout, "stdout 1\nstdout 2\n");
 
-    let stderr = String::from_utf8(res.stderr().unwrap()).unwrap();
+    let mut stderr = String::new();
+    res.stderr().read_to_string(&mut stderr).unwrap();
     assert_eq!(stderr, "stderr 1\nstderr 2\n");
 }

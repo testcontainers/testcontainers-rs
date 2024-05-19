@@ -114,7 +114,7 @@ async fn async_run_exec() {
         .await
         .unwrap();
 
-    let stdout = String::from_utf8(res.stdout().await.unwrap()).unwrap();
+    let stdout = String::from_utf8(res.stdout_to_vec().await.unwrap()).unwrap();
     assert!(stdout.contains("foo"), "stdout must contain 'foo'");
 
     // stdout and stderr readers
@@ -129,17 +129,11 @@ async fn async_run_exec() {
         .unwrap();
 
     let mut stdout = String::new();
-    res.stdout_reader()
-        .read_to_string(&mut stdout)
-        .await
-        .unwrap();
+    res.stdout().read_to_string(&mut stdout).await.unwrap();
     assert_eq!(stdout, "stdout 1\nstdout 2\n");
 
     let mut stderr = String::new();
-    res.stderr_reader()
-        .read_to_string(&mut stderr)
-        .await
-        .unwrap();
+    res.stderr().read_to_string(&mut stderr).await.unwrap();
     assert_eq!(stderr, "stderr 1\nstderr 2\n");
 }
 

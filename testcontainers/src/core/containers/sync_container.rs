@@ -1,4 +1,4 @@
-use std::{fmt, net::IpAddr};
+use std::{fmt, io::BufRead, net::IpAddr};
 
 use crate::{
     core::{env, errors::ExecError, ports::Ports, ExecCommand},
@@ -6,6 +6,7 @@ use crate::{
 };
 
 pub(super) mod exec;
+mod sync_reader;
 
 /// Represents a running docker container.
 ///
@@ -139,18 +140,37 @@ where
         })
     }
 
+    /// Stops the container (not the same with `pause`).
     pub fn stop(&self) {
         self.rt().block_on(self.async_impl().stop());
     }
 
+    /// Starts the container.
     pub fn start(&self) {
         self.rt().block_on(self.async_impl().start());
     }
 
+    /// Removes the container.
     pub fn rm(mut self) {
         if let Some(active) = self.inner.take() {
             active.runtime.block_on(active.async_impl.rm());
         }
+    }
+
+    /// Returns a reader for stdout.
+    pub fn stdout(&self) -> Box<dyn BufRead + '_> {
+        Box::new(sync_reader::SyncReadBridge::new(
+            self.async_impl().stdout(),
+            self.rt(),
+        ))
+    }
+
+    /// Returns a reader for stderr.
+    pub fn stderr(&self) -> Box<dyn BufRead + '_> {
+        Box::new(sync_reader::SyncReadBridge::new(
+            self.async_impl().stderr(),
+            self.rt(),
+        ))
     }
 
     /// Returns reference to inner `Runtime`. It's safe to unwrap because it's `Some` until `Container` is dropped.
@@ -180,7 +200,7 @@ impl<I: Image> Drop for Container<I> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::core::WaitFor;
+    use crate::{core::WaitFor, runners::SyncRunner, GenericImage, RunnableImage};
 
     #[derive(Debug, Default)]
     pub struct HelloWorld;
@@ -207,4 +227,45 @@ mod test {
     }
 
     fn assert_send_and_sync<T: Send + Sync>() {}
+
+    #[test]
+    fn async_logs_are_accessible() {
+        let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
+        let container = RunnableImage::from(image).start();
+
+        let mut stderr_lines = container.stderr().lines();
+
+        let expected_messages = [
+            "DELAY_START_MSEC: 0",
+            "Sleeping for 0 ms",
+            "Starting server on port 8080",
+            "Sleeping for 0 ms",
+            "Starting server on port 8081",
+            "Ready, listening on 8080 and 8081",
+        ];
+        for expected_message in expected_messages {
+            let line = stderr_lines.next().unwrap().unwrap();
+            assert!(
+                line.contains(expected_message),
+                "Log message ('{line}') doesn't contain expected message ('{expected_message}')"
+            );
+        }
+
+        // logs are accessible after container is stopped
+        container.stop();
+
+        // stdout is empty
+        let mut stdout = String::new();
+        container.stdout().read_to_string(&mut stdout).unwrap();
+        assert_eq!(stdout, "");
+        // stderr contains 6 lines
+        let mut stderr = String::new();
+        container.stderr().read_to_string(&mut stderr).unwrap();
+        assert_eq!(
+            stderr.lines().count(),
+            6,
+            "unexpected stderr size: {}",
+            stderr
+        );
+    }
 }

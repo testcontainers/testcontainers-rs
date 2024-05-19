@@ -1,7 +1,7 @@
 use core::panic;
-use std::{fmt, net::IpAddr, str::FromStr, sync::Arc};
+use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc};
 
-use tokio::runtime::RuntimeFlavor;
+use tokio::{io::AsyncBufRead, runtime::RuntimeFlavor};
 
 use crate::{
     core::{
@@ -240,6 +240,7 @@ where
         })
     }
 
+    /// Starts the container.
     pub async fn start(&self) {
         self.docker_client.start(&self.id).await;
         for cmd in self
@@ -250,12 +251,14 @@ where
         }
     }
 
+    /// Stops the container (not the same with `pause`).
     pub async fn stop(&self) {
         log::debug!("Stopping docker container {}", self.id);
 
         self.docker_client.stop(&self.id).await
     }
 
+    /// Removes the container.
     pub async fn rm(mut self) {
         log::debug!("Deleting docker container {}", self.id);
 
@@ -265,6 +268,18 @@ where
         crate::watchdog::unregister(&self.id);
 
         self.dropped = true;
+    }
+
+    /// Returns an asynchronous reader for stdout.
+    pub fn stdout(&self) -> Pin<Box<dyn AsyncBufRead + '_>> {
+        let stdout = self.docker_client.stdout_logs(&self.id);
+        Box::pin(tokio_util::io::StreamReader::new(stdout.into_inner()))
+    }
+
+    /// Returns an asynchronous reader for stderr.
+    pub fn stderr(&self) -> Pin<Box<dyn AsyncBufRead + '_>> {
+        let stderr = self.docker_client.stderr_logs(&self.id);
+        Box::pin(tokio_util::io::StreamReader::new(stderr.into_inner()))
     }
 
     async fn block_until_ready(&self) -> Result<(), WaitContainerError> {
@@ -311,5 +326,62 @@ where
 
             macros::block_on!(drop_task, "failed to remove container on drop");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt};
+
+    use super::*;
+    use crate::{images::generic::GenericImage, runners::AsyncRunner};
+
+    #[tokio::test]
+    async fn async_logs_are_accessible() {
+        let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
+        let container = RunnableImage::from(image).start().await;
+
+        let mut stderr_lines = container.stderr().lines();
+
+        let expected_messages = [
+            "DELAY_START_MSEC: 0",
+            "Sleeping for 0 ms",
+            "Starting server on port 8080",
+            "Sleeping for 0 ms",
+            "Starting server on port 8081",
+            "Ready, listening on 8080 and 8081",
+        ];
+        for expected_message in expected_messages {
+            let line = stderr_lines.next_line().await.unwrap().unwrap();
+            assert!(
+                line.contains(expected_message),
+                "Log message ('{line}') doesn't contain expected message ('{expected_message}')"
+            );
+        }
+
+        // logs are accessible after container is stopped
+        container.stop().await;
+
+        // stdout is empty
+        let mut stdout = String::new();
+        container
+            .stdout()
+            .read_to_string(&mut stdout)
+            .await
+            .unwrap();
+        assert_eq!(stdout, "");
+        // stderr contains 6 lines
+        let mut stderr = String::new();
+        container
+            .stderr()
+            .read_to_string(&mut stderr)
+            .await
+            .unwrap();
+        assert_eq!(
+            stderr.lines().count(),
+            6,
+            "unexpected stderr size: {}",
+            stderr
+        );
     }
 }
