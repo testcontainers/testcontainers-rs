@@ -2,7 +2,7 @@ use std::{fmt, io, pin::Pin, sync::Arc};
 
 use bytes::Bytes;
 use futures::stream::BoxStream;
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{AsyncBufRead, AsyncReadExt};
 
 use crate::core::client::Client;
 
@@ -24,30 +24,30 @@ impl<'a> ExecResult<'a> {
             .map(|exec| exec.exit_code)
     }
 
+    /// Returns an asynchronous reader for stdout.
+    pub fn stdout<'b>(&'b mut self) -> Pin<Box<dyn AsyncBufRead + 'b>> {
+        Box::pin(tokio_util::io::StreamReader::new(&mut self.stdout))
+    }
+
+    /// Returns an asynchronous reader for stderr.
+    pub fn stderr<'b>(&'b mut self) -> Pin<Box<dyn AsyncBufRead + 'b>> {
+        Box::pin(tokio_util::io::StreamReader::new(&mut self.stderr))
+    }
+
     /// Returns stdout as a vector of bytes.
     /// If you want to read stdout in asynchronous manner, use `stdout_reader` instead.
-    pub async fn stdout(&mut self) -> Result<Vec<u8>, io::Error> {
+    pub async fn stdout_to_vec(&mut self) -> Result<Vec<u8>, io::Error> {
         let mut stdout = Vec::new();
-        self.stdout_reader().read_to_end(&mut stdout).await?;
+        self.stdout().read_to_end(&mut stdout).await?;
         Ok(stdout)
     }
 
     /// Returns stderr as a vector of bytes.
     /// If you want to read stderr in asynchronous manner, use `stderr_reader` instead.
-    pub async fn stderr(&mut self) -> Result<Vec<u8>, io::Error> {
+    pub async fn stderr_to_vec(&mut self) -> Result<Vec<u8>, io::Error> {
         let mut stderr = Vec::new();
-        self.stderr_reader().read_to_end(&mut stderr).await?;
+        self.stderr().read_to_end(&mut stderr).await?;
         Ok(stderr)
-    }
-
-    /// Returns an asynchronous reader for stdout.
-    pub fn stdout_reader<'b>(&'b mut self) -> Pin<Box<dyn AsyncRead + 'b>> {
-        Box::pin(tokio_util::io::StreamReader::new(&mut self.stdout))
-    }
-
-    /// Returns an asynchronous reader for stderr.
-    pub fn stderr_reader<'b>(&'b mut self) -> Pin<Box<dyn AsyncRead + 'b>> {
-        Box::pin(tokio_util::io::StreamReader::new(&mut self.stderr))
     }
 }
 
