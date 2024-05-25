@@ -1,6 +1,12 @@
-use std::{collections::HashMap, net::IpAddr};
+use std::{collections::HashMap, net::IpAddr, num::ParseIntError};
 
 use bollard_stubs::models::{PortBinding, PortMap};
+
+#[derive(Debug, thiserror::Error)]
+pub enum PortMappingError {
+    #[error("failed to parse port: {0}")]
+    FailedToParsePort(#[from] ParseIntError),
+}
 
 /// The exposed ports of a running container.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -10,7 +16,9 @@ pub struct Ports {
 }
 
 impl Ports {
-    pub fn new(ports: HashMap<String, Option<Vec<HashMap<String, String>>>>) -> Self {
+    pub fn new(
+        ports: HashMap<String, Option<Vec<HashMap<String, String>>>>,
+    ) -> Result<Self, PortMappingError> {
         let port_binding = ports
             .into_iter()
             .filter_map(|(internal, external)| {
@@ -29,7 +37,7 @@ impl Ports {
             })
             .collect::<HashMap<_, _>>();
 
-        Self::from(port_binding)
+        Self::try_from(port_binding)
     }
 
     /// Returns the host port for the given internal port, on the host's IPv4 interfaces.
@@ -43,14 +51,16 @@ impl Ports {
     }
 }
 
-impl From<PortMap> for Ports {
-    fn from(ports: PortMap) -> Self {
+impl TryFrom<PortMap> for Ports {
+    type Error = PortMappingError;
+
+    fn try_from(ports: PortMap) -> Result<Self, Self::Error> {
         let mut ipv4_mapping = HashMap::new();
         let mut ipv6_mapping = HashMap::new();
         for (internal, external) in ports {
             // internal is of the form '8332/tcp', split off the protocol ...
             let internal_port = if let Some(internal) = internal.split('/').next() {
-                parse_port(internal)
+                internal.parse()?
             } else {
                 continue;
             };
@@ -58,7 +68,7 @@ impl From<PortMap> for Ports {
             // get the `HostPort` of each external port binding
             for binding in external.into_iter().flatten() {
                 if let Some(external_port) = binding.host_port.as_ref() {
-                    let external_port = parse_port(external_port);
+                    let external_port = external_port.parse()?;
 
                     // switch on the IP version of the `HostIp`
                     let mapping = match binding.host_ip.map(|ip| ip.parse()) {
@@ -88,16 +98,11 @@ impl From<PortMap> for Ports {
             }
         }
 
-        Self {
+        Ok(Self {
             ipv4_mapping,
             ipv6_mapping,
-        }
+        })
     }
-}
-
-fn parse_port(port: &str) -> u16 {
-    port.parse()
-        .unwrap_or_else(|e| panic!("Failed to parse {port} as u16 because {e}"))
 }
 
 #[cfg(test)]
@@ -342,7 +347,8 @@ mod tests {
             .network_settings
             .unwrap_or_default()
             .ports
-            .map(Ports::from)
+            .map(Ports::try_from)
+            .unwrap()
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();

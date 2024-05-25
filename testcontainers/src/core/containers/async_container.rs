@@ -1,5 +1,4 @@
-use core::panic;
-use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc};
+use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
 use tokio::{io::AsyncBufRead, runtime::RuntimeFlavor};
 
@@ -7,12 +6,12 @@ use crate::{
     core::{
         client::Client,
         env,
-        errors::{ExecError, WaitContainerError},
+        error::{ContainerMissingInfo, ExecError, Result, TestcontainersError, WaitContainerError},
         image::CmdWaitFor,
         macros,
         network::Network,
         ports::Ports,
-        ContainerState, ExecCommand,
+        ContainerState, ExecCommand, WaitFor,
     },
     Image, RunnableImage,
 };
@@ -55,7 +54,7 @@ where
         docker_client: Arc<Client>,
         image: RunnableImage<I>,
         network: Option<Arc<Network>>,
-    ) -> ContainerAsync<I> {
+    ) -> Result<ContainerAsync<I>> {
         let container = ContainerAsync {
             id,
             image,
@@ -63,8 +62,10 @@ where
             network,
             dropped: false,
         };
-        container.block_until_ready().await.unwrap();
-        container
+
+        let ready_conditions = container.image().ready_conditions();
+        container.block_until_ready(ready_conditions).await?;
+        Ok(container)
     }
 
     /// Returns the id of this container.
@@ -89,31 +90,22 @@ where
         self.image.args()
     }
 
-    pub async fn ports(&self) -> Ports {
-        self.docker_client.ports(&self.id).await
+    pub async fn ports(&self) -> Result<Ports> {
+        self.docker_client.ports(&self.id).await.map_err(Into::into)
     }
 
     /// Returns the mapped host port for an internal port of this docker container, on the host's
     /// IPv4 interfaces.
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
-    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the given port is not mapped.
-    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
-    /// is unlikely to be useful.
-    pub async fn get_host_port_ipv4(&self, internal_port: u16) -> u16 {
-        self.docker_client
-            .ports(&self.id)
-            .await
+    /// the already exposed ports. If a docker container does not expose a port, this method will return an error.
+    pub async fn get_host_port_ipv4(&self, internal_port: u16) -> Result<u16> {
+        self.ports()
+            .await?
             .map_to_host_port_ipv4(internal_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "container {} does not expose (IPV4) port {}",
-                    self.id, internal_port
-                )
+            .ok_or_else(|| TestcontainersError::PortNotExposed {
+                id: self.id.clone(),
+                port: internal_port,
             })
     }
 
@@ -121,73 +113,65 @@ where
     /// IPv6 interfaces.
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
-    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the given port is not mapped.
-    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
-    /// is unlikely to be useful.
-    pub async fn get_host_port_ipv6(&self, internal_port: u16) -> u16 {
-        self.docker_client
-            .ports(&self.id)
-            .await
-            .map_to_host_port_ipv6(internal_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "container {} does not expose (IPV6) port {}",
-                    self.id, internal_port
-                )
+    /// the already exposed ports. If a docker container does not expose a port, this method will return an error.
+    pub async fn get_host_port_ipv6(&self, internal_port: u16) -> Result<u16> {
+        self.ports()
+            .await?
+            .map_to_host_port_ipv4(internal_port)
+            .ok_or_else(|| TestcontainersError::PortNotExposed {
+                id: self.id.clone(),
+                port: internal_port,
             })
     }
 
     /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
-    pub async fn get_bridge_ip_address(&self) -> IpAddr {
-        let container_settings = self.docker_client.inspect(&self.id).await.unwrap();
+    pub async fn get_bridge_ip_address(&self) -> Result<IpAddr> {
+        let container_id = &self.id;
+        let container_settings = self.docker_client.inspect(container_id).await?;
 
         let host_config = container_settings
             .host_config
-            .unwrap_or_else(|| panic!("container {} has no host config settings", self.id));
+            .ok_or_else(|| ContainerMissingInfo::new(container_id, "HostConfig"))?;
 
         let network_mode = host_config
             .network_mode
-            .unwrap_or_else(|| panic!("container {} has no network mode", self.id));
+            .ok_or_else(|| ContainerMissingInfo::new(container_id, "HostConfig.NetworkMode"))?;
 
-        let network_settings = self
-            .docker_client
-            .inspect_network(&network_mode)
-            .await
-            .unwrap_or_else(|_| panic!("container {} network mode does not exist", self.id));
+        let network_settings = self.docker_client.inspect_network(&network_mode).await?;
 
-        network_settings
-            .driver
-            .unwrap_or_else(|| panic!("network {} is not in bridge mode", network_mode));
+        network_settings.driver.ok_or_else(|| {
+            TestcontainersError::other(format!("network {} is not in bridge mode", network_mode))
+        })?;
 
         let container_network_settings = container_settings
             .network_settings
-            .unwrap_or_else(|| panic!("container {} has no network settings", self.id));
+            .ok_or_else(|| ContainerMissingInfo::new(container_id, "NetworkSettings"))?;
 
         let mut networks = container_network_settings
             .networks
-            .unwrap_or_else(|| panic!("container {} has no networks", self.id));
+            .ok_or_else(|| ContainerMissingInfo::new(container_id, "NetworkSettings.Networks"))?;
 
         let ip = networks
             .remove(&network_mode)
             .and_then(|network| network.ip_address)
-            .unwrap_or_else(|| panic!("container {} has missing bridge IP", self.id));
+            .ok_or_else(|| {
+                ContainerMissingInfo::new(container_id, "NetworkSettings.Networks.IpAddress")
+            })?;
 
-        IpAddr::from_str(&ip)
-            .unwrap_or_else(|_| panic!("container {} has invalid bridge IP", self.id))
+        IpAddr::from_str(&ip).map_err(TestcontainersError::other)
     }
 
     /// Returns the host that this container may be reached on (may not be the local machine)
     /// Suitable for use in URL
-    pub async fn get_host(&self) -> url::Host {
-        self.docker_client.docker_hostname().await
+    pub async fn get_host(&self) -> Result<url::Host> {
+        self.docker_client
+            .docker_hostname()
+            .await
+            .map_err(Into::into)
     }
 
     /// Executes a command in the container.
-    pub async fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult<'_>, ExecError> {
+    pub async fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult<'_>> {
         let ExecCommand {
             cmd,
             container_ready_conditions,
@@ -197,32 +181,36 @@ where
         log::debug!("Executing command {:?}", cmd);
 
         let mut exec = self.docker_client.exec(&self.id, cmd).await?;
-        self.docker_client
-            .block_until_ready(self.id(), &container_ready_conditions)
-            .await?;
+        self.block_until_ready(container_ready_conditions).await?;
 
         match cmd_ready_condition {
             CmdWaitFor::StdOutMessage { message } => {
-                exec.stdout().wait_for_message(&message).await.unwrap();
+                exec.stdout()
+                    .wait_for_message(&message)
+                    .await
+                    .map_err(ExecError::from)?;
             }
             CmdWaitFor::StdErrMessage { message } => {
-                exec.stderr().wait_for_message(&message).await.unwrap();
+                exec.stderr()
+                    .wait_for_message(&message)
+                    .await
+                    .map_err(ExecError::from)?;
             }
             CmdWaitFor::ExitCode { code } => {
                 let exec_id = exec.id().to_string();
                 loop {
-                    let inspect = self.docker_client.inspect_exec(&exec_id).await.unwrap();
+                    let inspect = self.docker_client.inspect_exec(&exec_id).await?;
 
                     if let Some(actual) = inspect.exit_code {
                         if actual != code {
-                            return Err(ExecError::ExitCodeMismatch {
+                            Err(ExecError::ExitCodeMismatch {
                                 expected: code,
                                 actual,
-                            });
+                            })?;
                         }
                         break;
                     } else {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                        tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                 }
             }
@@ -241,33 +229,36 @@ where
     }
 
     /// Starts the container.
-    pub async fn start(&self) {
-        self.docker_client.start(&self.id).await;
+    pub async fn start(&self) -> Result<()> {
+        self.docker_client.start(&self.id).await?;
         for cmd in self
             .image
-            .exec_after_start(ContainerState::new(self.ports().await))
+            .exec_after_start(ContainerState::new(self.ports().await?))?
         {
-            self.exec(cmd).await.unwrap();
+            self.exec(cmd).await?;
         }
+        Ok(())
     }
 
     /// Stops the container (not the same with `pause`).
-    pub async fn stop(&self) {
+    pub async fn stop(&self) -> Result<()> {
         log::debug!("Stopping docker container {}", self.id);
 
-        self.docker_client.stop(&self.id).await
+        self.docker_client.stop(&self.id).await?;
+        Ok(())
     }
 
     /// Removes the container.
-    pub async fn rm(mut self) {
+    pub async fn rm(mut self) -> Result<()> {
         log::debug!("Deleting docker container {}", self.id);
 
-        self.docker_client.rm(&self.id).await;
+        self.docker_client.rm(&self.id).await?;
 
         #[cfg(feature = "watchdog")]
         crate::watchdog::unregister(&self.id);
 
         self.dropped = true;
+        Ok(())
     }
 
     /// Returns an asynchronous reader for stdout.
@@ -282,10 +273,56 @@ where
         Box::pin(tokio_util::io::StreamReader::new(stderr.into_inner()))
     }
 
-    async fn block_until_ready(&self) -> Result<(), WaitContainerError> {
-        self.docker_client
-            .block_until_ready(self.id(), &self.image().ready_conditions())
-            .await
+    pub(crate) async fn block_until_ready(&self, ready_conditions: Vec<WaitFor>) -> Result<()> {
+        log::debug!("Waiting for container {} to be ready", self.id);
+        let id = self.id();
+
+        for condition in ready_conditions {
+            match condition {
+                WaitFor::StdOutMessage { message } => self
+                    .docker_client
+                    .stdout_logs(id)
+                    .wait_for_message(message)
+                    .await
+                    .map_err(WaitContainerError::from)?,
+                WaitFor::StdErrMessage { message } => self
+                    .docker_client
+                    .stderr_logs(id)
+                    .wait_for_message(message)
+                    .await
+                    .map_err(WaitContainerError::from)?,
+                WaitFor::Duration { length } => {
+                    tokio::time::sleep(length).await;
+                }
+                WaitFor::Healthcheck => loop {
+                    use bollard::models::HealthStatusEnum::*;
+
+                    let health_status = self
+                        .docker_client
+                        .inspect(id)
+                        .await?
+                        .state
+                        .ok_or(WaitContainerError::StateUnavailable)?
+                        .health
+                        .and_then(|health| health.status);
+
+                    match health_status {
+                        Some(HEALTHY) => break,
+                        None | Some(EMPTY) | Some(NONE) => {
+                            Err(WaitContainerError::HealthCheckNotConfigured(id.to_string()))?
+                        }
+                        Some(UNHEALTHY) => Err(WaitContainerError::Unhealthy)?,
+                        Some(STARTING) => {
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        }
+                    }
+                },
+                WaitFor::Nothing => {}
+            }
+        }
+
+        log::debug!("Container {id} is now ready!");
+        Ok(())
     }
 }
 
@@ -315,7 +352,11 @@ where
             let drop_task = async move {
                 log::trace!("Drop was called for container {id}, cleaning up");
                 match command {
-                    env::Command::Remove => client.rm(&id).await,
+                    env::Command::Remove => {
+                        if let Err(e) = client.rm(&id).await {
+                            log::error!("Failed to remove container on drop: {}", e);
+                        }
+                    }
                     env::Command::Keep => {}
                 }
                 #[cfg(feature = "watchdog")]
@@ -339,7 +380,7 @@ mod tests {
     #[tokio::test]
     async fn async_logs_are_accessible() {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
-        let container = RunnableImage::from(image).start().await;
+        let container = RunnableImage::from(image).start().await.unwrap();
 
         let mut stderr_lines = container.stderr().lines();
 
@@ -360,7 +401,7 @@ mod tests {
         }
 
         // logs are accessible after container is stopped
-        container.stop().await;
+        container.stop().await.unwrap();
 
         // stdout is empty
         let mut stdout = String::new();

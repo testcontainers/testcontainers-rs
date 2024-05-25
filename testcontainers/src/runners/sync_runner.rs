@@ -1,4 +1,4 @@
-use crate::{Container, Image, RunnableImage};
+use crate::{core::error::Result, Container, Image, RunnableImage};
 
 /// Helper trait to start containers synchronously.
 ///
@@ -11,16 +11,16 @@ use crate::{Container, Image, RunnableImage};
 ///     let container = GenericImage::new("redis", "7.2.4")
 ///         .with_exposed_port(6379)
 ///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
-///         .start();
+///         .start().unwrap();
 /// }
 /// ```
 pub trait SyncRunner<I: Image> {
     /// Starts the container and returns an instance of `Container`.
-    fn start(self) -> Container<I>;
+    fn start(self) -> Result<Container<I>>;
 
     /// Pulls the image from the registry.
     /// Useful if you want to pull the image before starting the container.
-    fn pull_image(self) -> RunnableImage<I>;
+    fn pull_image(self) -> Result<RunnableImage<I>>;
 }
 
 impl<T, I> SyncRunner<I> for T
@@ -28,14 +28,14 @@ where
     T: Into<RunnableImage<I>> + Send,
     I: Image,
 {
-    fn start(self) -> Container<I> {
+    fn start(self) -> Result<Container<I>> {
         let runtime = build_sync_runner();
-        let async_container = runtime.block_on(super::AsyncRunner::start(self));
+        let async_container = runtime.block_on(super::AsyncRunner::start(self))?;
 
-        Container::new(runtime, async_container)
+        Ok(Container::new(runtime, async_container))
     }
 
-    fn pull_image(self) -> RunnableImage<I> {
+    fn pull_image(self) -> Result<RunnableImage<I>> {
         let runtime = build_sync_runner();
         runtime.block_on(super::AsyncRunner::pull_image(self))
     }
@@ -76,7 +76,7 @@ mod tests {
     }
 
     fn docker_client() -> Arc<Client> {
-        runtime().block_on(Client::lazy_client())
+        runtime().block_on(Client::lazy_client()).unwrap()
     }
 
     fn inspect(id: &str) -> ContainerInspectResponse {
@@ -84,7 +84,7 @@ mod tests {
     }
 
     fn network_exists(client: &Arc<Client>, name: &str) -> bool {
-        runtime().block_on(client.network_exists(name))
+        runtime().block_on(client.network_exists(name)).unwrap()
     }
 
     #[derive(Default)]
@@ -119,7 +119,9 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
-        let container = RunnableImage::from(GenericImage::new("hello-world", "latest")).start();
+        let container = RunnableImage::from(GenericImage::new("hello-world", "latest"))
+            .start()
+            .unwrap();
 
         let container_details = inspect(container.id());
         let publish_ports = container_details
@@ -136,8 +138,9 @@ mod tests {
             .with_exposed_port(5000)
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
-        let container = image.start();
-        container.get_host_port_ipv4(5000);
+        let container = image.start().unwrap();
+        let res = container.get_host_port_ipv4(5000);
+        assert!(res.is_ok());
     }
 
     #[test]
@@ -146,7 +149,8 @@ mod tests {
         let container = RunnableImage::from(image)
             .with_mapped_port((124, 456))
             .with_mapped_port((556, 888))
-            .start();
+            .start()
+            .unwrap();
 
         let container_details = inspect(container.id());
 
@@ -160,12 +164,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: DockerResponseServerError { status_code: 404, message: \"No such container: !INVALID_NAME_DUE_TO_SYMBOLS!\" }"
-    )]
     fn sync_rm_command_should_panic_on_invalid_container() {
-        runtime().block_on(docker_client().rm("!INVALID_NAME_DUE_TO_SYMBOLS!"));
-        unreachable!()
+        let res = runtime().block_on(docker_client().rm("!INVALID_NAME_DUE_TO_SYMBOLS!"));
+        assert!(res.is_err(), "should panic on invalid container name");
     }
 
     #[test]
@@ -173,7 +174,8 @@ mod tests {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
             .with_network("sync-awesome-net-1")
-            .start();
+            .start()
+            .unwrap();
 
         let container_details = inspect(container.id());
         let networks = container_details
@@ -196,13 +198,17 @@ mod tests {
 
         let container = RunnableImage::from(web_server.clone())
             .with_network("bridge")
-            .start();
+            .start()
+            .unwrap();
 
-        assert!(!container.get_bridge_ip_address().to_string().is_empty())
+        assert!(!container
+            .get_bridge_ip_address()
+            .unwrap()
+            .to_string()
+            .is_empty())
     }
 
     #[test]
-    #[should_panic]
     fn sync_should_panic_when_non_bridged_network_selected() {
         let web_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
@@ -210,16 +216,19 @@ mod tests {
 
         let container = RunnableImage::from(web_server.clone())
             .with_network("host")
-            .start();
+            .start()
+            .unwrap();
 
-        container.get_bridge_ip_address();
+        let res = container.get_bridge_ip_address();
+        assert!(res.is_err());
     }
     #[test]
     fn sync_run_command_should_include_name() {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
             .with_container_name("sync_hello_container")
-            .start();
+            .start()
+            .unwrap();
 
         let container_details = inspect(container.id());
         let container_name = container_details.name.unwrap();
@@ -231,18 +240,23 @@ mod tests {
         let _first_container =
             RunnableImage::from(GenericImage::new("simple_web_server", "latest"))
                 .with_container_name("the_first_one")
-                .start();
+                .start()
+                .unwrap();
 
         let image = GenericImage::new("hello-world", "latest");
         RunnableImage::from(image)
             .with_network("container:the_first_one")
-            .start();
+            .start()
+            .unwrap();
     }
 
     #[test]
     fn sync_run_command_should_include_privileged() {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image).with_privileged(true).start();
+        let container = RunnableImage::from(image)
+            .with_privileged(true)
+            .start()
+            .unwrap();
         let container_details = inspect(container.id());
 
         let privileged = container_details.host_config.unwrap().privileged.unwrap();
@@ -252,7 +266,10 @@ mod tests {
     #[test]
     fn sync_run_command_should_set_shared_memory_size() {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image).with_shm_size(1_000_000).start();
+        let container = RunnableImage::from(image)
+            .with_shm_size(1_000_000)
+            .start()
+            .unwrap();
 
         let container_details = inspect(container.id());
         let shm_size = container_details.host_config.unwrap().shm_size.unwrap();
@@ -270,11 +287,13 @@ mod tests {
             // creating the first container creates the network
             let _container1: Container<HelloWorld> = RunnableImage::from(HelloWorld::default())
                 .with_network("sync-awesome-net")
-                .start();
+                .start()
+                .unwrap();
             // creating a 2nd container doesn't fail because check if the network exists already
             let _container2 = RunnableImage::from(HelloWorld::default())
                 .with_network("sync-awesome-net")
-                .start();
+                .start()
+                .unwrap();
 
             assert!(network_exists(&client, "sync-awesome-net"));
         }

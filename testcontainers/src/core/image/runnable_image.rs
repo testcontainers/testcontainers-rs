@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, net::IpAddr};
 
 use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
-    Image,
+    Image, TestcontainersError,
 };
 
 /// Image wrapper that allows to override some of the image properties.
@@ -118,7 +118,10 @@ impl<I: Image> RunnableImage<I> {
         self.image.expose_ports()
     }
 
-    pub fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
+    pub fn exec_after_start(
+        &self,
+        cs: ContainerState,
+    ) -> Result<Vec<ExecCommand>, TestcontainersError> {
         self.image.exec_after_start(cs)
     }
 }

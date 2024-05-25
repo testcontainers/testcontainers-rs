@@ -33,18 +33,18 @@ impl Image for HelloWorld {
 #[test]
 fn sync_can_run_hello_world() {
     let _ = pretty_env_logger::try_init();
-    let _container = HelloWorld.start();
+    let _container = HelloWorld.start().unwrap();
 }
 
 #[test]
 fn generic_image_with_custom_entrypoint() {
     let generic = get_server_container(None);
 
-    let node = generic.start();
-    let port = node.get_host_port_ipv4(80);
+    let node = generic.start().unwrap();
+    let port = node.get_host_port_ipv4(80).unwrap();
     assert_eq!(
         "foo",
-        reqwest::blocking::get(format!("http://{}:{port}", node.get_host()))
+        reqwest::blocking::get(format!("http://{}:{port}", node.get_host().unwrap()))
             .unwrap()
             .text()
             .unwrap()
@@ -52,11 +52,11 @@ fn generic_image_with_custom_entrypoint() {
 
     let generic = get_server_container(None).with_entrypoint("./bar");
 
-    let node = generic.start();
-    let port = node.get_host_port_ipv4(80);
+    let node = generic.start().unwrap();
+    let port = node.get_host_port_ipv4(80).unwrap();
     assert_eq!(
         "bar",
-        reqwest::blocking::get(format!("http://{}:{port}", node.get_host()))
+        reqwest::blocking::get(format!("http://{}:{port}", node.get_host().unwrap()))
             .unwrap()
             .text()
             .unwrap()
@@ -75,8 +75,8 @@ fn generic_image_exposed_ports() {
         // Explicitly expose the port, which otherwise would not be available.
         .with_exposed_port(target_port);
 
-    let node = generic_server.start();
-    let port = node.get_host_port_ipv4(target_port);
+    let node = generic_server.start().unwrap();
+    let port = node.get_host_port_ipv4(target_port).unwrap();
     assert!(reqwest::blocking::get(format!("http://127.0.0.1:{port}"))
         .unwrap()
         .status()
@@ -86,8 +86,8 @@ fn generic_image_exposed_ports() {
 #[test]
 fn generic_image_running_with_extra_hosts_added() {
     let server_1 = get_server_container(None);
-    let node = server_1.start();
-    let port = node.get_host_port_ipv4(80);
+    let node = server_1.start().unwrap();
+    let port = node.get_host_port_ipv4(80).unwrap();
 
     let msg = WaitFor::message_on_stdout("foo");
     let server_2 = GenericImage::new("curlimages/curl", "latest")
@@ -99,11 +99,10 @@ fn generic_image_running_with_extra_hosts_added() {
     let server_2 = RunnableImage::from((server_2, vec![format!("http://custom-host:{port}")]))
         .with_host("custom-host", Host::HostGateway);
 
-    server_2.start();
+    server_2.start().unwrap();
 }
 
 #[test]
-#[should_panic]
 fn generic_image_port_not_exposed() {
     let _ = pretty_env_logger::try_init();
 
@@ -112,10 +111,11 @@ fn generic_image_port_not_exposed() {
     // This image binds to 0.0.0.0:8080, does not EXPOSE ports in its dockerfile.
     let generic_server = GenericImage::new("no_expose_port", "latest")
         .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"));
-    let node = generic_server.start();
+    let node = generic_server.start().unwrap();
 
     // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.
-    node.get_host_port_ipv4(target_port);
+    let res = node.get_host_port_ipv4(target_port);
+    assert!(res.is_err());
 }
 
 #[test]
@@ -124,9 +124,9 @@ fn start_multiple_containers() {
 
     let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
 
-    let _container_1 = image.clone().start();
-    let _container_2 = image.clone().start();
-    let _container_3 = image.start();
+    let _container_1 = image.clone().start().unwrap();
+    let _container_2 = image.clone().start().unwrap();
+    let _container_3 = image.start().unwrap();
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn sync_run_exec() {
     let image = GenericImage::new("simple_web_server", "latest")
         .with_wait_for(WaitFor::message_on_stdout("server is ready"))
         .with_wait_for(WaitFor::seconds(1));
-    let container = image.start();
+    let container = image.start().unwrap();
 
     // exit code, it waits for result
     let res = container

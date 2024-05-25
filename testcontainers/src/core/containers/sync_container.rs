@@ -1,7 +1,7 @@
 use std::{fmt, io::BufRead, net::IpAddr};
 
 use crate::{
-    core::{env, errors::ExecError, ports::Ports, ExecCommand},
+    core::{env, error::Result, ports::Ports, ExecCommand},
     ContainerAsync, Image,
 };
 
@@ -83,7 +83,7 @@ where
         self.async_impl().image_args()
     }
 
-    pub fn ports(&self) -> Ports {
+    pub fn ports(&self) -> Result<Ports> {
         self.rt().block_on(self.async_impl().ports())
     }
 
@@ -98,7 +98,7 @@ where
     /// This method panics if the given port is not mapped.
     /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
     /// is unlikely to be useful.
-    pub fn get_host_port_ipv4(&self, internal_port: u16) -> u16 {
+    pub fn get_host_port_ipv4(&self, internal_port: u16) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv4(internal_port))
     }
@@ -114,25 +114,25 @@ where
     /// This method panics if the given port is not mapped.
     /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
     /// is unlikely to be useful.
-    pub fn get_host_port_ipv6(&self, internal_port: u16) -> u16 {
+    pub fn get_host_port_ipv6(&self, internal_port: u16) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv6(internal_port))
     }
 
     /// Returns the bridge ip address of docker container as specified in NetworkSettings.Networks.IPAddress
-    pub fn get_bridge_ip_address(&self) -> IpAddr {
+    pub fn get_bridge_ip_address(&self) -> Result<IpAddr> {
         self.rt()
             .block_on(self.async_impl().get_bridge_ip_address())
     }
 
     /// Returns the host that this container may be reached on (may not be the local machine)
     /// Suitable for use in URL
-    pub fn get_host(&self) -> url::Host {
+    pub fn get_host(&self) -> Result<url::Host> {
         self.rt().block_on(self.async_impl().get_host())
     }
 
     /// Executes a command in the container.
-    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::SyncExecResult<'_>, ExecError> {
+    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::SyncExecResult<'_>> {
         let async_exec = self.rt().block_on(self.async_impl().exec(cmd))?;
         Ok(exec::SyncExecResult {
             inner: async_exec,
@@ -141,20 +141,21 @@ where
     }
 
     /// Stops the container (not the same with `pause`).
-    pub fn stop(&self) {
-        self.rt().block_on(self.async_impl().stop());
+    pub fn stop(&self) -> Result<()> {
+        self.rt().block_on(self.async_impl().stop())
     }
 
     /// Starts the container.
-    pub fn start(&self) {
-        self.rt().block_on(self.async_impl().start());
+    pub fn start(&self) -> Result<()> {
+        self.rt().block_on(self.async_impl().start())
     }
 
     /// Removes the container.
-    pub fn rm(mut self) {
+    pub fn rm(mut self) -> Result<()> {
         if let Some(active) = self.inner.take() {
-            active.runtime.block_on(active.async_impl.rm());
+            active.runtime.block_on(active.async_impl.rm())?;
         }
+        Ok(())
     }
 
     /// Returns a reader for stdout.
@@ -189,7 +190,11 @@ impl<I: Image> Drop for Container<I> {
         if let Some(active) = self.inner.take() {
             active.runtime.block_on(async {
                 match active.async_impl.docker_client.config.command() {
-                    env::Command::Remove => active.async_impl.rm().await,
+                    env::Command::Remove => {
+                        if let Err(e) = active.async_impl.rm().await {
+                            log::error!("Failed to remove container on drop: {}", e);
+                        }
+                    }
                     env::Command::Keep => {}
                 }
             });
@@ -231,7 +236,7 @@ mod test {
     #[test]
     fn async_logs_are_accessible() {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
-        let container = RunnableImage::from(image).start();
+        let container = RunnableImage::from(image).start().unwrap();
 
         let mut stderr_lines = container.stderr().lines();
 
@@ -252,7 +257,7 @@ mod test {
         }
 
         // logs are accessible after container is stopped
-        container.stop();
+        container.stop().unwrap();
 
         // stdout is empty
         let mut stdout = String::new();

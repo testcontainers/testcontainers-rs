@@ -119,7 +119,9 @@ impl Config {
             .as_ref()
             .or(self.host.as_ref())
             .cloned()
-            .unwrap_or_else(|| Url::from_str(DEFAULT_DOCKER_HOST).unwrap())
+            .unwrap_or_else(|| {
+                Url::from_str(DEFAULT_DOCKER_HOST).expect("default host is valid URL")
+            })
     }
 
     pub(crate) fn tls_verify(&self) -> bool {
@@ -185,11 +187,11 @@ impl FromStr for Command {
     }
 }
 
+#[cfg(feature = "properties-config")]
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[cfg(feature = "properties-config")]
     #[test]
     fn deserialize_java_properties() {
         let tc_host = Url::parse("http://tc-host").unwrap();

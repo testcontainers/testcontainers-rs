@@ -7,12 +7,12 @@ pub use self::{
     mounts::{AccessMode, Mount, MountType},
 };
 
-pub mod errors;
 mod image;
 
 pub(crate) mod client;
 pub(crate) mod containers;
 pub(crate) mod env;
+pub mod error;
 pub(crate) mod logs;
 pub(crate) mod macros;
 pub(crate) mod mounts;

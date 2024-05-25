@@ -1,6 +1,6 @@
-use std::{fmt, io, io::BufRead};
+use std::{fmt, io::BufRead};
 
-use crate::core::sync_container::sync_reader;
+use crate::{core::sync_container::sync_reader, TestcontainersError};
 
 /// Represents the result of an executed command in a container.
 pub struct SyncExecResult<'a> {
@@ -11,7 +11,7 @@ pub struct SyncExecResult<'a> {
 impl<'a> SyncExecResult<'a> {
     /// Returns the exit code of the executed command.
     /// If the command has not yet exited, this will return `None`.
-    pub fn exit_code(&self) -> Result<Option<i64>, bollard::errors::Error> {
+    pub fn exit_code(&self) -> Result<Option<i64>, TestcontainersError> {
         self.runtime.block_on(self.inner.exit_code())
     }
 
@@ -32,12 +32,12 @@ impl<'a> SyncExecResult<'a> {
     }
 
     /// Returns stdout as a vector of bytes.
-    pub fn stdout_to_vec(&mut self) -> Result<Vec<u8>, io::Error> {
+    pub fn stdout_to_vec(&mut self) -> Result<Vec<u8>, TestcontainersError> {
         self.runtime.block_on(self.inner.stdout_to_vec())
     }
 
     /// Returns stderr as a vector of bytes.
-    pub fn stderr_to_vec(&mut self) -> Result<Vec<u8>, io::Error> {
+    pub fn stderr_to_vec(&mut self) -> Result<Vec<u8>, TestcontainersError> {
         self.runtime.block_on(self.inner.stderr_to_vec())
     }
 }

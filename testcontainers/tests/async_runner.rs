@@ -66,8 +66,10 @@ async fn explicit_call_to_pull_missing_image_hello_world() {
     let _container = RunnableImage::from(HelloWorld)
         .pull_image()
         .await
+        .unwrap()
         .start()
-        .await;
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -97,7 +99,7 @@ async fn async_run_exec() {
     let image = GenericImage::new("simple_web_server", "latest")
         .with_wait_for(WaitFor::message_on_stdout("server is ready"))
         .with_wait_for(WaitFor::seconds(1));
-    let container = image.start().await;
+    let container = image.start().await.unwrap();
 
     // exit code, it waits for result
     let res = container
@@ -138,21 +140,20 @@ async fn async_run_exec() {
 }
 
 #[tokio::test]
-#[should_panic]
 async fn async_run_exec_fails_due_to_unexpected_code() {
     let _ = pretty_env_logger::try_init();
 
     let image = GenericImage::new("simple_web_server", "latest")
         .with_wait_for(WaitFor::message_on_stdout("server is ready"))
         .with_wait_for(WaitFor::seconds(1));
-    let container = image.start().await;
+    let container = image.start().await.unwrap();
 
     // exit code, it waits for result
-    container
+    let res = container
         .exec(
             ExecCommand::new(vec!["ls".to_string()])
                 .with_cmd_ready_condition(CmdWaitFor::exit_code(-1)),
         )
-        .await
-        .unwrap();
+        .await;
+    assert!(res.is_err());
 }
