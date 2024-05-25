@@ -16,7 +16,7 @@ mod sync_reader;
 /// use testcontainers::*;
 /// #[test]
 /// fn a_test() {
-///     let container = MyImage::default().start();
+///     let container = MyImage::default().start().unwrap();
 ///     // Docker container is stopped/removed at the end of this scope.
 /// }
 /// ```
@@ -234,9 +234,9 @@ mod test {
     fn assert_send_and_sync<T: Send + Sync>() {}
 
     #[test]
-    fn async_logs_are_accessible() {
+    fn async_logs_are_accessible() -> anyhow::Result<()> {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
-        let container = RunnableImage::from(image).start().unwrap();
+        let container = RunnableImage::from(image).start()?;
 
         let mut stderr_lines = container.stderr().lines();
 
@@ -249,7 +249,7 @@ mod test {
             "Ready, listening on 8080 and 8081",
         ];
         for expected_message in expected_messages {
-            let line = stderr_lines.next().unwrap().unwrap();
+            let line = stderr_lines.next().expect("line must exist")?;
             assert!(
                 line.contains(expected_message),
                 "Log message ('{line}') doesn't contain expected message ('{expected_message}')"
@@ -257,20 +257,21 @@ mod test {
         }
 
         // logs are accessible after container is stopped
-        container.stop().unwrap();
+        container.stop()?;
 
         // stdout is empty
         let mut stdout = String::new();
-        container.stdout().read_to_string(&mut stdout).unwrap();
+        container.stdout().read_to_string(&mut stdout)?;
         assert_eq!(stdout, "");
         // stderr contains 6 lines
         let mut stderr = String::new();
-        container.stderr().read_to_string(&mut stderr).unwrap();
+        container.stderr().read_to_string(&mut stderr)?;
         assert_eq!(
             stderr.lines().count(),
             6,
             "unexpected stderr size: {}",
             stderr
         );
+        Ok(())
     }
 }

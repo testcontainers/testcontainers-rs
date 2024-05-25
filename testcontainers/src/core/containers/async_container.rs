@@ -28,7 +28,7 @@ pub(super) mod exec;
 /// use testcontainers::*;
 /// #[tokio::test]
 /// async fn a_test() {
-///     let container = MyImage::default().start().await;
+///     let container = MyImage::default().start().await.unwrap();
 ///     // Docker container is stopped/removed at the end of this scope.
 /// }
 /// ```
@@ -378,9 +378,9 @@ mod tests {
     use crate::{images::generic::GenericImage, runners::AsyncRunner};
 
     #[tokio::test]
-    async fn async_logs_are_accessible() {
+    async fn async_logs_are_accessible() -> anyhow::Result<()> {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
-        let container = RunnableImage::from(image).start().await.unwrap();
+        let container = RunnableImage::from(image).start().await?;
 
         let mut stderr_lines = container.stderr().lines();
 
@@ -393,7 +393,7 @@ mod tests {
             "Ready, listening on 8080 and 8081",
         ];
         for expected_message in expected_messages {
-            let line = stderr_lines.next_line().await.unwrap().unwrap();
+            let line = stderr_lines.next_line().await?.expect("line must exist");
             assert!(
                 line.contains(expected_message),
                 "Log message ('{line}') doesn't contain expected message ('{expected_message}')"
@@ -401,28 +401,21 @@ mod tests {
         }
 
         // logs are accessible after container is stopped
-        container.stop().await.unwrap();
+        container.stop().await?;
 
         // stdout is empty
         let mut stdout = String::new();
-        container
-            .stdout()
-            .read_to_string(&mut stdout)
-            .await
-            .unwrap();
+        container.stdout().read_to_string(&mut stdout).await?;
         assert_eq!(stdout, "");
         // stderr contains 6 lines
         let mut stderr = String::new();
-        container
-            .stderr()
-            .read_to_string(&mut stderr)
-            .await
-            .unwrap();
+        container.stderr().read_to_string(&mut stderr).await?;
         assert_eq!(
             stderr.lines().count(),
             6,
             "unexpected stderr size: {}",
             stderr
         );
+        Ok(())
     }
 }

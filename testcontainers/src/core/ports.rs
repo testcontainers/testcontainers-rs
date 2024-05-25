@@ -341,14 +341,14 @@ mod tests {
   }
 }"#,
         )
-        .unwrap();
+        .expect("JSON is valid");
 
         let parsed_ports = container_details
             .network_settings
             .unwrap_or_default()
             .ports
             .map(Ports::try_from)
-            .unwrap()
+            .expect("ports are mapped correctly")
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();

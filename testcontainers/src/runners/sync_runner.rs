@@ -11,7 +11,8 @@ use crate::{core::error::Result, Container, Image, RunnableImage};
 ///     let container = GenericImage::new("redis", "7.2.4")
 ///         .with_exposed_port(6379)
 ///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
-///         .start().unwrap();
+///         .start()
+///         .unwrap();
 /// }
 /// ```
 pub trait SyncRunner<I: Image> {
@@ -118,49 +119,50 @@ mod tests {
     }
 
     #[test]
-    fn sync_run_command_should_expose_all_ports_if_no_explicit_mapping_requested() {
-        let container = RunnableImage::from(GenericImage::new("hello-world", "latest"))
-            .start()
-            .unwrap();
+    fn sync_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
+    ) -> anyhow::Result<()> {
+        let container = RunnableImage::from(GenericImage::new("hello-world", "latest")).start()?;
 
         let container_details = inspect(container.id());
         let publish_ports = container_details
             .host_config
-            .unwrap()
+            .expect("HostConfig")
             .publish_all_ports
-            .unwrap();
+            .expect("PublishAllPorts");
         assert!(publish_ports, "publish_all_ports must be `true`");
+        Ok(())
     }
 
     #[test]
-    fn sync_run_command_should_map_exposed_port() {
+    fn sync_run_command_should_map_exposed_port() -> anyhow::Result<()> {
         let image = GenericImage::new("simple_web_server", "latest")
             .with_exposed_port(5000)
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
-        let container = image.start().unwrap();
+        let container = image.start()?;
         let res = container.get_host_port_ipv4(5000);
         assert!(res.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn sync_run_command_should_expose_only_requested_ports() {
+    fn sync_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
             .with_mapped_port((124, 456))
             .with_mapped_port((556, 888))
-            .start()
-            .unwrap();
+            .start()?;
 
         let container_details = inspect(container.id());
 
         let port_bindings = container_details
             .host_config
-            .unwrap()
+            .expect("HostConfig")
             .port_bindings
-            .unwrap();
+            .expect("PortBindings");
         assert!(port_bindings.contains_key("456/tcp"));
         assert!(port_bindings.contains_key("888/tcp"));
+        Ok(())
     }
 
     #[test]
@@ -170,115 +172,117 @@ mod tests {
     }
 
     #[test]
-    fn sync_run_command_should_include_network() {
+    fn sync_run_command_should_include_network() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
             .with_network("sync-awesome-net-1")
-            .start()
-            .unwrap();
+            .start()?;
 
         let container_details = inspect(container.id());
         let networks = container_details
             .network_settings
-            .unwrap()
+            .expect("NetworkSettings")
             .networks
-            .unwrap();
+            .expect("Networks");
 
         assert!(
             networks.contains_key("sync-awesome-net-1"),
             "Networks is {networks:?}"
         );
+        Ok(())
     }
 
     #[test]
-    fn sync_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty() {
+    fn sync_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty(
+    ) -> anyhow::Result<()> {
         let web_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
 
         let container = RunnableImage::from(web_server.clone())
             .with_network("bridge")
-            .start()
-            .unwrap();
+            .start()?;
 
-        assert!(!container
-            .get_bridge_ip_address()
-            .unwrap()
-            .to_string()
-            .is_empty())
+        assert!(!container.get_bridge_ip_address()?.to_string().is_empty());
+        Ok(())
     }
 
     #[test]
-    fn sync_should_panic_when_non_bridged_network_selected() {
+    fn sync_should_panic_when_non_bridged_network_selected() -> anyhow::Result<()> {
         let web_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
 
         let container = RunnableImage::from(web_server.clone())
             .with_network("host")
-            .start()
-            .unwrap();
+            .start()?;
 
         let res = container.get_bridge_ip_address();
         assert!(res.is_err());
+        Ok(())
     }
     #[test]
-    fn sync_run_command_should_include_name() {
+    fn sync_run_command_should_include_name() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
             .with_container_name("sync_hello_container")
-            .start()
-            .unwrap();
+            .start()?;
 
         let container_details = inspect(container.id());
-        let container_name = container_details.name.unwrap();
+        let container_name = container_details.name.expect("Name");
         assert!(container_name.ends_with("sync_hello_container"));
+        Ok(())
     }
 
     #[test]
-    fn sync_run_command_with_container_network_should_not_expose_ports() {
+    fn sync_run_command_with_container_network_should_not_expose_ports() -> anyhow::Result<()> {
         let _first_container =
             RunnableImage::from(GenericImage::new("simple_web_server", "latest"))
                 .with_container_name("the_first_one")
-                .start()
-                .unwrap();
+                .start()?;
 
         let image = GenericImage::new("hello-world", "latest");
         RunnableImage::from(image)
             .with_network("container:the_first_one")
-            .start()
-            .unwrap();
+            .start()?;
+        Ok(())
     }
 
     #[test]
-    fn sync_run_command_should_include_privileged() {
+    fn sync_run_command_should_include_privileged() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
-            .with_privileged(true)
-            .start()
-            .unwrap();
+        let container = RunnableImage::from(image).with_privileged(true).start()?;
         let container_details = inspect(container.id());
 
-        let privileged = container_details.host_config.unwrap().privileged.unwrap();
+        let privileged = container_details
+            .host_config
+            .expect("HostConfig")
+            .privileged
+            .expect("Privileged");
         assert!(privileged, "privileged must be `true`");
+        Ok(())
     }
 
     #[test]
-    fn sync_run_command_should_set_shared_memory_size() {
+    fn sync_run_command_should_set_shared_memory_size() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
         let container = RunnableImage::from(image)
             .with_shm_size(1_000_000)
-            .start()
-            .unwrap();
+            .start()?;
 
         let container_details = inspect(container.id());
-        let shm_size = container_details.host_config.unwrap().shm_size.unwrap();
+        let shm_size = container_details
+            .host_config
+            .expect("HostConfig")
+            .shm_size
+            .expect("ShmSize");
 
         assert_eq!(shm_size, 1_000_000);
+        Ok(())
     }
 
     #[test]
-    fn sync_should_create_network_if_image_needs_it_and_drop_it_in_the_end() {
+    fn sync_should_create_network_if_image_needs_it_and_drop_it_in_the_end() -> anyhow::Result<()> {
         {
             let client = docker_client();
 
@@ -287,13 +291,11 @@ mod tests {
             // creating the first container creates the network
             let _container1: Container<HelloWorld> = RunnableImage::from(HelloWorld::default())
                 .with_network("sync-awesome-net")
-                .start()
-                .unwrap();
+                .start()?;
             // creating a 2nd container doesn't fail because check if the network exists already
             let _container2 = RunnableImage::from(HelloWorld::default())
                 .with_network("sync-awesome-net")
-                .start()
-                .unwrap();
+                .start()?;
 
             assert!(network_exists(&client, "sync-awesome-net"));
         }
@@ -303,5 +305,6 @@ mod tests {
             // original client has been dropped, should clean up networks
             assert!(!network_exists(&client, "sync-awesome-net"));
         }
+        Ok(())
     }
 }
