@@ -117,7 +117,7 @@ where
     pub async fn get_host_port_ipv6(&self, internal_port: u16) -> Result<u16> {
         self.ports()
             .await?
-            .map_to_host_port_ipv4(internal_port)
+            .map_to_host_port_ipv6(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {
                 id: self.id.clone(),
                 port: internal_port,
