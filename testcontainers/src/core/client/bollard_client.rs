@@ -6,7 +6,7 @@ use crate::core::env;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 
-pub(super) fn init(config: &env::Config) -> Docker {
+pub(super) fn init(config: &env::Config) -> Result<Docker, bollard::errors::Error> {
     let host = config.docker_host();
 
     match host.scheme() {
@@ -34,11 +34,10 @@ pub(super) fn init(config: &env::Config) -> Docker {
             DEFAULT_TIMEOUT.as_secs(),
             API_DEFAULT_VERSION,
         ),
-        scheme => {
-            panic!("Unsupported scheme: {scheme}");
-        }
+        _ => Err(bollard::errors::Error::UnsupportedURISchemeError {
+            uri: host.to_string(),
+        }),
     }
-    .expect("Failed to connect to Docker")
 }
 
 fn connect_with_ssl(config: &env::Config) -> Result<Docker, bollard::errors::Error> {

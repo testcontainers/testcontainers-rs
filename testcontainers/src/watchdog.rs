@@ -1,3 +1,8 @@
+//! Watchdog that stops and removes containers on SIGTERM, SIGINT, or SIGQUIT
+//!
+//! By default, the watchdog is disabled. To enable it, enable the `watchdog` feature.
+//! Note that it works in background thread and may panic.
+
 use std::{collections::BTreeSet, sync::Mutex, thread};
 
 use conquer_once::Lazy;
@@ -16,7 +21,9 @@ static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
             .expect("failed to start watchdog runtime in background");
 
         runtime.block_on(async {
-            let signal_docker = Client::lazy_client().await;
+            let signal_docker = Client::lazy_client()
+                .await
+                .expect("failed to create docker client");
             let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])
                 .expect("failed to register signal handler");
 
@@ -26,8 +33,14 @@ static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
                     .map(|s| s.containers.clone())
                     .unwrap_or_default()
                 {
-                    signal_docker.stop(&container_id).await;
-                    signal_docker.rm(&container_id).await;
+                    signal_docker
+                        .stop(&container_id)
+                        .await
+                        .expect("failed to stop container");
+                    signal_docker
+                        .rm(&container_id)
+                        .await
+                        .expect("failed to remove container")
                 }
 
                 let _ = signal_hook::low_level::emulate_default_handler(signal);

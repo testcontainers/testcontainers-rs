@@ -5,7 +5,7 @@ pub use runnable_image::{CgroupnsMode, Host, PortMapping, RunnableImage};
 pub use wait_for::WaitFor;
 
 use super::ports::Ports;
-use crate::core::mounts::Mount;
+use crate::{core::mounts::Mount, TestcontainersError};
 
 mod exec;
 mod runnable_image;
@@ -96,11 +96,17 @@ where
     /// Returns the commands that needs to be executed after a container is started i.e. commands
     /// to be run in a running container.
     ///
+    /// Notice, that you can return an error from this method, for example if container's state is unexpected.
+    /// In this case, you can use `TestcontainersError::other` to wrap an arbitrary error.
+    ///
     /// This method is useful when certain re-configuration is required after the start
     /// of container for the container to be considered ready for use in tests.
     #[allow(unused_variables)]
-    fn exec_after_start(&self, cs: ContainerState) -> Vec<ExecCommand> {
-        Default::default()
+    fn exec_after_start(
+        &self,
+        cs: ContainerState,
+    ) -> Result<Vec<ExecCommand>, TestcontainersError> {
+        Ok(Default::default())
     }
 }
 
@@ -114,16 +120,12 @@ impl ContainerState {
         Self { ports }
     }
 
-    pub fn host_port_ipv4(&self, internal_port: u16) -> u16 {
-        self.ports
-            .map_to_host_port_ipv4(internal_port)
-            .unwrap_or_else(|| panic!("Container does not have a mapped port for {internal_port}",))
+    pub fn host_port_ipv4(&self, internal_port: u16) -> Option<u16> {
+        self.ports.map_to_host_port_ipv4(internal_port)
     }
 
-    pub fn host_port_ipv6(&self, internal_port: u16) -> u16 {
-        self.ports
-            .map_to_host_port_ipv6(internal_port)
-            .unwrap_or_else(|| panic!("Container does not have a mapped port for {internal_port}",))
+    pub fn host_port_ipv6(&self, internal_port: u16) -> Option<u16> {
+        self.ports.map_to_host_port_ipv6(internal_port)
     }
 }
 

@@ -1,17 +1,15 @@
-use std::{io, sync::Arc, time::Duration};
+use std::{io, sync::Arc};
 
 use bollard::{
     auth::DockerCredentials,
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions},
+    errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
     network::{CreateNetworkOptions, InspectNetworkOptions},
     Docker,
 };
-use bollard_stubs::models::{
-    ContainerCreateResponse, ContainerInspectResponse, ExecInspectResponse, HealthStatusEnum,
-    Network,
-};
+use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -19,10 +17,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use crate::core::{
     client::exec::ExecResult,
     env,
-    errors::WaitContainerError,
     logs::{LogSource, LogStreamAsync},
-    ports::Ports,
-    WaitFor,
+    ports::{PortMappingError, Ports},
 };
 
 mod bollard_client;
@@ -39,18 +35,60 @@ async fn is_in_container() -> bool {
         .await
 }
 
+/// Error type for client operations.
+// Mostly wrapper around bollard errors, because they are not very user-friendly.
+#[derive(Debug, thiserror::Error)]
+pub enum ClientError {
+    #[error("failed to initialize a docker client: {0}")]
+    Init(BollardError),
+    #[error("invalid docker host: {0}")]
+    InvalidDockerHost(String),
+    #[error("failed to pull the image '{descriptor}', error: {err}")]
+    PullImage {
+        descriptor: String,
+        err: BollardError,
+    },
+    #[error("failed to map ports: {0}")]
+    PortMapping(#[from] PortMappingError),
+
+    #[error("failed to create a container: {0}")]
+    CreateContainer(BollardError),
+    #[error("failed to remove a container: {0}")]
+    RemoveContainer(BollardError),
+    #[error("failed to start a container: {0}")]
+    StartContainer(BollardError),
+    #[error("failed to stop a container: {0}")]
+    StopContainer(BollardError),
+    #[error("failed to inspect a container: {0}")]
+    InspectContainer(BollardError),
+
+    #[error("failed to create a network: {0}")]
+    CreateNetwork(BollardError),
+    #[error("failed to inspect a network: {0}")]
+    InspectNetwork(BollardError),
+    #[error("failed to list networks: {0}")]
+    ListNetworks(BollardError),
+    #[error("failed to remove a network: {0}")]
+    RemoveNetwork(BollardError),
+
+    #[error("failed to initialize exec command: {0}")]
+    InitExec(BollardError),
+    #[error("failed to inspect exec command: {0}")]
+    InspectExec(BollardError),
+}
+
 /// The internal client.
 pub(crate) struct Client {
     pub(crate) config: env::Config,
-    pub(crate) bollard: Docker,
+    bollard: Docker,
 }
 
 impl Client {
-    async fn new() -> Client {
+    async fn new() -> Result<Client, ClientError> {
         let config = env::Config::load::<env::Os>().await;
-        let bollard = bollard_client::init(&config);
+        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
 
-        Client { config, bollard }
+        Ok(Client { config, bollard })
     }
 
     pub(crate) fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_> {
@@ -61,25 +99,28 @@ impl Client {
         self.logs(id, LogSource::StdErr)
     }
 
-    pub(crate) async fn ports(&self, id: &str) -> Ports {
-        self.inspect(id)
-            .await
-            .unwrap()
+    pub(crate) async fn ports(&self, id: &str) -> Result<Ports, ClientError> {
+        let ports = self
+            .inspect(id)
+            .await?
             .network_settings
             .unwrap_or_default()
             .ports
-            .map(Ports::from)
-            .unwrap_or_default()
+            .map(Ports::try_from)
+            .transpose()?
+            .unwrap_or_default();
+
+        Ok(ports)
     }
 
-    pub(crate) async fn inspect(
-        &self,
-        id: &str,
-    ) -> Result<ContainerInspectResponse, bollard::errors::Error> {
-        self.bollard.inspect_container(id, None).await
+    pub(crate) async fn inspect(&self, id: &str) -> Result<ContainerInspectResponse, ClientError> {
+        self.bollard
+            .inspect_container(id, None)
+            .await
+            .map_err(ClientError::InspectContainer)
     }
 
-    pub(crate) async fn rm(&self, id: &str) {
+    pub(crate) async fn rm(&self, id: &str) -> Result<(), ClientError> {
         self.bollard
             .remove_container(
                 id,
@@ -90,25 +131,28 @@ impl Client {
                 }),
             )
             .await
-            .unwrap();
+            .map_err(ClientError::RemoveContainer)
     }
 
-    pub(crate) async fn stop(&self, id: &str) {
-        self.bollard.stop_container(id, None).await.unwrap();
+    pub(crate) async fn stop(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .stop_container(id, None)
+            .await
+            .map_err(ClientError::StopContainer)
     }
 
-    pub(crate) async fn start(&self, id: &str) {
+    pub(crate) async fn start(&self, id: &str) -> Result<(), ClientError> {
         self.bollard
             .start_container::<String>(id, None)
             .await
-            .unwrap();
+            .map_err(ClientError::Init)
     }
 
     pub(crate) async fn exec(
         &self,
         container_id: &str,
         cmd: Vec<String>,
-    ) -> Result<ExecResult<'_>, bollard::errors::Error> {
+    ) -> Result<ExecResult<'_>, ClientError> {
         let config = CreateExecOptions {
             cmd: Some(cmd),
             attach_stdout: Some(true),
@@ -116,7 +160,11 @@ impl Client {
             ..Default::default()
         };
 
-        let exec = self.bollard.create_exec(container_id, config).await?;
+        let exec = self
+            .bollard
+            .create_exec(container_id, config)
+            .await
+            .map_err(ClientError::InitExec)?;
 
         let res = self
             .bollard
@@ -128,7 +176,8 @@ impl Client {
                     output_capacity: None,
                 }),
             )
-            .await?;
+            .await
+            .map_err(ClientError::InitExec)?;
 
         match res {
             StartExecResults::Attached { output, .. } => {
@@ -189,59 +238,11 @@ impl Client {
     pub(crate) async fn inspect_exec(
         &self,
         exec_id: &str,
-    ) -> Result<ExecInspectResponse, bollard::errors::Error> {
-        self.bollard.inspect_exec(exec_id).await
-    }
-
-    pub(crate) async fn block_until_ready(
-        &self,
-        id: &str,
-        ready_conditions: &[WaitFor],
-    ) -> Result<(), WaitContainerError> {
-        log::debug!("Waiting for container {id} to be ready");
-
-        for condition in ready_conditions {
-            match condition {
-                WaitFor::StdOutMessage { message } => {
-                    self.stdout_logs(id).wait_for_message(message).await?
-                }
-                WaitFor::StdErrMessage { message } => {
-                    self.stderr_logs(id).wait_for_message(message).await?
-                }
-                WaitFor::Duration { length } => {
-                    tokio::time::sleep(*length).await;
-                }
-                WaitFor::Healthcheck => loop {
-                    use HealthStatusEnum::*;
-
-                    let health_status = self
-                        .inspect(id)
-                        .await
-                        .map_err(WaitContainerError::Inspect)?
-                        .state
-                        .ok_or(WaitContainerError::StateUnavailable)?
-                        .health
-                        .and_then(|health| health.status);
-
-                    match health_status {
-                        Some(HEALTHY) => break,
-                        None | Some(EMPTY) | Some(NONE) => {
-                            return Err(WaitContainerError::HealthCheckNotConfigured(
-                                id.to_string(),
-                            ))
-                        }
-                        Some(UNHEALTHY) => return Err(WaitContainerError::Unhealthy),
-                        Some(STARTING) => {
-                            tokio::time::sleep(Duration::from_millis(100)).await;
-                        }
-                    }
-                },
-                WaitFor::Nothing => {}
-            }
-        }
-
-        log::debug!("Container {id} is now ready!");
-        Ok(())
+    ) -> Result<ExecInspectResponse, ClientError> {
+        self.bollard
+            .inspect_exec(exec_id)
+            .await
+            .map_err(ClientError::InspectExec)
     }
 
     fn logs(&self, container_id: &str, log_source: LogSource) -> LogStreamAsync<'_> {
@@ -263,7 +264,7 @@ impl Client {
     }
 
     /// Creates a network with given name and returns an ID
-    pub(crate) async fn create_network(&self, name: &str) -> Option<String> {
+    pub(crate) async fn create_network(&self, name: &str) -> Result<Option<String>, ClientError> {
         let network = self
             .bollard
             .create_network(CreateNetworkOptions {
@@ -272,30 +273,39 @@ impl Client {
                 ..Default::default()
             })
             .await
-            .unwrap();
+            .map_err(ClientError::CreateNetwork)?;
 
-        network.id
+        Ok(network.id)
     }
 
     /// Inspects a network
-    pub(crate) async fn inspect_network(
-        &self,
-        name: &str,
-    ) -> Result<Network, bollard::errors::Error> {
+    pub(crate) async fn inspect_network(&self, name: &str) -> Result<Network, ClientError> {
         self.bollard
             .inspect_network(name, Some(InspectNetworkOptions::<String>::default()))
             .await
+            .map_err(ClientError::InspectNetwork)
     }
 
     pub(crate) async fn create_container(
         &self,
         options: Option<CreateContainerOptions<String>>,
         config: Config<String>,
-    ) -> Result<ContainerCreateResponse, bollard::errors::Error> {
-        self.bollard.create_container(options, config).await
+    ) -> Result<String, ClientError> {
+        self.bollard
+            .create_container(options.clone(), config.clone())
+            .await
+            .map(|res| res.id)
+            .map_err(ClientError::CreateContainer)
     }
 
-    pub(crate) async fn pull_image(&self, descriptor: &str) {
+    pub(crate) async fn start_container(&self, container_id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .start_container::<String>(container_id, None)
+            .await
+            .map_err(ClientError::StartContainer)
+    }
+
+    pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
         let pull_options = Some(CreateImageOptions {
             from_image: descriptor,
             ..Default::default()
@@ -303,30 +313,40 @@ impl Client {
         let credentials = self.credentials_for_image(descriptor).await;
         let mut pulling = self.bollard.create_image(pull_options, None, credentials);
         while let Some(result) = pulling.next().await {
-            result.unwrap_or_else(|err| {
-                panic!("Error pulling the image: '{descriptor}', error: {err}")
-            });
+            result.map_err(|err| ClientError::PullImage {
+                descriptor: descriptor.to_string(),
+                err,
+            })?;
         }
+        Ok(())
     }
 
-    pub(crate) async fn network_exists(&self, network: &str) -> bool {
-        let networks = self.bollard.list_networks::<String>(None).await.unwrap();
-        networks
+    pub(crate) async fn network_exists(&self, network: &str) -> Result<bool, ClientError> {
+        let networks = self
+            .bollard
+            .list_networks::<String>(None)
+            .await
+            .map_err(ClientError::ListNetworks)?;
+
+        Ok(networks
             .iter()
-            .any(|i| matches!(&i.name, Some(name) if name == network))
+            .any(|i| matches!(&i.name, Some(name) if name == network)))
     }
 
-    pub(crate) async fn remove_network(&self, network: &str) {
+    pub(crate) async fn remove_network(&self, network: &str) -> Result<(), ClientError> {
         self.bollard
             .remove_network(network)
             .await
-            .expect("Failed to remove network");
+            .map_err(ClientError::RemoveNetwork)
     }
 
-    pub(crate) async fn docker_hostname(&self) -> url::Host {
+    pub(crate) async fn docker_hostname(&self) -> Result<url::Host, ClientError> {
         let docker_host = self.config.docker_host();
         match docker_host.scheme() {
-            "tcp" | "http" | "https" => docker_host.host().unwrap().to_owned(),
+            "tcp" | "http" | "https" => docker_host
+                .host()
+                .map(|host| host.to_owned())
+                .ok_or_else(|| ClientError::InvalidDockerHost(docker_host.to_string())),
             "unix" | "npipe" => {
                 if is_in_container().await {
                     let host = self
@@ -343,10 +363,9 @@ impl Client {
                         .filter(|gateway| !gateway.trim().is_empty())
                         .unwrap_or_else(|| "localhost".to_string());
 
-                    url::Host::parse(&host)
-                        .unwrap_or_else(|e| panic!("invalid host: '{host}', error: {e}"))
+                    url::Host::parse(&host).map_err(|_| ClientError::InvalidDockerHost(host))
                 } else {
-                    url::Host::Domain("localhost".to_string())
+                    Ok(url::Host::Domain("localhost".to_string()))
                 }
             }
             _ => unreachable!("docker host is already validated in the config"),
@@ -364,7 +383,8 @@ impl Client {
                 .ok()
         })
         .await
-        .unwrap()?;
+        .ok()
+        .flatten()?;
 
         let bollard_credentials = match credentials {
             docker_credential::DockerCredential::IdentityToken(token) => DockerCredentials {

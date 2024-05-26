@@ -2,7 +2,7 @@ use std::sync::{Arc, OnceLock, Weak};
 
 use tokio::sync::Mutex;
 
-use crate::core::client::Client;
+use crate::core::client::{Client, ClientError};
 
 // We use `Weak` in order not to prevent `Drop` of being called.
 // Instead, we re-create the client if it was dropped and asked one more time.
@@ -12,7 +12,7 @@ static DOCKER_CLIENT: OnceLock<Mutex<Weak<Client>>> = OnceLock::new();
 impl Client {
     /// Returns a client instance, reusing already created or initializing a new one.
     // We don't expose this function to the public API for now. We can do it later if needed.
-    pub(crate) async fn lazy_client() -> Arc<Client> {
+    pub(crate) async fn lazy_client() -> Result<Arc<Client>, ClientError> {
         let mut guard = DOCKER_CLIENT
             .get_or_init(|| Mutex::new(Weak::new()))
             .lock()
@@ -20,12 +20,12 @@ impl Client {
         let maybe_client = guard.upgrade();
 
         if let Some(client) = maybe_client {
-            client
+            Ok(client)
         } else {
-            let client = Arc::new(Client::new().await);
+            let client = Arc::new(Client::new().await?);
             *guard = Arc::downgrade(&client);
 
-            client
+            Ok(client)
         }
     }
 }

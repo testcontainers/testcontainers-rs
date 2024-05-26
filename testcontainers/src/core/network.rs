@@ -6,7 +6,10 @@ use std::{
 
 use tokio::{runtime::RuntimeFlavor, sync::Mutex};
 
-use crate::core::{client::Client, env, macros};
+use crate::core::{
+    client::{Client, ClientError},
+    env, macros,
+};
 
 pub(crate) static CREATED_NETWORKS: OnceLock<Mutex<HashMap<String, Weak<Network>>>> =
     OnceLock::new();
@@ -22,18 +25,21 @@ pub(crate) struct Network {
 }
 
 impl Network {
-    pub(crate) async fn new(name: impl Into<String>, client: Arc<Client>) -> Option<Arc<Self>> {
+    pub(crate) async fn new(
+        name: impl Into<String>,
+        client: Arc<Client>,
+    ) -> Result<Option<Arc<Self>>, ClientError> {
         let name = name.into();
         let mut guard = created_networks().lock().await;
         let network = if let Some(network) = guard.get(&name).and_then(Weak::upgrade) {
             network
         } else {
-            if client.network_exists(&name).await {
+            if client.network_exists(&name).await? {
                 // Networks already exists and created outside the testcontainers
-                return None;
+                return Ok(None);
             }
 
-            let id = client.create_network(&name).await;
+            let id = client.create_network(&name).await?;
 
             let created = Arc::new(Self {
                 name: name.clone(),
@@ -46,7 +52,7 @@ impl Network {
             created
         };
 
-        Some(network)
+        Ok(Some(network))
     }
 }
 
@@ -70,9 +76,14 @@ impl Drop for Network {
                     log::trace!("Network {name} was not dropped because it is still in use");
                 } else {
                     guard.remove(&name);
-                    client.remove_network(&name).await;
-
-                    log::trace!("Network {name} was successfully dropped");
+                    match client.remove_network(&name).await {
+                        Ok(_) => {
+                            log::trace!("Network {name} was successfully dropped");
+                        }
+                        Err(_) => {
+                            log::error!("Failed to remove network {name} on drop");
+                        }
+                    }
                 }
             };
 
