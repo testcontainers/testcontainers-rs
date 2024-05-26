@@ -18,8 +18,9 @@ _Testcontainers for Rust_ is a Rust library that makes it simple to create and c
 automated integration/smoke tests. The clean, easy-to-use API enables developers to programmatically define containers
 that should be run as part of a test and clean up those resources when the test is done.
 
-To start using _Testcontainers for Rust_ please read our [quickstart guide](./quickstart.md).
-
+To start using _Testcontainers for Rust_ please read our quickstart guide for:
+- [Ready-to-use `testcontainers-modules` crate](quickstart/community_modules.md)
+- [Core `testcontainers` crate](quickstart/testcontainers.md)
 
 ## License
 
