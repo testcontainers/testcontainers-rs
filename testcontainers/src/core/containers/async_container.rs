@@ -372,6 +372,7 @@ where
 
 #[cfg(test)]
 mod tests {
+
     use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 
     use super::*;
@@ -427,6 +428,35 @@ mod tests {
             "unexpected stderr size: {}",
             stderr
         );
+
+        // start again to test eof on drop
+        container.start().await?;
+
+        // create logger task which reads logs from container up to EOF
+        let container_id = container.id().to_string();
+        let stderr = container.stderr();
+        let logger_task = tokio::spawn(async move {
+            let mut stderr_lines = stderr.lines();
+            while let Some(result) = stderr_lines.next_line().await.transpose() {
+                match result {
+                    Ok(line) => {
+                        log::debug!(target: "container", "[{container_id}]:{}", line);
+                    }
+                    Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                        log::debug!(target: "container", "[{container_id}] EOF");
+                        break;
+                    }
+                    Err(err) => Err(err)?,
+                }
+            }
+            Ok::<_, anyhow::Error>(())
+        });
+
+        drop(container);
+        logger_task
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to join log follower task"))??;
+
         Ok(())
     }
 }
