@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0] - 2024-05-26
+### Details
+#### Bug Fixes
+- Collect bridge IP address correctly ([#626](https://github.com/testcontainers/testcontainers-rs/pull/626))
+- Replace missed panics with `Result` ([#638](https://github.com/testcontainers/testcontainers-rs/pull/638))
+
+#### Features
+- Impl `Error` for `WaitError` ([#629](https://github.com/testcontainers/testcontainers-rs/pull/629))
+- [❗] Extend `exec` interface to return logs and exec code ([#631](https://github.com/testcontainers/testcontainers-rs/pull/631))
+- Ability to access container logs ([#633](https://github.com/testcontainers/testcontainers-rs/pull/633))
+- [❗] Switch to fallible API ([#636](https://github.com/testcontainers/testcontainers-rs/pull/636))
+- Make container and exec logs `Send`able ([#637](https://github.com/testcontainers/testcontainers-rs/pull/637))
+- Map container not found error to `eof` for container log streams ([#639](https://github.com/testcontainers/testcontainers-rs/pull/639))
+- Expose follow flag for `stdout` and `stderr` ([#640](https://github.com/testcontainers/testcontainers-rs/pull/640))
+- Add ability to read container logs into `Vec` ([#641](https://github.com/testcontainers/testcontainers-rs/pull/641))
+- [❗] Add container startup timeout with default of 1 minute ([#643](https://github.com/testcontainers/testcontainers-rs/pull/643))
+
+#### Miscellaneous Tasks
+- Fix clippy warning without features enabled ([#632](https://github.com/testcontainers/testcontainers-rs/pull/632))
+
+#### Refactor
+- [❗] Drop re-export of `CgroupnsMode` accessible through `core` ([#630](https://github.com/testcontainers/testcontainers-rs/pull/630))
+- [❗] Drop previously deprecated `get_host_ip_address` ([#628](https://github.com/testcontainers/testcontainers-rs/pull/628))
+- [❗] Return `PortNotExposed` error from `ContainerState::host_port_*` ([#644](https://github.com/testcontainers/testcontainers-rs/pull/644))
 ## [0.16.7] - 2024-05-01
 ### Details
 #### Bug Fixes
