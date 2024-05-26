@@ -1,6 +1,9 @@
 use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
-use tokio::{io::AsyncBufRead, runtime::RuntimeFlavor};
+use tokio::{
+    io::{AsyncBufRead, AsyncReadExt},
+    runtime::RuntimeFlavor,
+};
 
 use crate::{
     core::{
@@ -281,6 +284,24 @@ where
         Box::pin(tokio_util::io::StreamReader::new(stderr.into_inner()))
     }
 
+    /// Returns stdout as a vector of bytes available at the moment of call (from container startup to present).
+    ///
+    /// If you want to read stdout in asynchronous manner, use [`ContainerAsync::stdout`] instead.
+    pub async fn stdout_to_vec(&self) -> Result<Vec<u8>> {
+        let mut stdout = Vec::new();
+        self.stdout(false).read_to_end(&mut stdout).await?;
+        Ok(stdout)
+    }
+
+    /// Returns stderr as a vector of bytes available at the moment of call (from container startup to present).
+    ///
+    /// If you want to read stderr in asynchronous manner, use [`ContainerAsync::stderr`] instead.
+    pub async fn stderr_to_vec(&self) -> Result<Vec<u8>> {
+        let mut stderr = Vec::new();
+        self.stderr(false).read_to_end(&mut stderr).await?;
+        Ok(stderr)
+    }
+
     pub(crate) async fn block_until_ready(&self, ready_conditions: Vec<WaitFor>) -> Result<()> {
         log::debug!("Waiting for container {} to be ready", self.id);
         let id = self.id();
@@ -381,7 +402,7 @@ where
 #[cfg(test)]
 mod tests {
 
-    use tokio::io::{AsyncBufReadExt, AsyncReadExt};
+    use tokio::io::AsyncBufReadExt;
 
     use super::*;
     use crate::{images::generic::GenericImage, runners::AsyncRunner};
@@ -424,12 +445,10 @@ mod tests {
         container.stop().await?;
 
         // stdout is empty
-        let mut stdout = String::new();
-        container.stdout(true).read_to_string(&mut stdout).await?;
+        let stdout = String::from_utf8(container.stdout_to_vec().await?)?;
         assert_eq!(stdout, "");
         // stderr contains 6 lines
-        let mut stderr = String::new();
-        container.stderr(true).read_to_string(&mut stderr).await?;
+        let stderr = String::from_utf8(container.stderr_to_vec().await?)?;
         assert_eq!(
             stderr.lines().count(),
             6,

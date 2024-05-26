@@ -170,6 +170,24 @@ where
         ))
     }
 
+    /// Returns stdout as a vector of bytes available at the moment of call (from container startup to present).
+    ///
+    /// If you want to read stdout in chunks, use [`Container::stdout`] instead.
+    pub fn stdout_to_vec(&self) -> Result<Vec<u8>> {
+        let mut stdout = Vec::new();
+        self.stdout(false).read_to_end(&mut stdout)?;
+        Ok(stdout)
+    }
+
+    /// Returns stderr as a vector of bytes available at the moment of call (from container startup to present).
+    ///
+    /// If you want to read stderr in chunks, use [`Container::stderr`] instead.
+    pub fn stderr_to_vec(&self) -> Result<Vec<u8>> {
+        let mut stderr = Vec::new();
+        self.stderr(false).read_to_end(&mut stderr)?;
+        Ok(stderr)
+    }
+
     /// Returns reference to inner `Runtime`. It's safe to unwrap because it's `Some` until `Container` is dropped.
     fn rt(&self) -> &Arc<tokio::runtime::Runtime> {
         &self.inner.as_ref().unwrap().runtime
@@ -267,12 +285,10 @@ mod test {
         container.stop()?;
 
         // stdout is empty
-        let mut stdout = String::new();
-        container.stdout(true).read_to_string(&mut stdout)?;
+        let stdout = String::from_utf8(container.stdout_to_vec()?)?;
         assert_eq!(stdout, "");
         // stderr contains 6 lines
-        let mut stderr = String::new();
-        container.stderr(true).read_to_string(&mut stderr)?;
+        let stderr = String::from_utf8(container.stderr_to_vec()?)?;
         assert_eq!(
             stderr.lines().count(),
             6,
