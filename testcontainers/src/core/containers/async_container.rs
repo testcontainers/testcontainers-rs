@@ -234,10 +234,8 @@ where
     /// Starts the container.
     pub async fn start(&self) -> Result<()> {
         self.docker_client.start(&self.id).await?;
-        for cmd in self
-            .image
-            .exec_after_start(ContainerState::new(self.ports().await?))?
-        {
+        let state = ContainerState::new(self.id(), self.ports().await?);
+        for cmd in self.image.exec_after_start(state)? {
             self.exec(cmd).await?;
         }
         Ok(())
