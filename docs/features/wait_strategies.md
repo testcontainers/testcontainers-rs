@@ -6,7 +6,7 @@ _Testcontainers for
 Rust_ comes with the concept of `wait strategy`, which allows your tests to actually wait for
 the most useful conditions to be met, before continuing with their execution.
 
-The strategy is defined by the [`WaitFor`](https://docs.rs/testcontainers/0.17.0/testcontainers/core/enum.WaitFor.html)
+The strategy is defined by the [`WaitFor`](https://docs.rs/testcontainers/latest/testcontainers/core/enum.WaitFor.html)
 enum with the following variants:
 
 * `StdOutMessage` - wait for a specific message to appear on the container's stdout
@@ -14,13 +14,13 @@ enum with the following variants:
 * `Healthcheck` - wait for the container to be healthy
 * `Duration` - wait for a specific duration. Usually less preferable and better to combine with other strategies.
 
-[`Image`](https://docs.rs/testcontainers/0.17.0/testcontainers/core/trait.Image.html) implementation
+[`Image`](https://docs.rs/testcontainers/latest/testcontainers/core/trait.Image.html) implementation
 is responsible for returning the appropriate `WaitFor` strategies.
-For [`GenericImage`](https://docs.rs/testcontainers/0.17.0/testcontainers/struct.GenericImage.html)
+For [`GenericImage`](https://docs.rs/testcontainers/latest/testcontainers/struct.GenericImage.html)
 you can use the `with_wait_for` method to specify the wait strategy.
 
 ## Startup timeout and Poll interval
 
 Ordinarily Testcontainers will wait for up to 60 seconds for containers to start.
 If the default 60s timeout is not sufficient, it can be updated with the
-[`RunnableImage::with_startup_timeout(duration)`](https://docs.rs/testcontainers/0.17.0/testcontainers/core/struct.RunnableImage.html#method.with_startup_timeout) method.
+[`RunnableImage::with_startup_timeout(duration)`](https://docs.rs/testcontainers/latest/testcontainers/core/struct.RunnableImage.html#method.with_startup_timeout) method.
