@@ -261,7 +261,17 @@ impl Client {
             .bollard
             .logs(container_id, Some(options))
             .map_ok(|chunk| chunk.into_bytes())
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+            .map_err(|err| match err {
+                bollard::errors::Error::DockerResponseServerError {
+                    status_code: 404,
+                    message,
+                } => io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    format!("Docker container has been dropped: {}", message),
+                ),
+                bollard::errors::Error::IOError { err } => err,
+                err => io::Error::new(io::ErrorKind::Other, err),
+            })
             .boxed();
         LogStreamAsync::new(stream)
     }
