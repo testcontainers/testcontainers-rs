@@ -58,6 +58,8 @@ pub enum WaitContainerError {
     HealthCheckNotConfigured(String),
     #[error("container is unhealthy")]
     Unhealthy,
+    #[error("container startup timeout")]
+    StartupTimeout,
 }
 
 impl TestcontainersError {

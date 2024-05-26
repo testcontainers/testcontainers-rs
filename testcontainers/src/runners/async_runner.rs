@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
 use bollard::{
@@ -10,13 +10,15 @@ use bollard_stubs::models::HostConfigCgroupnsModeEnum;
 use crate::{
     core::{
         client::{Client, ClientError},
-        error::Result,
+        error::{Result, WaitContainerError},
         mounts::{AccessMode, Mount, MountType},
         network::Network,
         CgroupnsMode, ContainerState,
     },
     ContainerAsync, Image, ImageArgs, RunnableImage,
 };
+
+const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[async_trait]
 /// Helper trait to start containers asynchronously.
@@ -50,175 +52,183 @@ where
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
-        let client = Client::lazy_client().await?;
         let runnable_image = self.into();
-        let mut create_options: Option<CreateContainerOptions<String>> = None;
+        let startup_timeout = runnable_image
+            .startup_timeout()
+            .unwrap_or(DEFAULT_STARTUP_TIMEOUT);
 
-        let extra_hosts: Vec<_> = runnable_image
-            .hosts()
-            .map(|(key, value)| format!("{key}:{value}"))
-            .collect();
+        tokio::time::timeout(startup_timeout, async {
+            let client = Client::lazy_client().await?;
+            let mut create_options: Option<CreateContainerOptions<String>> = None;
 
-        let mut config: Config<String> = Config {
-            image: Some(runnable_image.descriptor()),
-            host_config: Some(HostConfig {
-                privileged: Some(runnable_image.privileged()),
-                extra_hosts: Some(extra_hosts),
-                cgroupns_mode: runnable_image.cgroupns_mode().map(|mode| mode.into()),
-                userns_mode: runnable_image.userns_mode(),
-                ..Default::default()
-            }),
-            ..Default::default()
-        };
-
-        // shared memory
-        if let Some(bytes) = runnable_image.shm_size() {
-            config.host_config = config.host_config.map(|mut host_config| {
-                host_config.shm_size = Some(bytes as i64);
-                host_config
-            });
-        }
-
-        // create network and add it to container creation
-        let network = if let Some(network) = runnable_image.network() {
-            config.host_config = config.host_config.map(|mut host_config| {
-                host_config.network_mode = Some(network.to_string());
-                host_config
-            });
-            Network::new(network, client.clone()).await?
-        } else {
-            None
-        };
-
-        // name of the container
-        if let Some(name) = runnable_image.container_name() {
-            create_options = Some(CreateContainerOptions {
-                name: name.to_owned(),
-                platform: None,
-            })
-        }
-
-        // handle environment variables
-        let envs: Vec<String> = runnable_image
-            .env_vars()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect();
-        config.env = Some(envs);
-
-        // mounts and volumes
-        let mounts: Vec<_> = runnable_image.mounts().map(Into::into).collect();
-
-        if !mounts.is_empty() {
-            config.host_config = config.host_config.map(|mut host_config| {
-                host_config.mounts = Some(mounts);
-                host_config
-            });
-        }
-
-        // entrypoint
-        if let Some(entrypoint) = runnable_image.entrypoint() {
-            config.entrypoint = Some(vec![entrypoint]);
-        }
-
-        let is_container_networked = runnable_image
-            .network()
-            .as_ref()
-            .map(|network| network.starts_with("container:"))
-            .unwrap_or(false);
-
-        // expose ports
-        if !is_container_networked {
-            let mapped_ports = runnable_image
-                .ports()
-                .as_ref()
-                .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
-                .unwrap_or_default();
-
-            let ports_to_expose = runnable_image
-                .expose_ports()
-                .iter()
-                .copied()
-                .chain(mapped_ports)
-                .map(|p| (format!("{p}/tcp"), HashMap::new()))
+            let extra_hosts: Vec<_> = runnable_image
+                .hosts()
+                .map(|(key, value)| format!("{key}:{value}"))
                 .collect();
 
-            // exposed ports of the image + mapped ports
-            config.exposed_ports = Some(ports_to_expose);
-        }
+            let mut config: Config<String> = Config {
+                image: Some(runnable_image.descriptor()),
+                host_config: Some(HostConfig {
+                    privileged: Some(runnable_image.privileged()),
+                    extra_hosts: Some(extra_hosts),
+                    cgroupns_mode: runnable_image.cgroupns_mode().map(|mode| mode.into()),
+                    userns_mode: runnable_image.userns_mode(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
 
-        // ports
-        if runnable_image.ports().is_some() {
-            let empty: Vec<_> = Vec::new();
-            let bindings = runnable_image
-                .ports()
-                .as_ref()
-                .unwrap_or(&empty)
-                .iter()
-                .map(|p| {
-                    (
-                        format!("{}/tcp", p.internal),
-                        Some(vec![PortBinding {
-                            host_ip: None,
-                            host_port: Some(p.local.to_string()),
-                        }]),
-                    )
+            // shared memory
+            if let Some(bytes) = runnable_image.shm_size() {
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.shm_size = Some(bytes as i64);
+                    host_config
                 });
-
-            config.host_config = config.host_config.map(|mut host_config| {
-                host_config.port_bindings = Some(bindings.collect());
-                host_config
-            });
-        } else if !is_container_networked {
-            config.host_config = config.host_config.map(|mut host_config| {
-                host_config.publish_all_ports = Some(true);
-                host_config
-            });
-        }
-
-        let args = runnable_image
-            .args()
-            .clone()
-            .into_iterator()
-            .collect::<Vec<String>>();
-        if !args.is_empty() {
-            config.cmd = Some(args);
-        }
-
-        // create the container with options
-        let create_result = client
-            .create_container(create_options.clone(), config.clone())
-            .await;
-        let container_id = match create_result {
-            Ok(id) => Ok(id),
-            Err(ClientError::CreateContainer(
-                bollard::errors::Error::DockerResponseServerError {
-                    status_code: 404, ..
-                },
-            )) => {
-                client.pull_image(&runnable_image.descriptor()).await?;
-                client.create_container(create_options, config).await
             }
-            res => res,
-        }?;
 
-        #[cfg(feature = "watchdog")]
-        if client.config.command() == crate::core::env::Command::Remove {
-            crate::watchdog::register(container_id.clone());
-        }
+            // create network and add it to container creation
+            let network = if let Some(network) = runnable_image.network() {
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.network_mode = Some(network.to_string());
+                    host_config
+                });
+                Network::new(network, client.clone()).await?
+            } else {
+                None
+            };
 
-        client.start_container(&container_id).await?;
+            // name of the container
+            if let Some(name) = runnable_image.container_name() {
+                create_options = Some(CreateContainerOptions {
+                    name: name.to_owned(),
+                    platform: None,
+                })
+            }
 
-        let container =
-            ContainerAsync::new(container_id, client.clone(), runnable_image, network).await?;
+            // handle environment variables
+            let envs: Vec<String> = runnable_image
+                .env_vars()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect();
+            config.env = Some(envs);
 
-        for cmd in container
-            .image()
-            .exec_after_start(ContainerState::new(container.ports().await?))?
-        {
-            container.exec(cmd).await?;
-        }
+            // mounts and volumes
+            let mounts: Vec<_> = runnable_image.mounts().map(Into::into).collect();
 
-        Ok(container)
+            if !mounts.is_empty() {
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.mounts = Some(mounts);
+                    host_config
+                });
+            }
+
+            // entrypoint
+            if let Some(entrypoint) = runnable_image.entrypoint() {
+                config.entrypoint = Some(vec![entrypoint]);
+            }
+
+            let is_container_networked = runnable_image
+                .network()
+                .as_ref()
+                .map(|network| network.starts_with("container:"))
+                .unwrap_or(false);
+
+            // expose ports
+            if !is_container_networked {
+                let mapped_ports = runnable_image
+                    .ports()
+                    .as_ref()
+                    .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
+                    .unwrap_or_default();
+
+                let ports_to_expose = runnable_image
+                    .expose_ports()
+                    .iter()
+                    .copied()
+                    .chain(mapped_ports)
+                    .map(|p| (format!("{p}/tcp"), HashMap::new()))
+                    .collect();
+
+                // exposed ports of the image + mapped ports
+                config.exposed_ports = Some(ports_to_expose);
+            }
+
+            // ports
+            if runnable_image.ports().is_some() {
+                let empty: Vec<_> = Vec::new();
+                let bindings = runnable_image
+                    .ports()
+                    .as_ref()
+                    .unwrap_or(&empty)
+                    .iter()
+                    .map(|p| {
+                        (
+                            format!("{}/tcp", p.internal),
+                            Some(vec![PortBinding {
+                                host_ip: None,
+                                host_port: Some(p.local.to_string()),
+                            }]),
+                        )
+                    });
+
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.port_bindings = Some(bindings.collect());
+                    host_config
+                });
+            } else if !is_container_networked {
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.publish_all_ports = Some(true);
+                    host_config
+                });
+            }
+
+            let args = runnable_image
+                .args()
+                .clone()
+                .into_iterator()
+                .collect::<Vec<String>>();
+            if !args.is_empty() {
+                config.cmd = Some(args);
+            }
+
+            // create the container with options
+            let create_result = client
+                .create_container(create_options.clone(), config.clone())
+                .await;
+            let container_id = match create_result {
+                Ok(id) => Ok(id),
+                Err(ClientError::CreateContainer(
+                    bollard::errors::Error::DockerResponseServerError {
+                        status_code: 404, ..
+                    },
+                )) => {
+                    client.pull_image(&runnable_image.descriptor()).await?;
+                    client.create_container(create_options, config).await
+                }
+                res => res,
+            }?;
+
+            #[cfg(feature = "watchdog")]
+            if client.config.command() == crate::core::env::Command::Remove {
+                crate::watchdog::register(container_id.clone());
+            }
+
+            client.start_container(&container_id).await?;
+
+            let container =
+                ContainerAsync::new(container_id, client.clone(), runnable_image, network).await?;
+
+            for cmd in container
+                .image()
+                .exec_after_start(ContainerState::new(container.ports().await?))?
+            {
+                container.exec(cmd).await?;
+            }
+
+            Ok(container)
+        })
+        .await
+        .map_err(|_| WaitContainerError::StartupTimeout)?
     }
 
     async fn pull_image(self) -> Result<RunnableImage<I>> {
