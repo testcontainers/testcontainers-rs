@@ -1,10 +1,13 @@
 use std::{fmt, io::BufRead, sync::Arc};
 
-use crate::{core::sync_container::sync_reader, TestcontainersError};
+use crate::{
+    core::{async_container, sync_container::sync_reader},
+    TestcontainersError,
+};
 
 /// Represents the result of an executed command in a container.
 pub struct SyncExecResult {
-    pub(super) inner: crate::core::async_container::exec::ExecResult,
+    pub(super) inner: async_container::exec::ExecResult,
     pub(super) runtime: Arc<tokio::runtime::Runtime>,
 }
 
@@ -32,11 +35,17 @@ impl SyncExecResult {
     }
 
     /// Returns stdout as a vector of bytes.
+    /// Keep in mind that this will block until the command exits.
+    ///
+    /// If you want to read stderr in chunks, use [`SyncExecResult::stdout`] instead.
     pub fn stdout_to_vec(&mut self) -> Result<Vec<u8>, TestcontainersError> {
         self.runtime.block_on(self.inner.stdout_to_vec())
     }
 
     /// Returns stderr as a vector of bytes.
+    /// Keep in mind that this will block until the command exits.
+    ///
+    /// If you want to read stderr in chunks, use [`SyncExecResult::stderr`] instead.
     pub fn stderr_to_vec(&mut self) -> Result<Vec<u8>, TestcontainersError> {
         self.runtime.block_on(self.inner.stderr_to_vec())
     }
