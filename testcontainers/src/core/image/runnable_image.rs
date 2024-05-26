@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, net::IpAddr};
+use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
 use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
@@ -23,6 +23,7 @@ pub struct RunnableImage<I: Image> {
     shm_size: Option<u64>,
     cgroupns_mode: Option<CgroupnsMode>,
     userns_mode: Option<String>,
+    startup_timeout: Option<Duration>,
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
@@ -123,6 +124,11 @@ impl<I: Image> RunnableImage<I> {
         cs: ContainerState,
     ) -> Result<Vec<ExecCommand>, TestcontainersError> {
         self.image.exec_after_start(cs)
+    }
+
+    /// Returns the startup timeout for the container.
+    pub fn startup_timeout(&self) -> Option<Duration> {
+        self.startup_timeout
     }
 }
 
@@ -246,6 +252,14 @@ impl<I: Image> RunnableImage<I> {
             ..self
         }
     }
+
+    /// Sets the startup timeout for the container. The default is 60 seconds.
+    pub fn with_startup_timeout(self, timeout: Duration) -> Self {
+        Self {
+            startup_timeout: Some(timeout),
+            ..self
+        }
+    }
 }
 
 impl<I> From<I> for RunnableImage<I>
@@ -275,6 +289,7 @@ impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
             shm_size: None,
             cgroupns_mode: None,
             userns_mode: None,
+            startup_timeout: None,
         }
     }
 }
