@@ -417,7 +417,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn async_should_panic_when_non_bridged_network_selected() -> anyhow::Result<()> {
+    async fn async_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
         let web_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));

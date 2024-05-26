@@ -17,6 +17,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use crate::core::{
     client::exec::ExecResult,
     env,
+    env::ConfigurationError,
     logs::{LogSource, LogStreamAsync},
     ports::{PortMappingError, Ports},
 };
@@ -41,6 +42,8 @@ async fn is_in_container() -> bool {
 pub enum ClientError {
     #[error("failed to initialize a docker client: {0}")]
     Init(BollardError),
+    #[error("configuration error: {0}")]
+    Configuration(#[from] ConfigurationError),
     #[error("invalid docker host: {0}")]
     InvalidDockerHost(String),
     #[error("failed to pull the image '{descriptor}', error: {err}")]
@@ -85,7 +88,7 @@ pub(crate) struct Client {
 
 impl Client {
     async fn new() -> Result<Client, ClientError> {
-        let config = env::Config::load::<env::Os>().await;
+        let config = env::Config::load::<env::Os>().await?;
         let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
 
         Ok(Client { config, bollard })
@@ -343,10 +346,14 @@ impl Client {
     pub(crate) async fn docker_hostname(&self) -> Result<url::Host, ClientError> {
         let docker_host = self.config.docker_host();
         match docker_host.scheme() {
-            "tcp" | "http" | "https" => docker_host
-                .host()
-                .map(|host| host.to_owned())
-                .ok_or_else(|| ClientError::InvalidDockerHost(docker_host.to_string())),
+            "tcp" | "http" | "https" => {
+                docker_host
+                    .host()
+                    .map(|host| host.to_owned())
+                    .ok_or_else(|| {
+                        ConfigurationError::InvalidDockerHost(docker_host.to_string()).into()
+                    })
+            }
             "unix" | "npipe" => {
                 if is_in_container().await {
                     let host = self
@@ -363,7 +370,8 @@ impl Client {
                         .filter(|gateway| !gateway.trim().is_empty())
                         .unwrap_or_else(|| "localhost".to_string());
 
-                    url::Host::parse(&host).map_err(|_| ClientError::InvalidDockerHost(host))
+                    url::Host::parse(&host)
+                        .map_err(|_| ConfigurationError::InvalidDockerHost(host).into())
                 } else {
                     Ok(url::Host::Domain("localhost".to_string()))
                 }

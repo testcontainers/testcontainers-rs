@@ -7,6 +7,17 @@ use url::Url;
 
 use crate::core::env::GetEnvValue;
 
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigurationError {
+    #[error("invalid DOCKER_HOST: {0}")]
+    InvalidDockerHost(String),
+    #[error("unknown command '{0}' provided via TESTCONTAINERS_COMMAND env variable")]
+    UnknownCommand(String),
+    #[cfg(feature = "properties-config")]
+    #[error("failed to load testcontainers properties: {0}")]
+    WrongPropertiesFormat(#[from] serde_java_properties::de::Error),
+}
+
 /// The default path to the Docker configuration file.
 const DEFAULT_DOCKER_CONFIG_PATH: &str = ".docker/config.json";
 
@@ -48,43 +59,46 @@ struct TestcontainersProperties {
 
 #[cfg(feature = "properties-config")]
 impl TestcontainersProperties {
-    async fn load() -> Option<Self> {
+    async fn load() -> Option<Result<Self, ConfigurationError>> {
         let home_dir = dirs::home_dir()?;
         let properties_path = home_dir.join(TESTCONTAINERS_PROPERTIES);
 
         let content = tokio::fs::read(properties_path).await.ok()?;
         let properties =
-            serde_java_properties::from_slice(&content).expect("Failed to parse properties");
+            serde_java_properties::from_slice(&content).map_err(ConfigurationError::from);
 
         Some(properties)
     }
 }
 
 impl Config {
-    pub(crate) async fn load<E>() -> Self
+    pub(crate) async fn load<E>() -> Result<Self, ConfigurationError>
     where
         E: GetEnvValue,
     {
         #[cfg(feature = "properties-config")]
         {
-            let env_config = Self::load_from_env_config::<E>().await;
-            let properties = TestcontainersProperties::load().await.unwrap_or_default();
+            let env_config = Self::load_from_env_config::<E>().await?;
+            let properties = TestcontainersProperties::load()
+                .await
+                .transpose()?
+                .unwrap_or_default();
 
             // Environment variables take precedence over properties
-            Self {
+            Ok(Self {
                 tc_host: env_config.tc_host.or(properties.tc_host),
                 host: env_config.host.or(properties.host),
                 tls_verify: env_config.tls_verify.or(properties.tls_verify),
                 cert_path: env_config.cert_path.or(properties.cert_path),
                 command: env_config.command,
                 docker_auth_config: env_config.docker_auth_config,
-            }
+            })
         }
         #[cfg(not(feature = "properties-config"))]
         Self::load_from_env_config::<E>().await
     }
 
-    async fn load_from_env_config<E>() -> Self
+    async fn load_from_env_config<E>() -> Result<Self, ConfigurationError>
     where
         E: GetEnvValue,
     {
@@ -92,21 +106,24 @@ impl Config {
             .as_deref()
             .map(FromStr::from_str)
             .transpose()
-            .expect("Invalid DOCKER_HOST");
+            .map_err(|e: url::ParseError| ConfigurationError::InvalidDockerHost(e.to_string()))?;
         let tls_verify = E::get_env_value("DOCKER_TLS_VERIFY").map(|v| v == "1");
         let cert_path = E::get_env_value("DOCKER_CERT_PATH").map(PathBuf::from);
-        let command = E::get_env_value("TESTCONTAINERS_COMMAND").and_then(|v| v.parse().ok());
+        let command = E::get_env_value("TESTCONTAINERS_COMMAND")
+            .filter(|v| !v.trim().is_empty())
+            .map(|v| v.parse())
+            .transpose()?;
 
         let docker_auth_config = read_docker_auth_config::<E>().await;
 
-        Config {
+        Ok(Config {
             host,
             tc_host: None,
             command,
             tls_verify,
             cert_path,
             docker_auth_config,
-        }
+        })
     }
 
     /// The Docker host to use. The host is resolved in the following order:
@@ -174,15 +191,13 @@ pub(crate) enum Command {
 }
 
 impl FromStr for Command {
-    type Err = ();
+    type Err = ConfigurationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "keep" => Ok(Command::Keep),
             "remove" => Ok(Command::Remove),
-            other => {
-                panic!("unknown command '{other}' provided via TESTCONTAINERS_COMMAND env variable",)
-            }
+            other => Err(ConfigurationError::UnknownCommand(other.to_string())),
         }
     }
 }
