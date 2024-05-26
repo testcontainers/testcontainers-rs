@@ -218,10 +218,8 @@ where
             let container =
                 ContainerAsync::new(container_id, client.clone(), runnable_image, network).await?;
 
-            for cmd in container
-                .image()
-                .exec_after_start(ContainerState::new(container.ports().await?))?
-            {
+            let state = ContainerState::new(container.id(), container.ports().await?);
+            for cmd in container.image().exec_after_start(state)? {
                 container.exec(cmd).await?;
             }
 

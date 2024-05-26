@@ -112,20 +112,40 @@ where
 
 #[derive(Debug)]
 pub struct ContainerState {
+    id: String,
     ports: Ports,
 }
 
 impl ContainerState {
-    pub fn new(ports: Ports) -> Self {
-        Self { ports }
+    pub fn new(id: impl Into<String>, ports: Ports) -> Self {
+        Self {
+            id: id.into(),
+            ports,
+        }
     }
 
-    pub fn host_port_ipv4(&self, internal_port: u16) -> Option<u16> {
-        self.ports.map_to_host_port_ipv4(internal_port)
+    /// Returns the host port for the given internal port (`IPv4`).
+    ///
+    /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
+    pub fn host_port_ipv4(&self, internal_port: u16) -> Result<u16, TestcontainersError> {
+        self.ports
+            .map_to_host_port_ipv4(internal_port)
+            .ok_or_else(|| TestcontainersError::PortNotExposed {
+                id: self.id.clone(),
+                port: internal_port,
+            })
     }
 
-    pub fn host_port_ipv6(&self, internal_port: u16) -> Option<u16> {
-        self.ports.map_to_host_port_ipv6(internal_port)
+    /// Returns the host port for the given internal port (`IPv6`).
+    ///
+    /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
+    pub fn host_port_ipv6(&self, internal_port: u16) -> Result<u16, TestcontainersError> {
+        self.ports
+            .map_to_host_port_ipv6(internal_port)
+            .ok_or_else(|| TestcontainersError::PortNotExposed {
+                id: self.id.clone(),
+                port: internal_port,
+            })
     }
 }
 
