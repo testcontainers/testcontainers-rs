@@ -7,7 +7,7 @@ You can override some default properties if your environment requires that.
 The configuration may be loaded from multiple locations. Properties are considered in the following order:
 
 1. Environment variables
-3. `~/.testcontainers.properties` file (a Java properties file, enabled by the `properties-config` feature)
+2. `~/.testcontainers.properties` file (a Java properties file, enabled by the `properties-config` feature)
    Example locations:  
    **Linux:** `/home/myuser/.testcontainers.properties`  
    **Windows:** `C:/Users/myuser/.testcontainers.properties`  

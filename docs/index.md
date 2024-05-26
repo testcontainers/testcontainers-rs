@@ -19,8 +19,8 @@ automated integration/smoke tests. The clean, easy-to-use API enables developers
 that should be run as part of a test and clean up those resources when the test is done.
 
 To start using _Testcontainers for Rust_ please read our quickstart guide for:
-- [Ready-to-use `testcontainers-modules` crate](quickstart/community_modules.md)
-- [Core `testcontainers` crate](quickstart/testcontainers.md)
+* [Ready-to-use `testcontainers-modules` crate](quickstart/community_modules.md)
+* [Core `testcontainers` crate](quickstart/testcontainers.md)
 
 ## License
 

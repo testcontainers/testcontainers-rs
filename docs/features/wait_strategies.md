@@ -8,10 +8,10 @@ the most useful conditions to be met, before continuing with their execution.
 
 The strategy is defined by the [`WaitFor`] enum with the following variants:
 
-- `StdOutMessage` - wait for a specific message to appear on the container's stdout
-- `StdErrMessage` - wait for a specific message to appear on the container's stderr
-- `Healthcheck` - wait for the container to be healthy
-- `Duration` - wait for a specific duration. Usually less preferable and better to combine with other strategies.
+* `StdOutMessage` - wait for a specific message to appear on the container's stdout
+* `StdErrMessage` - wait for a specific message to appear on the container's stderr
+* `Healthcheck` - wait for the container to be healthy
+* `Duration` - wait for a specific duration. Usually less preferable and better to combine with other strategies.
 
 [`Image`] implementation is responsible for returning the appropriate `WaitFor` strategies.
 For [`GenericImage`] you can use the `with_wait_for` method to specify the wait strategy.
