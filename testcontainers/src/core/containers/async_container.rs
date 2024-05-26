@@ -171,7 +171,7 @@ where
     }
 
     /// Executes a command in the container.
-    pub async fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult<'_>> {
+    pub async fn exec(&self, cmd: ExecCommand) -> Result<exec::ExecResult> {
         let ExecCommand {
             cmd,
             container_ready_conditions,
@@ -262,14 +262,14 @@ where
     }
 
     /// Returns an asynchronous reader for stdout.
-    pub fn stdout(&self) -> Pin<Box<dyn AsyncBufRead + '_>> {
-        let stdout = self.docker_client.stdout_logs(&self.id);
+    pub fn stdout(&self) -> Pin<Box<dyn AsyncBufRead + Send>> {
+        let stdout = self.docker_client.stdout_logs(&self.id, true);
         Box::pin(tokio_util::io::StreamReader::new(stdout.into_inner()))
     }
 
     /// Returns an asynchronous reader for stderr.
-    pub fn stderr(&self) -> Pin<Box<dyn AsyncBufRead + '_>> {
-        let stderr = self.docker_client.stderr_logs(&self.id);
+    pub fn stderr(&self) -> Pin<Box<dyn AsyncBufRead + Send>> {
+        let stderr = self.docker_client.stderr_logs(&self.id, true);
         Box::pin(tokio_util::io::StreamReader::new(stderr.into_inner()))
     }
 
@@ -281,13 +281,13 @@ where
             match condition {
                 WaitFor::StdOutMessage { message } => self
                     .docker_client
-                    .stdout_logs(id)
+                    .stdout_logs(id, true)
                     .wait_for_message(message)
                     .await
                     .map_err(WaitContainerError::from)?,
                 WaitFor::StdErrMessage { message } => self
                     .docker_client
-                    .stderr_logs(id)
+                    .stderr_logs(id, true)
                     .wait_for_message(message)
                     .await
                     .map_err(WaitContainerError::from)?,
@@ -382,23 +382,34 @@ mod tests {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
         let container = RunnableImage::from(image).start().await?;
 
-        let mut stderr_lines = container.stderr().lines();
+        let stderr = container.stderr();
 
-        let expected_messages = [
-            "DELAY_START_MSEC: 0",
-            "Sleeping for 0 ms",
-            "Starting server on port 8080",
-            "Sleeping for 0 ms",
-            "Starting server on port 8081",
-            "Ready, listening on 8080 and 8081",
-        ];
-        for expected_message in expected_messages {
-            let line = stderr_lines.next_line().await?.expect("line must exist");
-            assert!(
-                line.contains(expected_message),
-                "Log message ('{line}') doesn't contain expected message ('{expected_message}')"
-            );
-        }
+        // it's possible to send logs into background task
+        let log_follower_task = tokio::spawn(async move {
+            let mut stderr_lines = stderr.lines();
+            let expected_messages = [
+                "DELAY_START_MSEC: 0",
+                "Sleeping for 0 ms",
+                "Starting server on port 8080",
+                "Sleeping for 0 ms",
+                "Starting server on port 8081",
+                "Ready, listening on 8080 and 8081",
+            ];
+            for expected_message in expected_messages {
+                let line = stderr_lines.next_line().await?.expect("line must exist");
+                if !line.contains(expected_message) {
+                    anyhow::bail!(
+                        "Log message ('{}') doesn't contain expected message ('{}')",
+                        line,
+                        expected_message
+                    );
+                }
+            }
+            Ok(())
+        });
+        log_follower_task
+            .await
+            .map_err(|_| anyhow::anyhow!("failed to join log follower task"))??;
 
         // logs are accessible after container is stopped
         container.stop().await?;

@@ -7,14 +7,14 @@ use tokio::io::{AsyncBufRead, AsyncReadExt};
 use crate::core::{client::Client, error::Result};
 
 /// Represents the result of an executed command in a container.
-pub struct ExecResult<'a> {
+pub struct ExecResult {
     pub(super) client: Arc<Client>,
     pub(crate) id: String,
-    pub(super) stdout: BoxStream<'a, std::result::Result<Bytes, io::Error>>,
-    pub(super) stderr: BoxStream<'a, std::result::Result<Bytes, io::Error>>,
+    pub(super) stdout: BoxStream<'static, std::result::Result<Bytes, io::Error>>,
+    pub(super) stderr: BoxStream<'static, std::result::Result<Bytes, io::Error>>,
 }
 
-impl<'a> ExecResult<'a> {
+impl ExecResult {
     /// Returns the exit code of the executed command.
     /// If the command has not yet exited, this will return `None`.
     pub async fn exit_code(&self) -> Result<Option<i64>> {
@@ -49,7 +49,7 @@ impl<'a> ExecResult<'a> {
     }
 }
 
-impl fmt::Debug for ExecResult<'_> {
+impl fmt::Debug for ExecResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExecResult").field("id", &self.id).finish()
     }

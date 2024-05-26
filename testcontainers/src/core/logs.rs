@@ -32,14 +32,14 @@ impl LogSource {
     }
 }
 
-pub(crate) struct LogStreamAsync<'a> {
-    inner: BoxStream<'a, Result<Bytes, io::Error>>,
+pub(crate) struct LogStreamAsync {
+    inner: BoxStream<'static, Result<Bytes, io::Error>>,
     cache: Vec<Result<Bytes, io::Error>>,
     enable_cache: bool,
 }
 
-impl<'a> LogStreamAsync<'a> {
-    pub fn new(stream: BoxStream<'a, Result<Bytes, io::Error>>) -> Self {
+impl LogStreamAsync {
+    pub fn new(stream: BoxStream<'static, Result<Bytes, io::Error>>) -> Self {
         Self {
             inner: stream,
             cache: vec![],
@@ -78,7 +78,7 @@ impl<'a> LogStreamAsync<'a> {
         Err(WaitLogError::EndOfStream(messages))
     }
 
-    pub(crate) fn into_inner(self) -> BoxStream<'a, Result<Bytes, io::Error>> {
+    pub(crate) fn into_inner(self) -> BoxStream<'static, Result<Bytes, io::Error>> {
         futures::stream::iter(self.cache).chain(self.inner).boxed()
     }
 }
@@ -90,7 +90,7 @@ fn display_bytes(bytes: &[Bytes]) -> Vec<Cow<'_, str>> {
         .collect::<Vec<_>>()
 }
 
-impl<'a> fmt::Debug for LogStreamAsync<'a> {
+impl fmt::Debug for LogStreamAsync {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LogStreamAsync").finish()
     }

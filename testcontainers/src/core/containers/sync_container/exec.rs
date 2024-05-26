@@ -1,14 +1,14 @@
-use std::{fmt, io::BufRead};
+use std::{fmt, io::BufRead, sync::Arc};
 
 use crate::{core::sync_container::sync_reader, TestcontainersError};
 
 /// Represents the result of an executed command in a container.
-pub struct SyncExecResult<'a> {
-    pub(super) inner: crate::core::async_container::exec::ExecResult<'a>,
-    pub(super) runtime: &'a tokio::runtime::Runtime,
+pub struct SyncExecResult {
+    pub(super) inner: crate::core::async_container::exec::ExecResult,
+    pub(super) runtime: Arc<tokio::runtime::Runtime>,
 }
 
-impl<'a> SyncExecResult<'a> {
+impl SyncExecResult {
     /// Returns the exit code of the executed command.
     /// If the command has not yet exited, this will return `None`.
     pub fn exit_code(&self) -> Result<Option<i64>, TestcontainersError> {
@@ -19,7 +19,7 @@ impl<'a> SyncExecResult<'a> {
     pub fn stdout<'b>(&'b mut self) -> Box<dyn BufRead + 'b> {
         Box::new(sync_reader::SyncReadBridge::new(
             self.inner.stdout(),
-            self.runtime,
+            self.runtime.clone(),
         ))
     }
 
@@ -27,7 +27,7 @@ impl<'a> SyncExecResult<'a> {
     pub fn stderr<'b>(&'b mut self) -> Box<dyn BufRead + 'b> {
         Box::new(sync_reader::SyncReadBridge::new(
             self.inner.stderr(),
-            self.runtime,
+            self.runtime.clone(),
         ))
     }
 
@@ -42,7 +42,7 @@ impl<'a> SyncExecResult<'a> {
     }
 }
 
-impl fmt::Debug for SyncExecResult<'_> {
+impl fmt::Debug for SyncExecResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ExecResult")
             .field("id", &self.inner.id)
