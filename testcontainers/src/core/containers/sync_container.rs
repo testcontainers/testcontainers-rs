@@ -91,13 +91,7 @@ where
     /// IPv4 interfaces.
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
-    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the given port is not mapped.
-    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
-    /// is unlikely to be useful.
+    /// the already exposed ports. If a docker container does not expose a port, this method returns an error.
     pub fn get_host_port_ipv4(&self, internal_port: u16) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv4(internal_port))
@@ -107,13 +101,7 @@ where
     /// IPv6 interfaces.
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
-    /// the already exposed ports. If a docker container does not expose a port, this method will panic.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the given port is not mapped.
-    /// Testcontainers is designed to be used in tests only. If a certain port is not mapped, the container
-    /// is unlikely to be useful.
+    /// the already exposed ports. If a docker container does not expose a port, this method returns an error.
     pub fn get_host_port_ipv6(&self, internal_port: u16) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv6(internal_port))

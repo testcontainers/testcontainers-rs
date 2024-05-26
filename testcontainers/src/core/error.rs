@@ -1,6 +1,7 @@
 use std::error::Error;
 
-use crate::core::{client::ClientError, logs::WaitLogError};
+use crate::core::logs::WaitLogError;
+pub use crate::core::{client::ClientError, env::ConfigurationError};
 
 pub type Result<T> = std::result::Result<T, TestcontainersError>;
 

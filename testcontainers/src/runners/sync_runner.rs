@@ -30,23 +30,22 @@ where
     I: Image,
 {
     fn start(self) -> Result<Container<I>> {
-        let runtime = build_sync_runner();
+        let runtime = build_sync_runner()?;
         let async_container = runtime.block_on(super::AsyncRunner::start(self))?;
 
         Ok(Container::new(runtime, async_container))
     }
 
     fn pull_image(self) -> Result<RunnableImage<I>> {
-        let runtime = build_sync_runner();
+        let runtime = build_sync_runner()?;
         runtime.block_on(super::AsyncRunner::pull_image(self))
     }
 }
 
-fn build_sync_runner() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
+fn build_sync_runner() -> Result<tokio::runtime::Runtime> {
+    Ok(tokio::runtime::Builder::new_current_thread()
         .enable_all()
-        .build()
-        .expect("failed to build sync runner")
+        .build()?)
 }
 
 #[cfg(test)]
@@ -166,9 +165,12 @@ mod tests {
     }
 
     #[test]
-    fn sync_rm_command_should_panic_on_invalid_container() {
+    fn sync_rm_command_should_return_error_on_invalid_container() {
         let res = runtime().block_on(docker_client().rm("!INVALID_NAME_DUE_TO_SYMBOLS!"));
-        assert!(res.is_err(), "should panic on invalid container name");
+        assert!(
+            res.is_err(),
+            "should return an error on invalid container name"
+        );
     }
 
     #[test]
@@ -208,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn sync_should_panic_when_non_bridged_network_selected() -> anyhow::Result<()> {
+    fn sync_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
         let web_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));

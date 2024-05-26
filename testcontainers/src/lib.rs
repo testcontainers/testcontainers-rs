@@ -61,7 +61,6 @@
 //! # Usage in production code
 //!
 //! Although nothing inherently prevents testcontainers from being used in production code, the library itself was not designed with that in mind.
-//! For example, many methods will panic if something goes wrong but because the usage is intended to be within tests, this is deemed acceptable.
 //!
 //! [tc_website]: https://testcontainers.org
 //! [`Docker`]: https://docker.com

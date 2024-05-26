@@ -1,5 +1,6 @@
 mod config;
 
+pub use config::ConfigurationError;
 pub(crate) use config::{Command, Config};
 
 /// Abstracts over reading a value from the environment.
@@ -34,18 +35,16 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "unknown command 'foobar' provided via TESTCONTAINERS_COMMAND env variable"
-    )]
-    fn panics_on_unknown_command() {
-        let _ = "foobar".parse::<Command>();
+    fn errors_on_unknown_command() {
+        let res = "foobar".parse::<Command>();
+        assert!(res.is_err());
     }
 
     #[test]
     fn command_looks_up_testcontainers_env_variables() {
         let cmd = FakeEnvAlwaysKeep::get_env_value("TESTCONTAINERS_COMMAND").unwrap();
 
-        assert_eq!(cmd.parse::<Command>(), Ok(Command::Keep))
+        assert!(matches!(cmd.parse::<Command>(), Ok(Command::Keep)),)
     }
 
     #[test]
