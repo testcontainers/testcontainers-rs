@@ -33,7 +33,9 @@ impl ExecResult {
     }
 
     /// Returns stdout as a vector of bytes.
-    /// If you want to read stdout in asynchronous manner, use `stdout_reader` instead.
+    /// Keep in mind that this will block until the command exits.
+    ///
+    /// If you want to read stdout in asynchronous manner, use [`ExecResult::stdout`] instead.
     pub async fn stdout_to_vec(&mut self) -> Result<Vec<u8>> {
         let mut stdout = Vec::new();
         self.stdout().read_to_end(&mut stdout).await?;
@@ -41,7 +43,9 @@ impl ExecResult {
     }
 
     /// Returns stderr as a vector of bytes.
-    /// If you want to read stderr in asynchronous manner, use `stderr_reader` instead.
+    /// Keep in mind that this will block until the command exits.
+    ///
+    /// If you want to read stderr in asynchronous manner, use [`ExecResult::stderr`] instead.
     pub async fn stderr_to_vec(&mut self) -> Result<Vec<u8>> {
         let mut stderr = Vec::new();
         self.stderr().read_to_end(&mut stderr).await?;
