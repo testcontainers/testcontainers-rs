@@ -262,14 +262,22 @@ where
     }
 
     /// Returns an asynchronous reader for stdout.
-    pub fn stdout(&self) -> Pin<Box<dyn AsyncBufRead + Send>> {
-        let stdout = self.docker_client.stdout_logs(&self.id, true);
+    ///
+    /// Accepts a boolean parameter to follow the logs:
+    ///   - pass `true` to read logs from the moment the container starts until it stops (returns I/O error with kind [`UnexpectedEof`](std::io::ErrorKind::UnexpectedEof) if container removed).
+    ///   - pass `false` to read logs from startup to present.
+    pub fn stdout(&self, follow: bool) -> Pin<Box<dyn AsyncBufRead + Send>> {
+        let stdout = self.docker_client.stdout_logs(&self.id, follow);
         Box::pin(tokio_util::io::StreamReader::new(stdout.into_inner()))
     }
 
     /// Returns an asynchronous reader for stderr.
-    pub fn stderr(&self) -> Pin<Box<dyn AsyncBufRead + Send>> {
-        let stderr = self.docker_client.stderr_logs(&self.id, true);
+    ///
+    /// Accepts a boolean parameter to follow the logs:
+    ///   - pass `true` to read logs from the moment the container starts until it stops (returns I/O error with [`UnexpectedEof`](std::io::ErrorKind::UnexpectedEof) if container removed).
+    ///   - pass `false` to read logs from startup to present.
+    pub fn stderr(&self, follow: bool) -> Pin<Box<dyn AsyncBufRead + Send>> {
+        let stderr = self.docker_client.stderr_logs(&self.id, follow);
         Box::pin(tokio_util::io::StreamReader::new(stderr.into_inner()))
     }
 
@@ -383,7 +391,7 @@ mod tests {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
         let container = RunnableImage::from(image).start().await?;
 
-        let stderr = container.stderr();
+        let stderr = container.stderr(true);
 
         // it's possible to send logs into background task
         let log_follower_task = tokio::spawn(async move {
@@ -417,16 +425,15 @@ mod tests {
 
         // stdout is empty
         let mut stdout = String::new();
-        container.stdout().read_to_string(&mut stdout).await?;
+        container.stdout(true).read_to_string(&mut stdout).await?;
         assert_eq!(stdout, "");
         // stderr contains 6 lines
         let mut stderr = String::new();
-        container.stderr().read_to_string(&mut stderr).await?;
+        container.stderr(true).read_to_string(&mut stderr).await?;
         assert_eq!(
             stderr.lines().count(),
             6,
-            "unexpected stderr size: {}",
-            stderr
+            "unexpected stderr size: {stderr}",
         );
 
         // start again to test eof on drop
@@ -434,7 +441,7 @@ mod tests {
 
         // create logger task which reads logs from container up to EOF
         let container_id = container.id().to_string();
-        let stderr = container.stderr();
+        let stderr = container.stderr(true);
         let logger_task = tokio::spawn(async move {
             let mut stderr_lines = stderr.lines();
             while let Some(result) = stderr_lines.next_line().await.transpose() {
@@ -453,9 +460,13 @@ mod tests {
         });
 
         drop(container);
-        logger_task
+        let res = logger_task
             .await
-            .map_err(|_| anyhow::anyhow!("failed to join log follower task"))??;
+            .map_err(|_| anyhow::anyhow!("failed to join log follower task"))?;
+        assert!(
+            res.is_ok(),
+            "UnexpectedEof is handled after dropping the container"
+        );
 
         Ok(())
     }

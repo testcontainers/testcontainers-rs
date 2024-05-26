@@ -147,17 +147,25 @@ where
     }
 
     /// Returns a reader for stdout.
-    pub fn stdout(&self) -> Box<dyn BufRead + Send> {
+    ///
+    /// Accepts a boolean parameter to follow the logs:
+    ///   - pass `true` to read logs from the moment the container starts until it stops (returns I/O error with kind `UnexpectedEof` if container removed).
+    ///   - pass `false` to read logs from startup to present.
+    pub fn stdout(&self, follow: bool) -> Box<dyn BufRead + Send> {
         Box::new(sync_reader::SyncReadBridge::new(
-            self.async_impl().stdout(),
+            self.async_impl().stdout(follow),
             self.rt().clone(),
         ))
     }
 
     /// Returns a reader for stderr.
-    pub fn stderr(&self) -> Box<dyn BufRead + Send> {
+    ///
+    /// Accepts a boolean parameter to follow the logs:
+    ///   - pass `true` to read logs from the moment the container starts until it stops (returns I/O error with kind `UnexpectedEof` if container removed).
+    ///   - pass `false` to read logs from startup to present.
+    pub fn stderr(&self, follow: bool) -> Box<dyn BufRead + Send> {
         Box::new(sync_reader::SyncReadBridge::new(
-            self.async_impl().stderr(),
+            self.async_impl().stderr(follow),
             self.rt().clone(),
         ))
     }
@@ -226,7 +234,7 @@ mod test {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
         let container = RunnableImage::from(image).start()?;
 
-        let stderr = container.stderr();
+        let stderr = container.stderr(true);
 
         // it's possible to send logs to another thread
         let log_follower_thread = std::thread::spawn(move || {
@@ -260,11 +268,11 @@ mod test {
 
         // stdout is empty
         let mut stdout = String::new();
-        container.stdout().read_to_string(&mut stdout)?;
+        container.stdout(true).read_to_string(&mut stdout)?;
         assert_eq!(stdout, "");
         // stderr contains 6 lines
         let mut stderr = String::new();
-        container.stderr().read_to_string(&mut stderr)?;
+        container.stderr(true).read_to_string(&mut stderr)?;
         assert_eq!(
             stderr.lines().count(),
             6,
