@@ -91,12 +91,12 @@ impl Client {
         Ok(Client { config, bollard })
     }
 
-    pub(crate) fn stdout_logs(&self, id: &str) -> LogStreamAsync<'_> {
-        self.logs(id, LogSource::StdOut)
+    pub(crate) fn stdout_logs(&self, id: &str, follow: bool) -> LogStreamAsync {
+        self.logs(id, LogSource::StdOut, follow)
     }
 
-    pub(crate) fn stderr_logs(&self, id: &str) -> LogStreamAsync<'_> {
-        self.logs(id, LogSource::StdErr)
+    pub(crate) fn stderr_logs(&self, id: &str, follow: bool) -> LogStreamAsync {
+        self.logs(id, LogSource::StdErr, follow)
     }
 
     pub(crate) async fn ports(&self, id: &str) -> Result<Ports, ClientError> {
@@ -152,7 +152,7 @@ impl Client {
         &self,
         container_id: &str,
         cmd: Vec<String>,
-    ) -> Result<ExecResult<'_>, ClientError> {
+    ) -> Result<ExecResult, ClientError> {
         let config = CreateExecOptions {
             cmd: Some(cmd),
             attach_stdout: Some(true),
@@ -245,9 +245,9 @@ impl Client {
             .map_err(ClientError::InspectExec)
     }
 
-    fn logs(&self, container_id: &str, log_source: LogSource) -> LogStreamAsync<'_> {
+    fn logs(&self, container_id: &str, log_source: LogSource, follow: bool) -> LogStreamAsync {
         let options = LogsOptions {
-            follow: true,
+            follow,
             stdout: log_source.is_stdout(),
             stderr: log_source.is_stderr(),
             tail: "all".to_owned(),

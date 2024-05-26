@@ -1,4 +1,4 @@
-use std::{fmt, io::BufRead, net::IpAddr};
+use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
     core::{env, error::Result, ports::Ports, ExecCommand},
@@ -28,7 +28,7 @@ pub struct Container<I: Image> {
 
 /// Internal representation of a running docker container, to be able to terminate runtime correctly when `Container` is dropped.
 struct ActiveContainer<I: Image> {
-    runtime: tokio::runtime::Runtime,
+    runtime: Arc<tokio::runtime::Runtime>,
     async_impl: ContainerAsync<I>,
 }
 
@@ -50,7 +50,7 @@ impl<I: Image> Container<I> {
     pub(crate) fn new(runtime: tokio::runtime::Runtime, async_impl: ContainerAsync<I>) -> Self {
         Self {
             inner: Some(ActiveContainer {
-                runtime,
+                runtime: Arc::new(runtime),
                 async_impl,
             }),
         }
@@ -132,11 +132,11 @@ where
     }
 
     /// Executes a command in the container.
-    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::SyncExecResult<'_>> {
+    pub fn exec(&self, cmd: ExecCommand) -> Result<exec::SyncExecResult> {
         let async_exec = self.rt().block_on(self.async_impl().exec(cmd))?;
         Ok(exec::SyncExecResult {
             inner: async_exec,
-            runtime: self.rt(),
+            runtime: self.rt().clone(),
         })
     }
 
@@ -159,23 +159,23 @@ where
     }
 
     /// Returns a reader for stdout.
-    pub fn stdout(&self) -> Box<dyn BufRead + '_> {
+    pub fn stdout(&self) -> Box<dyn BufRead + Send> {
         Box::new(sync_reader::SyncReadBridge::new(
             self.async_impl().stdout(),
-            self.rt(),
+            self.rt().clone(),
         ))
     }
 
     /// Returns a reader for stderr.
-    pub fn stderr(&self) -> Box<dyn BufRead + '_> {
+    pub fn stderr(&self) -> Box<dyn BufRead + Send> {
         Box::new(sync_reader::SyncReadBridge::new(
             self.async_impl().stderr(),
-            self.rt(),
+            self.rt().clone(),
         ))
     }
 
     /// Returns reference to inner `Runtime`. It's safe to unwrap because it's `Some` until `Container` is dropped.
-    fn rt(&self) -> &tokio::runtime::Runtime {
+    fn rt(&self) -> &Arc<tokio::runtime::Runtime> {
         &self.inner.as_ref().unwrap().runtime
     }
 
@@ -234,27 +234,38 @@ mod test {
     fn assert_send_and_sync<T: Send + Sync>() {}
 
     #[test]
-    fn async_logs_are_accessible() -> anyhow::Result<()> {
+    fn sync_logs_are_accessible() -> anyhow::Result<()> {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
         let container = RunnableImage::from(image).start()?;
 
-        let mut stderr_lines = container.stderr().lines();
+        let stderr = container.stderr();
 
-        let expected_messages = [
-            "DELAY_START_MSEC: 0",
-            "Sleeping for 0 ms",
-            "Starting server on port 8080",
-            "Sleeping for 0 ms",
-            "Starting server on port 8081",
-            "Ready, listening on 8080 and 8081",
-        ];
-        for expected_message in expected_messages {
-            let line = stderr_lines.next().expect("line must exist")?;
-            assert!(
-                line.contains(expected_message),
-                "Log message ('{line}') doesn't contain expected message ('{expected_message}')"
-            );
-        }
+        // it's possible to send logs to another thread
+        let log_follower_thread = std::thread::spawn(move || {
+            let mut stderr_lines = stderr.lines();
+            let expected_messages = [
+                "DELAY_START_MSEC: 0",
+                "Sleeping for 0 ms",
+                "Starting server on port 8080",
+                "Sleeping for 0 ms",
+                "Starting server on port 8081",
+                "Ready, listening on 8080 and 8081",
+            ];
+            for expected_message in expected_messages {
+                let line = stderr_lines.next().expect("line must exist")?;
+                if !line.contains(expected_message) {
+                    anyhow::bail!(
+                        "Log message ('{}') doesn't contain expected message ('{}')",
+                        line,
+                        expected_message
+                    );
+                }
+            }
+            Ok(())
+        });
+        log_follower_thread
+            .join()
+            .map_err(|_| anyhow::anyhow!("failed to join log follower thread"))??;
 
         // logs are accessible after container is stopped
         container.stop()?;
