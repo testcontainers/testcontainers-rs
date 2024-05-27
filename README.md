@@ -1,6 +1,6 @@
 # Testcontainers-rs
 
-![Continuous Integration](https://github.com/testcontainers/testcontainers-rs/workflows/Continuous%20Integration/badge.svg?branch=main)
+![Continuous Integration](https://github.com/testcontainers/testcontainers-rs/actions/workflows/ci.yml/badge.svg)
 [![Crates.io](https://img.shields.io/crates/v/testcontainers.svg)](https://crates.io/crates/testcontainers)
 [![Docs.rs](https://docs.rs/testcontainers/badge.svg)](https://docs.rs/testcontainers)
 [![Slack](https://img.shields.io/badge/Slack-join-orange?style=flat&logo=slack&)](https://join.slack.com/t/testcontainers/shared_invite/zt-2gra37tid-n9xDJGjjVb7hMRanGjowkw)
@@ -29,7 +29,8 @@ fn test_redis() {
     let container = GenericImage::new("redis", "7.2.4")
         .with_exposed_port(6379)
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
-        .start();
+        .start()
+        .expect("Redis started");
 }
 ```
 
@@ -44,7 +45,8 @@ async fn test_redis() {
         .with_exposed_port(6379)
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
         .start()
-        .await;
+        .await
+        .expect("Redis started");
 }
 ```
 
