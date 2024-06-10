@@ -149,7 +149,7 @@ impl<I: Image> RunnableImage<I> {
     ///
     /// assert_eq!(runnable_image.cmd(), &cmd);
     ///
-    /// let another_runnable_image = RunnableImage::from((image, cmd));
+    /// let another_runnable_image = RunnableImage::from(image).with_cmd(cmd);
     ///
     /// assert_eq!(another_runnable_image.cmd(), runnable_image.cmd());
     /// ```
