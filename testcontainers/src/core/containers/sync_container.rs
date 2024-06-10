@@ -73,16 +73,6 @@ where
         self.async_impl().image()
     }
 
-    /// Returns a reference to the [`arguments`] of the [`Image`] of this container.
-    ///
-    /// Access to this is useful to retrieve relevant information which had been passed as [`arguments`]
-    ///
-    /// [`Image`]: trait.Image.html
-    /// [`arguments`]: trait.Image.html#associatedtype.Args
-    pub fn image_args(&self) -> &I::Args {
-        self.async_impl().image_args()
-    }
-
     pub fn ports(&self) -> Result<Ports> {
         self.rt().block_on(self.async_impl().ports())
     }
@@ -225,8 +215,6 @@ mod test {
     pub struct HelloWorld;
 
     impl Image for HelloWorld {
-        type Args = ();
-
         fn name(&self) -> String {
             "hello-world".to_owned()
         }

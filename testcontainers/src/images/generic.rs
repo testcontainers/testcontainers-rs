@@ -2,14 +2,8 @@ use std::collections::BTreeMap;
 
 use crate::{
     core::{mounts::Mount, WaitFor},
-    Image, ImageArgs,
+    Image,
 };
-
-impl ImageArgs for Vec<String> {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        Box::new(self.into_iter())
-    }
-}
 
 #[must_use]
 #[derive(Debug, Clone)]
@@ -20,6 +14,7 @@ pub struct GenericImage {
     env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
+    cmd: Vec<String>,
     exposed_ports: Vec<u16>,
 }
 
@@ -30,6 +25,7 @@ impl Default for GenericImage {
             tag: "".to_owned(),
             mounts: Vec::new(),
             env_vars: BTreeMap::new(),
+            cmd: Vec::new(),
             wait_for: Vec::new(),
             entrypoint: None,
             exposed_ports: Vec::new(),
@@ -56,6 +52,11 @@ impl GenericImage {
         self
     }
 
+    pub fn with_cmd(mut self, cmd: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.cmd = cmd.into_iter().map(Into::into).collect();
+        self
+    }
+
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
         self.wait_for.push(wait_for);
         self
@@ -73,8 +74,6 @@ impl GenericImage {
 }
 
 impl Image for GenericImage {
-    type Args = Vec<String>;
-
     fn name(&self) -> String {
         self.name.clone()
     }
@@ -85,6 +84,10 @@ impl Image for GenericImage {
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         self.wait_for.clone()
+    }
+
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<String>> {
+        &self.cmd
     }
 
     fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {

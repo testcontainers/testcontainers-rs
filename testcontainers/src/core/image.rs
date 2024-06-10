@@ -22,20 +22,7 @@ mod wait_for;
 pub trait Image
 where
     Self: Sized + Sync + Send,
-    Self::Args: ImageArgs + Clone + Debug + Sync + Send,
 {
-    /// A type representing the arguments for an Image.
-    ///
-    /// There are a couple of things regarding the arguments of images:
-    ///
-    /// 1. Similar to the Default implementation of an Image, the Default instance
-    /// of its arguments should be meaningful!
-    /// 2. Implementations should be conservative about which arguments they expose. Many times,
-    /// users will either go with the default arguments or just override one or two. When defining
-    /// the arguments of your image, consider that the whole purpose is to facilitate integration
-    /// testing. Only expose those that actually make sense for this case.
-    type Args;
-
     /// The name of the docker image to pull from the Docker Hub registry.
     fn name(&self) -> String;
 
@@ -80,9 +67,14 @@ where
         Box::new(std::iter::empty())
     }
 
-    /// Returns the entrypoint this instance was created with.
+    /// Returns the [entrypoint](`https://docs.docker.com/reference/dockerfile/#entrypoint`) this image needs to be created with.
     fn entrypoint(&self) -> Option<String> {
         None
+    }
+
+    /// Returns the [`CMD`](https://docs.docker.com/reference/dockerfile/#cmd) this image needs to be created with.
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<String>> {
+        std::iter::empty::<String>()
     }
 
     /// Returns the ports that needs to be exposed when a container is created.
@@ -146,15 +138,5 @@ impl ContainerState {
                 id: self.id.clone(),
                 port: internal_port,
             })
-    }
-}
-
-pub trait ImageArgs {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>>;
-}
-
-impl ImageArgs for () {
-    fn into_iterator(self) -> Box<dyn Iterator<Item = String>> {
-        Box::new(vec![].into_iter())
     }
 }

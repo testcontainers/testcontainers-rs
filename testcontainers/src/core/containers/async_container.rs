@@ -83,16 +83,6 @@ where
         self.image.image()
     }
 
-    /// Returns a reference to the [`arguments`] of the [`Image`] of this container.
-    ///
-    /// Access to this is useful to retrieve relevant information which had been passed as [`arguments`]
-    ///
-    /// [`Image`]: trait.Image.html
-    /// [`arguments`]: trait.Image.html#associatedtype.Args
-    pub fn image_args(&self) -> &I::Args {
-        self.image.args()
-    }
-
     pub async fn ports(&self) -> Result<Ports> {
         self.docker_client.ports(&self.id).await.map_err(Into::into)
     }
