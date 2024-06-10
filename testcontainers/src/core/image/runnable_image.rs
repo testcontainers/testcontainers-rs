@@ -145,7 +145,7 @@ impl<I: Image> RunnableImage<I> {
     ///
     /// let image = GenericImage::default();
     /// let cmd = ["arg1", "arg2"];
-    /// let runnable_image = RunnableImage::from(image.clone()).with_cmd(&cmd);
+    /// let runnable_image = RunnableImage::from(image.clone()).with_cmd(cmd);
     ///
     /// assert_eq!(runnable_image.cmd(), &cmd);
     ///
