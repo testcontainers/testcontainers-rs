@@ -12,8 +12,6 @@ use tokio::io::AsyncReadExt;
 pub struct HelloWorld;
 
 impl Image for HelloWorld {
-    type Args = ();
-
     fn name(&self) -> String {
         "hello-world".to_owned()
     }

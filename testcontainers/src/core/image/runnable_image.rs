@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct RunnableImage<I: Image> {
     image: I,
-    image_args: I::Args,
+    overridden_cmd: Vec<String>,
     image_name: Option<String>,
     image_tag: Option<String>,
     container_name: Option<String>,
@@ -50,10 +50,6 @@ pub enum CgroupnsMode {
 impl<I: Image> RunnableImage<I> {
     pub fn image(&self) -> &I {
         &self.image
-    }
-
-    pub fn args(&self) -> &I::Args {
-        &self.image_args
     }
 
     pub fn network(&self) -> &Option<String> {
@@ -101,6 +97,14 @@ impl<I: Image> RunnableImage<I> {
         self.image.entrypoint()
     }
 
+    pub fn cmd(&self) -> Vec<String> {
+        if !self.overridden_cmd.is_empty() {
+            self.overridden_cmd.clone()
+        } else {
+            self.image.cmd().into_iter().map(Into::into).collect()
+        }
+    }
+
     pub fn descriptor(&self) -> String {
         let original_name = self.image.name();
         let original_tag = self.image.tag();
@@ -133,25 +137,25 @@ impl<I: Image> RunnableImage<I> {
 }
 
 impl<I: Image> RunnableImage<I> {
-    /// Returns a new RunnableImage with the specified arguments.
+    /// Returns a new RunnableImage with the specified (overridden) `CMD` ([`Image::cmd`]).
     ///
     /// # Examples
     /// ```rust,no_run
     /// use testcontainers::{core::RunnableImage, GenericImage};
     ///
     /// let image = GenericImage::default();
-    /// let args = vec!["arg1".to_string(), "arg2".to_string()];
-    /// let runnable_image = RunnableImage::from(image.clone()).with_args(args.clone());
+    /// let cmd = ["arg1", "arg2"];
+    /// let runnable_image = RunnableImage::from(image.clone()).with_cmd(&cmd);
     ///
-    /// assert_eq!(runnable_image.args(), &args);
+    /// assert_eq!(runnable_image.cmd(), &cmd);
     ///
-    /// let another_runnable_image = RunnableImage::from((image, args));
+    /// let another_runnable_image = RunnableImage::from((image, cmd));
     ///
-    /// assert_eq!(another_runnable_image.args(), runnable_image.args());
+    /// assert_eq!(another_runnable_image.cmd(), runnable_image.cmd());
     /// ```
-    pub fn with_args(self, args: I::Args) -> Self {
+    pub fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self {
-            image_args: args,
+            overridden_cmd: cmd.into_iter().map(Into::into).collect(),
             ..self
         }
     }
@@ -262,21 +266,11 @@ impl<I: Image> RunnableImage<I> {
     }
 }
 
-impl<I> From<I> for RunnableImage<I>
-where
-    I: Image,
-    I::Args: Default,
-{
+impl<I: Image> From<I> for RunnableImage<I> {
     fn from(image: I) -> Self {
-        Self::from((image, I::Args::default()))
-    }
-}
-
-impl<I: Image> From<(I, I::Args)> for RunnableImage<I> {
-    fn from((image, image_args): (I, I::Args)) -> Self {
         Self {
             image,
-            image_args,
+            overridden_cmd: Vec::new(),
             image_name: None,
             image_tag: None,
             container_name: None,

@@ -15,7 +15,7 @@ use crate::{
         network::Network,
         CgroupnsMode, ContainerState,
     },
-    ContainerAsync, Image, ImageArgs, RunnableImage,
+    ContainerAsync, Image, RunnableImage,
 };
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -182,13 +182,9 @@ where
                 });
             }
 
-            let args = runnable_image
-                .args()
-                .clone()
-                .into_iterator()
-                .collect::<Vec<String>>();
-            if !args.is_empty() {
-                config.cmd = Some(args);
+            let cmd = runnable_image.cmd();
+            if !cmd.is_empty() {
+                config.cmd = Some(cmd);
             }
 
             // create the container with options
