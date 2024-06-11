@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{borrow::Cow, fmt::Debug};
 
 pub use exec::{CmdWaitFor, ExecCommand};
 pub use runnable_image::{CgroupnsMode, Host, PortMapping, RunnableImage};
@@ -24,12 +24,12 @@ where
     Self: Sized + Sync + Send,
 {
     /// The name of the docker image to pull from the Docker Hub registry.
-    fn name(&self) -> String;
+    fn name(&self) -> &str;
 
     /// Implementations are encouraged to include a tag that will not change (i.e. NOT latest)
     /// in order to prevent test code from randomly breaking because the underlying docker
     /// suddenly changed.
-    fn tag(&self) -> String;
+    fn tag(&self) -> &str;
 
     /// Returns a list of conditions that need to be met before a started container is considered ready.
     ///
@@ -43,46 +43,34 @@ where
     /// more time before it is ready.
     fn ready_conditions(&self) -> Vec<WaitFor>;
 
-    /// There are a couple of things regarding the environment variables of images:
-    ///
-    /// 1. Similar to the Default implementation of an Image, the Default instance
-    /// of its environment variables should be meaningful!
-    /// 2. Implementations should be conservative about which environment variables they expose. Many times,
-    /// users will either go with the default ones or just override one or two. When defining
-    /// the environment variables of your image, consider that the whole purpose is to facilitate integration
-    /// testing. Only expose those that actually make sense for this case.
-    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(std::iter::empty())
+    /// Returns the environment variables that needs to be set when a container is created.
+    fn env_vars(
+        &self,
+    ) -> impl IntoIterator<Item = (impl Into<Cow<'_, str>>, impl Into<Cow<'_, str>>)> {
+        std::iter::empty::<(String, String)>()
     }
 
-    /// There are a couple of things regarding the mounts of images:
-    ///
-    /// 1. Similar to the Default implementation of an Image, the Default instance
-    /// of its mounts should be meaningful!
-    /// 2. Implementations should be conservative about which mounts they expose or require. Many times,
-    /// users will either go with the default ones or just override one or two. When defining
-    /// the volumes of your image, consider that the whole purpose is to facilitate integration
-    /// testing. Only expose those that actually make sense for this case.
-    fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
-        Box::new(std::iter::empty())
+    /// Returns the mounts that needs to be created when a container is created.
+    fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
+        std::iter::empty()
     }
 
     /// Returns the [entrypoint](`https://docs.docker.com/reference/dockerfile/#entrypoint`) this image needs to be created with.
-    fn entrypoint(&self) -> Option<String> {
+    fn entrypoint(&self) -> Option<&str> {
         None
     }
 
     /// Returns the [`CMD`](https://docs.docker.com/reference/dockerfile/#cmd) this image needs to be created with.
-    fn cmd(&self) -> impl IntoIterator<Item = impl Into<String>> {
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<Cow<'_, str>>> {
         std::iter::empty::<String>()
     }
 
     /// Returns the ports that needs to be exposed when a container is created.
     ///
     /// This method is useful when there is a need to expose some ports, but there is
-    /// no EXPOSE instruction in the Dockerfile of an image.
-    fn expose_ports(&self) -> Vec<u16> {
-        Default::default()
+    /// no `EXPOSE` instruction in the Dockerfile of an image.
+    fn expose_ports(&self) -> &[u16] {
+        &[]
     }
 
     /// Returns the commands that needs to be executed after a container is started i.e. commands

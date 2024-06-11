@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, net::IpAddr, time::Duration};
+use std::{borrow::Cow, collections::BTreeMap, net::IpAddr, time::Duration};
 
 use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
@@ -60,20 +60,28 @@ impl<I: Image> RunnableImage<I> {
         &self.container_name
     }
 
-    pub fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.image.env_vars().chain(self.env_vars.iter()))
+    pub fn env_vars(&self) -> impl Iterator<Item = (Cow<'_, str>, Cow<'_, str>)> {
+        self.image
+            .env_vars()
+            .into_iter()
+            .map(|(name, val)| (name.into(), val.into()))
+            .chain(
+                self.env_vars
+                    .iter()
+                    .map(|(name, val)| (name.into(), val.into())),
+            )
     }
 
-    pub fn hosts(&self) -> Box<dyn Iterator<Item = (&String, &Host)> + '_> {
-        Box::new(self.hosts.iter())
+    pub fn hosts(&self) -> impl Iterator<Item = (Cow<'_, str>, &Host)> {
+        self.hosts.iter().map(|(name, host)| (name.into(), host))
     }
 
-    pub fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
-        Box::new(self.image.mounts().chain(self.mounts.iter()))
+    pub fn mounts(&self) -> impl Iterator<Item = &Mount> {
+        self.image.mounts().into_iter().chain(self.mounts.iter())
     }
 
-    pub fn ports(&self) -> &Option<Vec<PortMapping>> {
-        &self.ports
+    pub fn ports(&self) -> Option<&Vec<PortMapping>> {
+        self.ports.as_ref()
     }
 
     pub fn privileged(&self) -> bool {
@@ -84,8 +92,8 @@ impl<I: Image> RunnableImage<I> {
         self.cgroupns_mode
     }
 
-    pub fn userns_mode(&self) -> Option<String> {
-        self.userns_mode.clone()
+    pub fn userns_mode(&self) -> Option<&str> {
+        self.userns_mode.as_deref()
     }
 
     /// Shared memory size in bytes
@@ -93,15 +101,15 @@ impl<I: Image> RunnableImage<I> {
         self.shm_size
     }
 
-    pub fn entrypoint(&self) -> Option<String> {
+    pub fn entrypoint(&self) -> Option<&str> {
         self.image.entrypoint()
     }
 
-    pub fn cmd(&self) -> Vec<String> {
+    pub fn cmd(&self) -> impl Iterator<Item = Cow<'_, str>> {
         if !self.overridden_cmd.is_empty() {
-            self.overridden_cmd.clone()
+            either::Either::Left(self.overridden_cmd.iter().map(Cow::from))
         } else {
-            self.image.cmd().into_iter().map(Into::into).collect()
+            either::Either::Right(self.image.cmd().into_iter().map(Into::into))
         }
     }
 
@@ -109,8 +117,8 @@ impl<I: Image> RunnableImage<I> {
         let original_name = self.image.name();
         let original_tag = self.image.tag();
 
-        let name = self.image_name.as_ref().unwrap_or(&original_name);
-        let tag = self.image_tag.as_ref().unwrap_or(&original_tag);
+        let name = self.image_name.as_deref().unwrap_or(original_name);
+        let tag = self.image_tag.as_deref().unwrap_or(original_tag);
 
         format!("{name}:{tag}")
     }
@@ -119,7 +127,7 @@ impl<I: Image> RunnableImage<I> {
         self.image.ready_conditions()
     }
 
-    pub fn expose_ports(&self) -> Vec<u16> {
+    pub fn expose_ports(&self) -> &[u16] {
         self.image.expose_ports()
     }
 
@@ -147,11 +155,11 @@ impl<I: Image> RunnableImage<I> {
     /// let cmd = ["arg1", "arg2"];
     /// let runnable_image = RunnableImage::from(image.clone()).with_cmd(cmd);
     ///
-    /// assert_eq!(runnable_image.cmd(), &cmd);
+    /// assert!(runnable_image.cmd().eq(cmd));
     ///
     /// let another_runnable_image = RunnableImage::from(image).with_cmd(cmd);
     ///
-    /// assert_eq!(another_runnable_image.cmd(), runnable_image.cmd());
+    /// assert!(another_runnable_image.cmd().eq(runnable_image.cmd()));
     /// ```
     pub fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> Self {
         Self {
