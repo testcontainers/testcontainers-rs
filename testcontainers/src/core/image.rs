@@ -1,6 +1,7 @@
 use std::{borrow::Cow, fmt::Debug};
 
 pub use exec::{CmdWaitFor, ExecCommand};
+pub use image_ext::ImageExt;
 pub use runnable_image::{CgroupnsMode, Host, PortMapping, RunnableImage};
 pub use wait_for::WaitFor;
 
@@ -8,6 +9,7 @@ use super::ports::Ports;
 use crate::{core::mounts::Mount, TestcontainersError};
 
 mod exec;
+mod image_ext;
 mod runnable_image;
 mod wait_for;
 
