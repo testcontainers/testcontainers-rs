@@ -6,23 +6,6 @@ use crate::{
 };
 
 pub trait ImageExt<I: Image> {
-    fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> RunnableImage<I>;
-    fn with_name(self, name: impl Into<String>) -> RunnableImage<I>;
-    fn with_tag(self, tag: impl Into<String>) -> RunnableImage<I>;
-    fn with_container_name(self, name: impl Into<String>) -> RunnableImage<I>;
-    fn with_network(self, network: impl Into<String>) -> RunnableImage<I>;
-    fn with_env_var(self, name: impl Into<String>, value: impl Into<String>) -> RunnableImage<I>;
-    fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> RunnableImage<I>;
-    fn with_mount(self, mount: impl Into<Mount>) -> RunnableImage<I>;
-    fn with_mapped_port<P: Into<PortMapping>>(self, port: P) -> RunnableImage<I>;
-    fn with_privileged(self, privileged: bool) -> RunnableImage<I>;
-    fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> RunnableImage<I>;
-    fn with_userns_mode(self, userns_mode: &str) -> RunnableImage<I>;
-    fn with_shm_size(self, bytes: u64) -> RunnableImage<I>;
-    fn with_startup_timeout(self, timeout: Duration) -> RunnableImage<I>;
-}
-
-impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
     /// Returns a new RunnableImage with the specified (overridden) `CMD` ([`Image::cmd`]).
     ///
     /// # Examples
@@ -39,6 +22,56 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
     ///
     /// assert!(another_runnable_image.cmd().eq(overridden_cmd.cmd()));
     /// ```
+    fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> RunnableImage<I>;
+
+    /// Overrides the fully qualified image name (consists of `{domain}/{owner}/{image}`).
+    /// Can be used to specify a custom registry or owner.
+    fn with_name(self, name: impl Into<String>) -> RunnableImage<I>;
+
+    /// Overrides the image tag.
+    ///
+    /// There is no guarantee that the specified tag for an image would result in a
+    /// running container. Users of this API are advised to use this at their own risk.
+    fn with_tag(self, tag: impl Into<String>) -> RunnableImage<I>;
+
+    /// Sets the container name.
+    fn with_container_name(self, name: impl Into<String>) -> RunnableImage<I>;
+
+    /// Sets the network the container will be connected to.
+    fn with_network(self, network: impl Into<String>) -> RunnableImage<I>;
+
+    /// Adds an environment variable to the container.
+    fn with_env_var(self, name: impl Into<String>, value: impl Into<String>) -> RunnableImage<I>;
+
+    /// Adds a host to the container.
+    fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> RunnableImage<I>;
+
+    /// Adds a mount to the container.
+    fn with_mount(self, mount: impl Into<Mount>) -> RunnableImage<I>;
+
+    /// Adds a port mapping to the container.
+    fn with_mapped_port<P: Into<PortMapping>>(self, port: P) -> RunnableImage<I>;
+
+    /// Sets the container to run in privileged mode.
+    fn with_privileged(self, privileged: bool) -> RunnableImage<I>;
+
+    /// cgroup namespace mode for the container. Possible values are:
+    /// - [`CgroupnsMode::Private`]: the container runs in its own private cgroup namespace
+    /// - [`CgroupnsMode::Host`]: use the host system's cgroup namespace
+    /// If not specified, the daemon default is used, which can either be `\"private\"` or `\"host\"`, depending on daemon version, kernel support and configuration.
+    fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> RunnableImage<I>;
+
+    /// Sets the usernamespace mode for the container when usernamespace remapping option is enabled.
+    fn with_userns_mode(self, userns_mode: &str) -> RunnableImage<I>;
+
+    /// Sets the shared memory size in bytes
+    fn with_shm_size(self, bytes: u64) -> RunnableImage<I>;
+
+    /// Sets the startup timeout for the container. The default is 60 seconds.
+    fn with_startup_timeout(self, timeout: Duration) -> RunnableImage<I>;
+}
+
+impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
     fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -47,8 +80,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Overrides the fully qualified image name (consists of `{domain}/{owner}/{image}`).
-    /// Can be used to specify a custom registry or owner.
     fn with_name(self, name: impl Into<String>) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -57,10 +88,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Overrides the image tag.
-    ///
-    /// There is no guarantee that the specified tag for an image would result in a
-    /// running container. Users of this API are advised to use this at their own risk.
     fn with_tag(self, tag: impl Into<String>) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -69,7 +96,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Sets the container name.
     fn with_container_name(self, name: impl Into<String>) -> RunnableImage<I> {
         let runnable = self.into();
 
@@ -79,7 +105,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -88,28 +113,24 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Adds an environment variable to the container.
     fn with_env_var(self, name: impl Into<String>, value: impl Into<String>) -> RunnableImage<I> {
         let mut runnable = self.into();
         runnable.env_vars.insert(name.into(), value.into());
         runnable
     }
 
-    /// Adds a host to the container.
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> RunnableImage<I> {
         let mut runnable = self.into();
         runnable.hosts.insert(key.into(), value.into());
         runnable
     }
 
-    /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> RunnableImage<I> {
         let mut runnable = self.into();
         runnable.mounts.push(mount.into());
         runnable
     }
 
-    /// Adds a port mapping to the container.
     fn with_mapped_port<P: Into<PortMapping>>(self, port: P) -> RunnableImage<I> {
         let runnable = self.into();
         let mut ports = runnable.ports.unwrap_or_default();
@@ -121,7 +142,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Sets the container to run in privileged mode.
     fn with_privileged(self, privileged: bool) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -130,10 +150,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// cgroup namespace mode for the container. Possible values are:
-    /// - `\"private\"`: the container runs in its own private cgroup namespace
-    /// - `\"host\"`: use the host system's cgroup namespace
-    /// If not specified, the daemon default is used, which can either be `\"private\"` or `\"host\"`, depending on daemon version, kernel support and configuration.
     fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -142,7 +158,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Sets the usernamespace mode for the container when usernamespace remapping option is enabled.
     fn with_userns_mode(self, userns_mode: &str) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -151,7 +166,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Sets the shared memory size in bytes
     fn with_shm_size(self, bytes: u64) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {
@@ -160,7 +174,6 @@ impl<RI: Into<RunnableImage<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    /// Sets the startup timeout for the container. The default is 60 seconds.
     fn with_startup_timeout(self, timeout: Duration) -> RunnableImage<I> {
         let runnable = self.into();
         RunnableImage {

@@ -43,7 +43,9 @@ pub enum Host {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CgroupnsMode {
+    /// Use the host system's cgroup namespace
     Host,
+    /// Private cgroup namespace
     Private,
 }
 
