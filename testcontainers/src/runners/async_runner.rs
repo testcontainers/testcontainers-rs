@@ -72,7 +72,7 @@ where
                     privileged: Some(runnable_image.privileged()),
                     extra_hosts: Some(extra_hosts),
                     cgroupns_mode: runnable_image.cgroupns_mode().map(|mode| mode.into()),
-                    userns_mode: runnable_image.userns_mode(),
+                    userns_mode: runnable_image.userns_mode().map(|v| v.to_string()),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -124,7 +124,7 @@ where
 
             // entrypoint
             if let Some(entrypoint) = runnable_image.entrypoint() {
-                config.entrypoint = Some(vec![entrypoint]);
+                config.entrypoint = Some(vec![entrypoint.to_string()]);
             }
 
             let is_container_networked = runnable_image
@@ -137,7 +137,6 @@ where
             if !is_container_networked {
                 let mapped_ports = runnable_image
                     .ports()
-                    .as_ref()
                     .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
                     .unwrap_or_default();
 
@@ -156,20 +155,15 @@ where
             // ports
             if runnable_image.ports().is_some() {
                 let empty: Vec<_> = Vec::new();
-                let bindings = runnable_image
-                    .ports()
-                    .as_ref()
-                    .unwrap_or(&empty)
-                    .iter()
-                    .map(|p| {
-                        (
-                            format!("{}/tcp", p.internal),
-                            Some(vec![PortBinding {
-                                host_ip: None,
-                                host_port: Some(p.local.to_string()),
-                            }]),
-                        )
-                    });
+                let bindings = runnable_image.ports().unwrap_or(&empty).iter().map(|p| {
+                    (
+                        format!("{}/tcp", p.internal),
+                        Some(vec![PortBinding {
+                            host_ip: None,
+                            host_port: Some(p.local.to_string()),
+                        }]),
+                    )
+                });
 
                 config.host_config = config.host_config.map(|mut host_config| {
                     host_config.port_bindings = Some(bindings.collect());
@@ -182,7 +176,7 @@ where
                 });
             }
 
-            let cmd = runnable_image.cmd();
+            let cmd: Vec<_> = runnable_image.cmd().map(|v| v.to_string()).collect();
             if !cmd.is_empty() {
                 config.cmd = Some(cmd);
             }

@@ -12,12 +12,12 @@ use tokio::io::AsyncReadExt;
 pub struct HelloWorld;
 
 impl Image for HelloWorld {
-    fn name(&self) -> String {
-        "hello-world".to_owned()
+    fn name(&self) -> &str {
+        "hello-world"
     }
 
-    fn tag(&self) -> String {
-        "latest".to_owned()
+    fn tag(&self) -> &str {
+        "latest"
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {

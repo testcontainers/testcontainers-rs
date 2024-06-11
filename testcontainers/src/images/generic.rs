@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::{
     core::{mounts::Mount, WaitFor},
@@ -74,36 +74,38 @@ impl GenericImage {
 }
 
 impl Image for GenericImage {
-    fn name(&self) -> String {
-        self.name.clone()
+    fn name(&self) -> &str {
+        &self.name
     }
 
-    fn tag(&self) -> String {
-        self.tag.clone()
+    fn tag(&self) -> &str {
+        &self.tag
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
         self.wait_for.clone()
     }
 
-    fn cmd(&self) -> impl IntoIterator<Item = impl Into<String>> {
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<Cow<'_, str>>> {
         &self.cmd
     }
 
-    fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
-        Box::new(self.env_vars.iter())
+    fn env_vars(
+        &self,
+    ) -> impl IntoIterator<Item = (impl Into<Cow<'_, str>>, impl Into<Cow<'_, str>>)> {
+        &self.env_vars
     }
 
-    fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
-        Box::new(self.mounts.iter())
+    fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
+        &self.mounts
     }
 
-    fn entrypoint(&self) -> Option<String> {
-        self.entrypoint.clone()
+    fn entrypoint(&self) -> Option<&str> {
+        self.entrypoint.as_deref()
     }
 
-    fn expose_ports(&self) -> Vec<u16> {
-        self.exposed_ports.clone()
+    fn expose_ports(&self) -> &[u16] {
+        &self.exposed_ports
     }
 }
 
@@ -117,13 +119,13 @@ mod tests {
             .with_env_var("one-key", "one-value")
             .with_env_var("two-key", "two-value");
 
-        let mut env_vars = image.env_vars();
+        let mut env_vars = image.env_vars().into_iter();
         let (first_key, first_value) = env_vars.next().unwrap();
         let (second_key, second_value) = env_vars.next().unwrap();
 
-        assert_eq!(first_key, "one-key");
-        assert_eq!(first_value, "one-value");
-        assert_eq!(second_key, "two-key");
-        assert_eq!(second_value, "two-value");
+        assert_eq!(first_key.into(), "one-key");
+        assert_eq!(first_value.into(), "one-value");
+        assert_eq!(second_key.into(), "two-key");
+        assert_eq!(second_value.into(), "two-value");
     }
 }
