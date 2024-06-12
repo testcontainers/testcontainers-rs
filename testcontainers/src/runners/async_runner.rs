@@ -160,7 +160,7 @@ where
                 let empty: Vec<_> = Vec::new();
                 let bindings = runnable_image.ports().unwrap_or(&empty).iter().map(|p| {
                     (
-                        format!("{}/tcp", p.internal),
+                        format!("{}/{}", p.internal, p.protocol),
                         Some(vec![PortBinding {
                             host_ip: None,
                             host_port: Some(p.local.to_string()),
