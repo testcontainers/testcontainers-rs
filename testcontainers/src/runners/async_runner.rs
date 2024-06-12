@@ -15,7 +15,7 @@ use crate::{
         network::Network,
         CgroupnsMode, ContainerState,
     },
-    ContainerAsync, Image, RunnableImage,
+    ContainerAsync, ContainerRequest, Image,
 };
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -42,13 +42,13 @@ pub trait AsyncRunner<I: Image> {
 
     /// Pulls the image from the registry.
     /// Useful if you want to pull the image before starting the container.
-    async fn pull_image(self) -> Result<RunnableImage<I>>;
+    async fn pull_image(self) -> Result<ContainerRequest<I>>;
 }
 
 #[async_trait]
 impl<T, I> AsyncRunner<I> for T
 where
-    T: Into<RunnableImage<I>> + Send,
+    T: Into<ContainerRequest<I>> + Send,
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
@@ -219,7 +219,7 @@ where
         .map_err(|_| WaitContainerError::StartupTimeout)?
     }
 
-    async fn pull_image(self) -> Result<RunnableImage<I>> {
+    async fn pull_image(self) -> Result<ContainerRequest<I>> {
         let runnable_image = self.into();
         let client = Client::lazy_client().await?;
         client.pull_image(&runnable_image.descriptor()).await?;

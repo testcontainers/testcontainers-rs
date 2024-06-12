@@ -1,4 +1,4 @@
-use crate::{core::error::Result, Container, Image, RunnableImage};
+use crate::{core::error::Result, Container, ContainerRequest, Image};
 
 /// Helper trait to start containers synchronously.
 ///
@@ -21,12 +21,12 @@ pub trait SyncRunner<I: Image> {
 
     /// Pulls the image from the registry.
     /// Useful if you want to pull the image before starting the container.
-    fn pull_image(self) -> Result<RunnableImage<I>>;
+    fn pull_image(self) -> Result<ContainerRequest<I>>;
 }
 
 impl<T, I> SyncRunner<I> for T
 where
-    T: Into<RunnableImage<I>> + Send,
+    T: Into<ContainerRequest<I>> + Send,
     I: Image,
 {
     fn start(self) -> Result<Container<I>> {
@@ -36,7 +36,7 @@ where
         Ok(Container::new(runtime, async_container))
     }
 
-    fn pull_image(self) -> Result<RunnableImage<I>> {
+    fn pull_image(self) -> Result<ContainerRequest<I>> {
         let runtime = build_sync_runner()?;
         runtime.block_on(super::AsyncRunner::pull_image(self))
     }

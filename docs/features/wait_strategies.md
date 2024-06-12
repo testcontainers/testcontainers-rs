@@ -23,4 +23,4 @@ you can use the `with_wait_for` method to specify the wait strategy.
 
 Ordinarily Testcontainers will wait for up to 60 seconds for containers to start.
 If the default 60s timeout is not sufficient, it can be updated with the
-[`RunnableImage::with_startup_timeout(duration)`](https://docs.rs/testcontainers/latest/testcontainers/core/struct.RunnableImage.html#method.with_startup_timeout) method.
+[`ImageExt::with_startup_timeout(duration)`](https://docs.rs/testcontainers/latest/testcontainers/core/trait.ImageExt.html#method.with_startup_timeout) method.
