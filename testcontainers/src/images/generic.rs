@@ -4,6 +4,7 @@ use crate::{
     core::{mounts::Mount, WaitFor},
     Image,
 };
+use crate::core::ports::{InternetProtocol, ExposedPort};
 
 #[must_use]
 #[derive(Debug, Clone)]
@@ -15,7 +16,7 @@ pub struct GenericImage {
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
     cmd: Vec<String>,
-    exposed_ports: Vec<u16>,
+    exposed_ports: Vec<ExposedPort>,
 }
 
 impl Default for GenericImage {
@@ -68,7 +69,22 @@ impl GenericImage {
     }
 
     pub fn with_exposed_port(mut self, port: u16) -> Self {
-        self.exposed_ports.push(port);
+        let exposed_port = ExposedPort {
+            port,
+            protocol: InternetProtocol::Tcp
+        };
+
+        self.exposed_ports.push(exposed_port);
+        self
+    }
+
+    pub fn with_exposed_port_protocol(mut self, port: u16, internet_protocol: InternetProtocol) -> Self {
+        let exposed_port = ExposedPort {
+            port,
+            protocol: internet_protocol
+        };
+
+        self.exposed_ports.push(exposed_port);
         self
     }
 }
@@ -104,7 +120,7 @@ impl Image for GenericImage {
         self.entrypoint.as_deref()
     }
 
-    fn expose_ports(&self) -> &[u16] {
+    fn expose_ports(&self) -> &[ExposedPort] {
         &self.exposed_ports
     }
 }

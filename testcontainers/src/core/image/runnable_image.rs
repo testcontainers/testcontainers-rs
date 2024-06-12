@@ -4,6 +4,7 @@ use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
     Image, TestcontainersError,
 };
+use crate::core::ports::{ExposedPort, InternetProtocol};
 
 /// Image wrapper that allows to override some of the image properties.
 #[must_use]
@@ -31,6 +32,7 @@ pub struct RunnableImage<I: Image> {
 pub struct PortMapping {
     pub local: u16,
     pub internal: u16,
+    pub protocol: InternetProtocol
 }
 
 #[derive(parse_display::Display, Debug, Clone)]
@@ -127,7 +129,7 @@ impl<I: Image> RunnableImage<I> {
         self.image.ready_conditions()
     }
 
-    pub fn expose_ports(&self) -> &[u16] {
+    pub fn expose_ports(&self) -> &[ExposedPort] {
         self.image.expose_ports()
     }
 
@@ -298,6 +300,12 @@ impl<I: Image> From<I> for RunnableImage<I> {
 
 impl From<(u16, u16)> for PortMapping {
     fn from((local, internal): (u16, u16)) -> Self {
-        PortMapping { local, internal }
+        PortMapping { local, internal, protocol: InternetProtocol::Tcp }
+    }
+}
+
+impl From<(u16, u16, InternetProtocol)> for PortMapping {
+    fn from((local, internal, protocol): (u16, u16, InternetProtocol)) -> Self {
+        PortMapping { local, internal, protocol }
     }
 }

@@ -1,6 +1,30 @@
 use std::{collections::HashMap, net::IpAddr, num::ParseIntError};
+use std::fmt::{Display, Formatter};
 
 use bollard_stubs::models::{PortBinding, PortMap};
+
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
+pub enum InternetProtocol {
+    Tcp,
+    Udp,
+    Sctp
+}
+
+impl InternetProtocol {
+    pub fn encode(self) -> String {
+        match self {
+            Self::Tcp => String::from("tcp"),
+            Self::Udp => String::from("udp"),
+            Self::Sctp => String::from("sctp")
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ExposedPort {
+    pub port: u16,
+    pub protocol: InternetProtocol
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum PortMappingError {
@@ -102,6 +126,18 @@ impl TryFrom<PortMap> for Ports {
             ipv4_mapping,
             ipv6_mapping,
         })
+    }
+}
+
+impl Display for ExposedPort {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.port, self.protocol)
+    }
+}
+
+impl Display for InternetProtocol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.encode())
     }
 }
 

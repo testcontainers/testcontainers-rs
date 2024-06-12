@@ -4,7 +4,7 @@ pub use exec::{CmdWaitFor, ExecCommand};
 pub use runnable_image::{CgroupnsMode, Host, PortMapping, RunnableImage};
 pub use wait_for::WaitFor;
 
-use super::ports::Ports;
+use super::ports::{ExposedPort, Ports};
 use crate::{core::mounts::Mount, TestcontainersError};
 
 mod exec;
@@ -69,7 +69,7 @@ where
     ///
     /// This method is useful when there is a need to expose some ports, but there is
     /// no `EXPOSE` instruction in the Dockerfile of an image.
-    fn expose_ports(&self) -> &[u16] {
+    fn expose_ports(&self) -> &[ExposedPort] {
         &[]
     }
 

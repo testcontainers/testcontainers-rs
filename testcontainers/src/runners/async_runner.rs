@@ -17,6 +17,7 @@ use crate::{
     },
     ContainerAsync, Image, RunnableImage,
 };
+use crate::core::ports::ExposedPort;
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -137,7 +138,9 @@ where
             if !is_container_networked {
                 let mapped_ports = runnable_image
                     .ports()
-                    .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
+                    .map(|ports| ports.iter()
+                        .map(|p| ExposedPort{ port: p.internal, protocol: p.protocol.clone() })
+                        .collect::<Vec<_>>())
                     .unwrap_or_default();
 
                 let ports_to_expose = runnable_image
@@ -145,7 +148,7 @@ where
                     .iter()
                     .copied()
                     .chain(mapped_ports)
-                    .map(|p| (format!("{p}/tcp"), HashMap::new()))
+                    .map(|p| (format!("{p}"), HashMap::new()))
                     .collect();
 
                 // exposed ports of the image + mapped ports
