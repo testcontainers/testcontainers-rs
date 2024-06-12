@@ -9,21 +9,21 @@ use crate::{
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct RunnableImage<I: Image> {
-    image: I,
-    overridden_cmd: Vec<String>,
-    image_name: Option<String>,
-    image_tag: Option<String>,
-    container_name: Option<String>,
-    network: Option<String>,
-    env_vars: BTreeMap<String, String>,
-    hosts: BTreeMap<String, Host>,
-    mounts: Vec<Mount>,
-    ports: Option<Vec<PortMapping>>,
-    privileged: bool,
-    shm_size: Option<u64>,
-    cgroupns_mode: Option<CgroupnsMode>,
-    userns_mode: Option<String>,
-    startup_timeout: Option<Duration>,
+    pub(super) image: I,
+    pub(super) overridden_cmd: Vec<String>,
+    pub(super) image_name: Option<String>,
+    pub(super) image_tag: Option<String>,
+    pub(super) container_name: Option<String>,
+    pub(super) network: Option<String>,
+    pub(super) env_vars: BTreeMap<String, String>,
+    pub(super) hosts: BTreeMap<String, Host>,
+    pub(super) mounts: Vec<Mount>,
+    pub(super) ports: Option<Vec<PortMapping>>,
+    pub(super) privileged: bool,
+    pub(super) shm_size: Option<u64>,
+    pub(super) cgroupns_mode: Option<CgroupnsMode>,
+    pub(super) userns_mode: Option<String>,
+    pub(super) startup_timeout: Option<Duration>,
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
@@ -43,7 +43,9 @@ pub enum Host {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CgroupnsMode {
+    /// Use the host system's cgroup namespace
     Host,
+    /// Private cgroup namespace
     Private,
 }
 
@@ -141,136 +143,6 @@ impl<I: Image> RunnableImage<I> {
     /// Returns the startup timeout for the container.
     pub fn startup_timeout(&self) -> Option<Duration> {
         self.startup_timeout
-    }
-}
-
-impl<I: Image> RunnableImage<I> {
-    /// Returns a new RunnableImage with the specified (overridden) `CMD` ([`Image::cmd`]).
-    ///
-    /// # Examples
-    /// ```rust,no_run
-    /// use testcontainers::{core::RunnableImage, GenericImage};
-    ///
-    /// let image = GenericImage::default();
-    /// let cmd = ["arg1", "arg2"];
-    /// let runnable_image = RunnableImage::from(image.clone()).with_cmd(cmd);
-    ///
-    /// assert!(runnable_image.cmd().eq(cmd));
-    ///
-    /// let another_runnable_image = RunnableImage::from(image).with_cmd(cmd);
-    ///
-    /// assert!(another_runnable_image.cmd().eq(runnable_image.cmd()));
-    /// ```
-    pub fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self {
-            overridden_cmd: cmd.into_iter().map(Into::into).collect(),
-            ..self
-        }
-    }
-
-    /// Overrides the fully qualified image name (consists of `{domain}/{owner}/{image}`).
-    /// Can be used to specify a custom registry or owner.
-    pub fn with_name(self, name: impl Into<String>) -> Self {
-        Self {
-            image_name: Some(name.into()),
-            ..self
-        }
-    }
-
-    /// Overrides the image tag.
-    ///
-    /// There is no guarantee that the specified tag for an image would result in a
-    /// running container. Users of this API are advised to use this at their own risk.
-    pub fn with_tag(self, tag: impl Into<String>) -> Self {
-        Self {
-            image_tag: Some(tag.into()),
-            ..self
-        }
-    }
-
-    /// Sets the container name.
-    pub fn with_container_name(self, name: impl Into<String>) -> Self {
-        Self {
-            container_name: Some(name.into()),
-            ..self
-        }
-    }
-
-    /// Sets the network the container will be connected to.
-    pub fn with_network(self, network: impl Into<String>) -> Self {
-        Self {
-            network: Some(network.into()),
-            ..self
-        }
-    }
-
-    /// Adds an environment variable to the container.
-    pub fn with_env_var(mut self, (key, value): (impl Into<String>, impl Into<String>)) -> Self {
-        self.env_vars.insert(key.into(), value.into());
-        self
-    }
-
-    /// Adds a host to the container.
-    pub fn with_host(mut self, key: impl Into<String>, value: impl Into<Host>) -> Self {
-        self.hosts.insert(key.into(), value.into());
-        self
-    }
-
-    /// Adds a mount to the container.
-    pub fn with_mount(mut self, mount: impl Into<Mount>) -> Self {
-        self.mounts.push(mount.into());
-        self
-    }
-
-    /// Adds a port mapping to the container.
-    pub fn with_mapped_port<P: Into<PortMapping>>(self, port: P) -> Self {
-        let mut ports = self.ports.unwrap_or_default();
-        ports.push(port.into());
-
-        Self {
-            ports: Some(ports),
-            ..self
-        }
-    }
-
-    /// Sets the container to run in privileged mode.
-    pub fn with_privileged(self, privileged: bool) -> Self {
-        Self { privileged, ..self }
-    }
-
-    /// cgroup namespace mode for the container. Possible values are:
-    /// - `\"private\"`: the container runs in its own private cgroup namespace
-    /// - `\"host\"`: use the host system's cgroup namespace
-    /// If not specified, the daemon default is used, which can either be `\"private\"` or `\"host\"`, depending on daemon version, kernel support and configuration.
-    pub fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> Self {
-        Self {
-            cgroupns_mode: Some(cgroupns_mode),
-            ..self
-        }
-    }
-
-    /// Sets the usernamespace mode for the container when usernamespace remapping option is enabled.
-    pub fn with_userns_mode(self, userns_mode: &str) -> Self {
-        Self {
-            userns_mode: Some(String::from(userns_mode)),
-            ..self
-        }
-    }
-
-    /// Sets the shared memory size in bytes
-    pub fn with_shm_size(self, bytes: u64) -> Self {
-        Self {
-            shm_size: Some(bytes),
-            ..self
-        }
-    }
-
-    /// Sets the startup timeout for the container. The default is 60 seconds.
-    pub fn with_startup_timeout(self, timeout: Duration) -> Self {
-        Self {
-            startup_timeout: Some(timeout),
-            ..self
-        }
     }
 }
 

@@ -42,18 +42,19 @@ for more details.
 ## 2. How to override module defaults
 
 Sometimes it's necessary to override default settings of the module (e.g `tag`, `name`, environment variables etc.)
-In order to do that, just use [RunnableImage](https://docs.rs/testcontainers/latest/testcontainers/core/struct.RunnableImage.html):
+In order to do that, just use extension trait [ImageExt](https://docs.rs/testcontainers/latest/testcontainers/core/trait.ImageExt.html)
+that returns customized [RunnableImage](https://docs.rs/testcontainers/latest/testcontainers/core/struct.RunnableImage.html):
 
 ```rust
 use testcontainers_modules::{
     redis::Redis,
-    testcontainers::RunnableImage
+    testcontainers::{RunnableImage, ImageExt},
 };
 
 
 /// Create a Redis module with `6.2-alpine` tag and custom password
 fn create_redis() -> RunnableImage<Redis> {
-    RunnableImage::from(Redis::default())
+    Redis::default()
         .with_tag("6.2-alpine")
         .with_env_var(("REDIS_PASSWORD", "my_secret_password"))
 }

@@ -90,7 +90,7 @@ fn generic_image_running_with_extra_hosts_added() -> anyhow::Result<()> {
 
     // Override hosts for server_2 adding
     // custom-host as an alias for localhost
-    let server_2 = RunnableImage::from(server_2)
+    let server_2 = server_2
         .with_cmd([format!("http://custom-host:{port}")])
         .with_host("custom-host", Host::HostGateway);
 

@@ -72,7 +72,7 @@ pub mod core;
 #[cfg(feature = "blocking")]
 #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
 pub use crate::core::Container;
-pub use crate::core::{error::TestcontainersError, ContainerAsync, Image, RunnableImage};
+pub use crate::core::{error::TestcontainersError, ContainerAsync, Image, ImageExt, RunnableImage};
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]

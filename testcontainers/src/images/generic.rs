@@ -1,36 +1,13 @@
-use std::{borrow::Cow, collections::BTreeMap};
-
-use crate::{
-    core::{mounts::Mount, WaitFor},
-    Image,
-};
+use crate::{core::WaitFor, Image};
 
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct GenericImage {
     name: String,
     tag: String,
-    mounts: Vec<Mount>,
-    env_vars: BTreeMap<String, String>,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
-    cmd: Vec<String>,
     exposed_ports: Vec<u16>,
-}
-
-impl Default for GenericImage {
-    fn default() -> Self {
-        Self {
-            name: "".to_owned(),
-            tag: "".to_owned(),
-            mounts: Vec::new(),
-            env_vars: BTreeMap::new(),
-            cmd: Vec::new(),
-            wait_for: Vec::new(),
-            entrypoint: None,
-            exposed_ports: Vec::new(),
-        }
-    }
 }
 
 impl GenericImage {
@@ -38,23 +15,10 @@ impl GenericImage {
         Self {
             name: name.into(),
             tag: tag.into(),
-            ..Default::default()
+            wait_for: Vec::new(),
+            entrypoint: None,
+            exposed_ports: Vec::new(),
         }
-    }
-
-    pub fn with_mount(mut self, mount: impl Into<Mount>) -> Self {
-        self.mounts.push(mount.into());
-        self
-    }
-
-    pub fn with_env_var<K: Into<String>, V: Into<String>>(mut self, key: K, value: V) -> Self {
-        self.env_vars.insert(key.into(), value.into());
-        self
-    }
-
-    pub fn with_cmd(mut self, cmd: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.cmd = cmd.into_iter().map(Into::into).collect();
-        self
     }
 
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
@@ -86,20 +50,6 @@ impl Image for GenericImage {
         self.wait_for.clone()
     }
 
-    fn cmd(&self) -> impl IntoIterator<Item = impl Into<Cow<'_, str>>> {
-        &self.cmd
-    }
-
-    fn env_vars(
-        &self,
-    ) -> impl IntoIterator<Item = (impl Into<Cow<'_, str>>, impl Into<Cow<'_, str>>)> {
-        &self.env_vars
-    }
-
-    fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
-        &self.mounts
-    }
-
     fn entrypoint(&self) -> Option<&str> {
         self.entrypoint.as_deref()
     }
@@ -112,6 +62,7 @@ impl Image for GenericImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ImageExt;
 
     #[test]
     fn should_return_env_vars() {
@@ -119,13 +70,13 @@ mod tests {
             .with_env_var("one-key", "one-value")
             .with_env_var("two-key", "two-value");
 
-        let mut env_vars = image.env_vars().into_iter();
+        let mut env_vars = image.env_vars();
         let (first_key, first_value) = env_vars.next().unwrap();
         let (second_key, second_value) = env_vars.next().unwrap();
 
-        assert_eq!(first_key.into(), "one-key");
-        assert_eq!(first_value.into(), "one-value");
-        assert_eq!(second_key.into(), "two-key");
-        assert_eq!(second_value.into(), "two-value");
+        assert_eq!(first_key, "one-key");
+        assert_eq!(first_value, "one-value");
+        assert_eq!(second_key, "two-key");
+        assert_eq!(second_value, "two-value");
     }
 }
