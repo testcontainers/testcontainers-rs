@@ -384,7 +384,7 @@ mod tests {
         let sctp_port = 2000;
 
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
+        let container = image
             .with_mapped_port((123, udp_port, InternetProtocol::Udp))
             .with_mapped_port((555, sctp_port, InternetProtocol::Sctp))
             .start()
