@@ -15,7 +15,7 @@ use crate::{
         network::Network,
         CgroupnsMode, ContainerState,
     },
-    ContainerAsync, Image, RunnableImage,
+    ContainerAsync, ContainerRequest, Image,
 };
 use crate::core::ports::ExposedPort;
 
@@ -43,13 +43,13 @@ pub trait AsyncRunner<I: Image> {
 
     /// Pulls the image from the registry.
     /// Useful if you want to pull the image before starting the container.
-    async fn pull_image(self) -> Result<RunnableImage<I>>;
+    async fn pull_image(self) -> Result<ContainerRequest<I>>;
 }
 
 #[async_trait]
 impl<T, I> AsyncRunner<I> for T
 where
-    T: Into<RunnableImage<I>> + Send,
+    T: Into<ContainerRequest<I>> + Send,
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
@@ -222,7 +222,7 @@ where
         .map_err(|_| WaitContainerError::StartupTimeout)?
     }
 
-    async fn pull_image(self) -> Result<RunnableImage<I>> {
+    async fn pull_image(self) -> Result<ContainerRequest<I>> {
         let runnable_image = self.into();
         let client = Client::lazy_client().await?;
         client.pull_image(&runnable_image.descriptor()).await?;
@@ -263,16 +263,14 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::WaitFor, images::generic::GenericImage};
+    use crate::{core::WaitFor, images::generic::GenericImage, ImageExt};
     use crate::core::ports::InternetProtocol;
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
     ) -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let container = RunnableImage::from(GenericImage::new("hello-world", "latest"))
-            .start()
-            .await?;
+        let container = GenericImage::new("hello-world", "latest").start().await?;
 
         let container_details = client.inspect(container.id()).await?;
         let publish_ports = container_details
@@ -353,7 +351,7 @@ mod tests {
     async fn async_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
+        let container = image
             .with_mapped_port((123, 456))
             .with_mapped_port((555, 888))
             .start()
@@ -425,10 +423,7 @@ mod tests {
     async fn async_run_command_should_include_network() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
-            .with_network("awesome-net-1")
-            .start()
-            .await?;
+        let container = image.with_network("awesome-net-1").start().await?;
 
         let container_details = client.inspect(container.id()).await?;
         let networks = container_details
@@ -448,7 +443,7 @@ mod tests {
     async fn async_run_command_should_include_name() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
+        let container = image
             .with_container_name("async_hello_container")
             .start()
             .await?;
@@ -469,16 +464,14 @@ mod tests {
             assert!(!client.network_exists("awesome-net-2").await?);
 
             // creating the first container creates the network
-            let _container1 = RunnableImage::from(hello_world.clone())
+            let _container1 = hello_world
+                .clone()
                 .with_network("awesome-net-2")
                 .start()
                 .await;
 
             // creating a 2nd container doesn't fail because check if the network exists already
-            let _container2 = RunnableImage::from(hello_world)
-                .with_network("awesome-net-2")
-                .start()
-                .await;
+            let _container2 = hello_world.with_network("awesome-net-2").start().await;
 
             assert!(client.network_exists("awesome-net-2").await?);
         }
@@ -497,10 +490,7 @@ mod tests {
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
 
-        let container = RunnableImage::from(web_server.clone())
-            .with_network("bridge")
-            .start()
-            .await?;
+        let container = web_server.clone().with_network("bridge").start().await?;
 
         assert!(
             !container
@@ -519,10 +509,7 @@ mod tests {
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
 
-        let container = RunnableImage::from(web_server.clone())
-            .with_network("host")
-            .start()
-            .await?;
+        let container = web_server.clone().with_network("host").start().await?;
 
         let res = container.get_bridge_ip_address().await;
         assert!(
@@ -536,10 +523,7 @@ mod tests {
     async fn async_run_command_should_set_shared_memory_size() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
-            .with_shm_size(1_000_000)
-            .start()
-            .await?;
+        let container = image.with_shm_size(1_000_000).start().await?;
 
         let container_details = client.inspect(container.id()).await?;
         let shm_size = container_details
@@ -555,10 +539,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_include_privileged() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
-            .with_privileged(true)
-            .start()
-            .await?;
+        let container = image.with_privileged(true).start().await?;
 
         let client = Client::lazy_client().await?;
         let container_details = client.inspect(container.id()).await?;
@@ -575,10 +556,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_have_host_cgroupns_mode() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
-            .with_cgroupns_mode(CgroupnsMode::Host)
-            .start()
-            .await?;
+        let container = image.with_cgroupns_mode(CgroupnsMode::Host).start().await?;
 
         let client = Client::lazy_client().await?;
         let container_details = client.inspect(container.id()).await?;
@@ -600,7 +578,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_have_private_cgroupns_mode() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
+        let container = image
             .with_cgroupns_mode(CgroupnsMode::Private)
             .start()
             .await?;
@@ -625,10 +603,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_have_host_userns_mode() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = RunnableImage::from(image)
-            .with_userns_mode("host")
-            .start()
-            .await?;
+        let container = image.with_userns_mode("host").start().await?;
 
         let client = Client::lazy_client().await?;
         let container_details = client.inspect(container.id()).await?;

@@ -55,7 +55,7 @@ async fn cleanup_hello_world_image() -> anyhow::Result<()> {
 async fn bollard_pull_missing_image_hello_world() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
     cleanup_hello_world_image().await?;
-    let _container = RunnableImage::from(HelloWorld).start().await?;
+    let _container = HelloWorld.start().await?;
     Ok(())
 }
 
@@ -63,11 +63,7 @@ async fn bollard_pull_missing_image_hello_world() -> anyhow::Result<()> {
 async fn explicit_call_to_pull_missing_image_hello_world() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
     cleanup_hello_world_image().await?;
-    let _container = RunnableImage::from(HelloWorld)
-        .pull_image()
-        .await?
-        .start()
-        .await?;
+    let _container = HelloWorld.pull_image().await?.start().await?;
     Ok(())
 }
 

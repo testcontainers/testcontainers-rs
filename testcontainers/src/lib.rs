@@ -48,7 +48,7 @@
 //! Configuration is fetched in the following order:
 //!
 //! 1. `DOCKER_AUTH_CONFIG` environment variable, unmarshalling the string value from its JSON representation and using it as the Docker config.
-//! 2. `DOCKER_CONFIG` environment variable, as an alternative path to the Docker config file.
+//! 2. `DOCKER_CONFIG` environment variable, as an alternative path to the directory containing Docker `config.json` file.
 //! 3. else it will load the default Docker config file, which lives in the user's home, e.g. `~/.docker/config.json`.
 //!
 //! # Ecosystem
@@ -72,7 +72,9 @@ pub mod core;
 #[cfg(feature = "blocking")]
 #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
 pub use crate::core::Container;
-pub use crate::core::{error::TestcontainersError, ContainerAsync, Image, RunnableImage};
+pub use crate::core::{
+    error::TestcontainersError, ContainerAsync, ContainerRequest, Image, ImageExt,
+};
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]

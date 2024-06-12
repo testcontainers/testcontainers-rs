@@ -33,7 +33,7 @@ fn test_with_postgres() {
 > For example:
 >
 >```rust
->use testcontainers_modules::testcontainers::RunnableImage;
+>use testcontainers_modules::testcontainers::ImageExt;
 >```
 
 You can also see [examples](https://github.com/testcontainers/testcontainers-rs-modules-community/tree/main/examples)
@@ -42,18 +42,19 @@ for more details.
 ## 2. How to override module defaults
 
 Sometimes it's necessary to override default settings of the module (e.g `tag`, `name`, environment variables etc.)
-In order to do that, just use [RunnableImage](https://docs.rs/testcontainers/latest/testcontainers/core/struct.RunnableImage.html):
+In order to do that, just use extension trait [ImageExt](https://docs.rs/testcontainers/latest/testcontainers/core/trait.ImageExt.html)
+that returns a customized [ContainerRequest](https://docs.rs/testcontainers/latest/testcontainers/core/struct.ContainerRequest.html):
 
 ```rust
 use testcontainers_modules::{
     redis::Redis,
-    testcontainers::RunnableImage
+    testcontainers::{ContainerRequest, ImageExt},
 };
 
 
 /// Create a Redis module with `6.2-alpine` tag and custom password
-fn create_redis() -> RunnableImage<Redis> {
-    RunnableImage::from(Redis::default())
+fn create_redis() -> ContainerRequest<Redis> {
+    Redis::default()
         .with_tag("6.2-alpine")
         .with_env_var(("REDIS_PASSWORD", "my_secret_password"))
 }
