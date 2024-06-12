@@ -264,6 +264,7 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 mod tests {
     use super::*;
     use crate::{core::WaitFor, images::generic::GenericImage};
+    use crate::core::ports::InternetProtocol;
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
@@ -297,6 +298,57 @@ mod tests {
         Ok(())
     }
 
+
+
+    #[tokio::test]
+    async fn async_run_command_should_map_exposed_port_udp_sctp() -> anyhow::Result<()> {
+        let client = Client::lazy_client().await?;
+        let _ = pretty_env_logger::try_init();
+
+        let udp_port = 1000;
+        let sctp_port = 2000;
+
+        let generic_server = GenericImage::new("simple_web_server", "latest")
+            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+            // Explicitly expose the port, which otherwise would not be available.
+            .with_exposed_port((udp_port, InternetProtocol::Udp))
+            .with_exposed_port((sctp_port, InternetProtocol::Sctp));
+
+        let container = generic_server.start().await?;
+        container.get_host_port_ipv4(udp_port).await?;
+        container.get_host_port_ipv4(sctp_port).await?;
+
+        let container_details = client.inspect(container.id()).await?;
+
+        let current_ports_map = container_details
+            .network_settings
+            .expect("network_settings")
+            .ports
+            .expect("ports");
+
+        let mut current_ports = current_ports_map.keys()
+            .collect::<Vec<&String>>();
+
+        current_ports.sort();
+
+        let mut expected_ports: Vec<&String> = Vec::new();
+
+        let tcp_expected_port = &String::from("80/tcp");
+        let sctp_expected_port = &String::from("2000/sctp");
+        let udp_expected_port = &String::from("1000/udp");
+
+        expected_ports.push(udp_expected_port);
+        expected_ports.push(sctp_expected_port);
+        expected_ports.push(tcp_expected_port);
+
+        assert_eq!(
+            current_ports,
+            expected_ports
+        );
+
+        Ok(())
+    }
+
     #[tokio::test]
     async fn async_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
@@ -322,6 +374,50 @@ mod tests {
             port_bindings.contains_key("888/tcp"),
             "port 888/tcp must be mapped"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_map_ports_udp_sctp() -> anyhow::Result<()> {
+        let client = Client::lazy_client().await?;
+        let _ = pretty_env_logger::try_init();
+
+        let udp_port = 1000;
+        let sctp_port = 2000;
+
+        let image = GenericImage::new("hello-world", "latest");
+        let container = RunnableImage::from(image)
+            .with_mapped_port((123, udp_port, InternetProtocol::Udp))
+            .with_mapped_port((555, sctp_port, InternetProtocol::Sctp))
+            .start()
+            .await?;
+
+        let container_details = client.inspect(container.id()).await?;
+
+        let current_ports_map = container_details
+            .host_config
+            .expect("HostConfig")
+            .port_bindings
+            .expect("ports");
+
+        let mut current_ports = current_ports_map.keys()
+            .collect::<Vec<&String>>();
+
+        current_ports.sort();
+
+        let mut expected_ports: Vec<&String> = Vec::new();
+
+        let sctp_expected_port = &String::from("2000/sctp");
+        let udp_expected_port = &String::from("1000/udp");
+
+        expected_ports.push(udp_expected_port);
+        expected_ports.push(sctp_expected_port);
+
+        assert_eq!(
+            current_ports,
+            expected_ports
+        );
+
         Ok(())
     }
 
