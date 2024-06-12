@@ -68,23 +68,8 @@ impl GenericImage {
         self
     }
 
-    pub fn with_exposed_port(mut self, port: u16) -> Self {
-        let exposed_port = ExposedPort {
-            port,
-            protocol: InternetProtocol::Tcp
-        };
-
-        self.exposed_ports.push(exposed_port);
-        self
-    }
-
-    pub fn with_exposed_port_protocol(mut self, port: u16, internet_protocol: InternetProtocol) -> Self {
-        let exposed_port = ExposedPort {
-            port,
-            protocol: internet_protocol
-        };
-
-        self.exposed_ports.push(exposed_port);
+    pub fn with_exposed_port<P: Into<ExposedPort>>(mut self, exposed_port: P) -> Self {
+        self.exposed_ports.push(exposed_port.into());
         self
     }
 }
@@ -122,6 +107,18 @@ impl Image for GenericImage {
 
     fn expose_ports(&self) -> &[ExposedPort] {
         &self.exposed_ports
+    }
+}
+
+impl From<u16> for ExposedPort {
+    fn from(port: u16) -> Self {
+        ExposedPort { port ,protocol: InternetProtocol::Tcp }
+    }
+}
+
+impl From<(u16, InternetProtocol)> for ExposedPort {
+    fn from((port, protocol): (u16, InternetProtocol)) -> Self {
+        ExposedPort { port, protocol }
     }
 }
 
