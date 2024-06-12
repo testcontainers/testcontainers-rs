@@ -19,7 +19,8 @@ pub enum ConfigurationError {
 }
 
 /// The default path to the Docker configuration file.
-const DEFAULT_DOCKER_CONFIG_PATH: &str = ".docker/config.json";
+const DEFAULT_DOCKER_CONFIG_PATH: &str = ".docker";
+const DOCKER_CONFIG_FILE: &str = "config.json";
 
 #[cfg(feature = "properties-config")]
 const TESTCONTAINERS_PROPERTIES: &str = ".testcontainers.properties";
@@ -161,7 +162,7 @@ impl Config {
 /// Read the Docker authentication configuration in the following order:
 ///
 /// 1. `DOCKER_AUTH_CONFIG` environment variable, unmarshalling the string value from its JSON representation and using it as the Docker config.
-/// 2. `DOCKER_CONFIG` environment variable, as an alternative path to the Docker config file.
+/// 2. `DOCKER_CONFIG` environment variable, as an alternative path to the directory containing Docker `config.json` file.
 /// 3. else it will load the default Docker config file, which lives in the user's home, e.g. `~/.docker/config.json`.
 async fn read_docker_auth_config<E>() -> Option<String>
 where
@@ -170,13 +171,14 @@ where
     match E::get_env_value("DOCKER_AUTH_CONFIG") {
         Some(cfg) => Some(cfg),
         None => {
-            let path_to_config = match E::get_env_value("DOCKER_CONFIG").map(PathBuf::from) {
+            let mut path_to_config = match E::get_env_value("DOCKER_CONFIG").map(PathBuf::from) {
                 Some(path_to_config) => path_to_config,
                 None => {
                     let home_dir = dirs::home_dir()?;
                     home_dir.join(DEFAULT_DOCKER_CONFIG_PATH)
                 }
             };
+            path_to_config.push(DOCKER_CONFIG_FILE);
             tokio::fs::read_to_string(path_to_config).await.ok()
         }
     }
