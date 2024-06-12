@@ -4,7 +4,7 @@ use crate::{
     core::{mounts::Mount, WaitFor},
     Image,
 };
-use crate::core::ports::{InternetProtocol, ExposedPort};
+use crate::core::ports::{ExposedPort};
 
 #[must_use]
 #[derive(Debug, Clone)]
@@ -107,18 +107,6 @@ impl Image for GenericImage {
 
     fn expose_ports(&self) -> &[ExposedPort] {
         &self.exposed_ports
-    }
-}
-
-impl From<u16> for ExposedPort {
-    fn from(port: u16) -> Self {
-        ExposedPort { port ,protocol: InternetProtocol::Tcp }
-    }
-}
-
-impl From<(u16, InternetProtocol)> for ExposedPort {
-    fn from((port, protocol): (u16, InternetProtocol)) -> Self {
-        ExposedPort { port, protocol }
     }
 }
 

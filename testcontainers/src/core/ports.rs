@@ -141,6 +141,18 @@ impl Display for InternetProtocol {
     }
 }
 
+impl From<u16> for ExposedPort {
+    fn from(port: u16) -> Self {
+        ExposedPort { port ,protocol: InternetProtocol::Tcp }
+    }
+}
+
+impl From<(u16, InternetProtocol)> for ExposedPort {
+    fn from((port, protocol): (u16, InternetProtocol)) -> Self {
+        ExposedPort { port, protocol }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bollard_stubs::models::ContainerInspectResponse;
