@@ -5,25 +5,25 @@ use crate::{
     Image, TestcontainersError,
 };
 
-/// Image wrapper that allows to override some of the image properties.
+/// Represents a request to start a container, allowing customization of the container.
 #[must_use]
 #[derive(Debug, Clone)]
-pub struct RunnableImage<I: Image> {
-    pub(super) image: I,
-    pub(super) overridden_cmd: Vec<String>,
-    pub(super) image_name: Option<String>,
-    pub(super) image_tag: Option<String>,
-    pub(super) container_name: Option<String>,
-    pub(super) network: Option<String>,
-    pub(super) env_vars: BTreeMap<String, String>,
-    pub(super) hosts: BTreeMap<String, Host>,
-    pub(super) mounts: Vec<Mount>,
-    pub(super) ports: Option<Vec<PortMapping>>,
-    pub(super) privileged: bool,
-    pub(super) shm_size: Option<u64>,
-    pub(super) cgroupns_mode: Option<CgroupnsMode>,
-    pub(super) userns_mode: Option<String>,
-    pub(super) startup_timeout: Option<Duration>,
+pub struct ContainerRequest<I: Image> {
+    pub(crate) image: I,
+    pub(crate) overridden_cmd: Vec<String>,
+    pub(crate) image_name: Option<String>,
+    pub(crate) image_tag: Option<String>,
+    pub(crate) container_name: Option<String>,
+    pub(crate) network: Option<String>,
+    pub(crate) env_vars: BTreeMap<String, String>,
+    pub(crate) hosts: BTreeMap<String, Host>,
+    pub(crate) mounts: Vec<Mount>,
+    pub(crate) ports: Option<Vec<PortMapping>>,
+    pub(crate) privileged: bool,
+    pub(crate) shm_size: Option<u64>,
+    pub(crate) cgroupns_mode: Option<CgroupnsMode>,
+    pub(crate) userns_mode: Option<String>,
+    pub(crate) startup_timeout: Option<Duration>,
 }
 
 /// Represents a port mapping between a local port and the internal port of a container.
@@ -49,7 +49,7 @@ pub enum CgroupnsMode {
     Private,
 }
 
-impl<I: Image> RunnableImage<I> {
+impl<I: Image> ContainerRequest<I> {
     pub fn image(&self) -> &I {
         &self.image
     }
@@ -146,7 +146,7 @@ impl<I: Image> RunnableImage<I> {
     }
 }
 
-impl<I: Image> From<I> for RunnableImage<I> {
+impl<I: Image> From<I> for ContainerRequest<I> {
     fn from(image: I) -> Self {
         Self {
             image,

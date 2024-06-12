@@ -16,7 +16,7 @@ use crate::{
         ports::Ports,
         ContainerState, ExecCommand, WaitFor,
     },
-    Image, RunnableImage,
+    ContainerRequest, Image,
 };
 
 pub(super) mod exec;
@@ -39,7 +39,7 @@ pub(super) mod exec;
 /// [drop_impl]: struct.ContainerAsync.html#impl-Drop
 pub struct ContainerAsync<I: Image> {
     id: String,
-    image: RunnableImage<I>,
+    image: ContainerRequest<I>,
     pub(super) docker_client: Arc<Client>,
     #[allow(dead_code)]
     network: Option<Arc<Network>>,
@@ -55,7 +55,7 @@ where
     pub(crate) async fn new(
         id: String,
         docker_client: Arc<Client>,
-        image: RunnableImage<I>,
+        image: ContainerRequest<I>,
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
         let container = ContainerAsync {
