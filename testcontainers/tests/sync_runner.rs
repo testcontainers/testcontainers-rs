@@ -5,6 +5,7 @@ use testcontainers::{
     runners::SyncRunner,
     *,
 };
+use testcontainers::core::ports::ExposedPort;
 
 fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
     let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
@@ -40,7 +41,7 @@ fn generic_image_with_custom_entrypoint() -> anyhow::Result<()> {
     let generic = get_server_container(None);
 
     let node = generic.start()?;
-    let port = node.get_host_port_ipv4(80)?;
+    let port = node.get_host_port_ipv4(ExposedPort::Tcp(80))?;
     assert_eq!(
         "foo",
         reqwest::blocking::get(format!("http://{}:{port}", node.get_host()?))?.text()?
@@ -49,7 +50,7 @@ fn generic_image_with_custom_entrypoint() -> anyhow::Result<()> {
     let generic = get_server_container(None).with_entrypoint("./bar");
 
     let node = generic.start()?;
-    let port = node.get_host_port_ipv4(80)?;
+    let port = node.get_host_port_ipv4(ExposedPort::Tcp(80))?;
     assert_eq!(
         "bar",
         reqwest::blocking::get(format!("http://{}:{port}", node.get_host()?))?.text()?
@@ -67,10 +68,10 @@ fn generic_image_exposed_ports() -> anyhow::Result<()> {
     let generic_server = GenericImage::new("no_expose_port", "latest")
         .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"))
         // Explicitly expose the port, which otherwise would not be available.
-        .with_exposed_port(target_port);
+        .with_exposed_port(ExposedPort::Tcp(target_port));
 
     let node = generic_server.start()?;
-    let port = node.get_host_port_ipv4(target_port)?;
+    let port = node.get_host_port_ipv4(ExposedPort::Tcp(target_port))?;
     assert!(reqwest::blocking::get(format!("http://127.0.0.1:{port}"))?
         .status()
         .is_success());
@@ -81,7 +82,7 @@ fn generic_image_exposed_ports() -> anyhow::Result<()> {
 fn generic_image_running_with_extra_hosts_added() -> anyhow::Result<()> {
     let server_1 = get_server_container(None);
     let node = server_1.start()?;
-    let port = node.get_host_port_ipv4(80)?;
+    let port = node.get_host_port_ipv4(ExposedPort::Tcp(80))?;
 
     let msg = WaitFor::message_on_stdout("foo");
     let server_2 = GenericImage::new("curlimages/curl", "latest")
@@ -110,7 +111,7 @@ fn generic_image_port_not_exposed() -> anyhow::Result<()> {
     let node = generic_server.start()?;
 
     // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.
-    let res = node.get_host_port_ipv4(target_port);
+    let res = node.get_host_port_ipv4(ExposedPort::Tcp(target_port));
     assert!(res.is_err());
     Ok(())
 }
