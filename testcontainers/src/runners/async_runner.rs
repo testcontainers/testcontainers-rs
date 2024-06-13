@@ -26,7 +26,7 @@ const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 /// ## Example
 ///
 /// ```rust,no_run
-/// use testcontainers::{core::{WaitFor, ports::{ExposedPort}}, runners::AsyncRunner, GenericImage};
+/// use testcontainers::{core::{WaitFor, ExposedPort}, runners::AsyncRunner, GenericImage};
 ///
 /// async fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")

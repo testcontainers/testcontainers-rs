@@ -2,6 +2,7 @@ pub use self::{
     containers::*,
     image::{CmdWaitFor, ContainerState, ExecCommand, Image, ImageExt, WaitFor},
     mounts::{AccessMode, Mount, MountType},
+    ports::{ExposedPort}
 };
 
 mod image;
@@ -14,4 +15,4 @@ pub(crate) mod logs;
 pub(crate) mod macros;
 pub(crate) mod mounts;
 pub(crate) mod network;
-pub mod ports;
+pub(crate) mod ports;
