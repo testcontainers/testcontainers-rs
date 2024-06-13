@@ -1,10 +1,9 @@
 use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
-    core::{env, error::Result, ports::Ports, ExecCommand},
+    core::{env, error::Result, ports::Ports, ExecCommand, ExposedPort},
     ContainerAsync, Image,
 };
-use crate::core::ports::ExposedPort;
 
 pub(super) mod exec;
 mod sync_reader;

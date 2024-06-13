@@ -262,8 +262,7 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::WaitFor, images::generic::GenericImage, ImageExt};
-    use crate::core::ports::ExposedPort;
+    use crate::{core::{WaitFor, ExposedPort}, images::generic::GenericImage, ImageExt};
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(

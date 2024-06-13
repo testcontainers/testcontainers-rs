@@ -14,11 +14,10 @@ use crate::{
         macros,
         network::Network,
         ports::Ports,
-        ContainerState, ExecCommand, WaitFor,
+        ContainerState, ExecCommand, WaitFor, ExposedPort
     },
     ContainerRequest, Image,
 };
-use crate::core::ports::ExposedPort;
 
 pub(super) mod exec;
 

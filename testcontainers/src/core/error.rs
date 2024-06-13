@@ -1,8 +1,7 @@
 use std::error::Error;
 
 use crate::core::logs::WaitLogError;
-pub use crate::core::{client::ClientError, env::ConfigurationError};
-use crate::core::ports::ExposedPort;
+pub use crate::core::{client::ClientError, env::ConfigurationError, ExposedPort};
 
 pub type Result<T> = std::result::Result<T, TestcontainersError>;
 

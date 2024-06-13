@@ -1,11 +1,10 @@
 #![cfg(feature = "blocking")]
 
 use testcontainers::{
-    core::{CmdWaitFor, ExecCommand, Host, WaitFor},
+    core::{CmdWaitFor, ExecCommand, Host, WaitFor, ExposedPort},
     runners::SyncRunner,
     *,
 };
-use testcontainers::core::ports::ExposedPort;
 
 fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
     let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));

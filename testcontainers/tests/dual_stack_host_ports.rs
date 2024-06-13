@@ -2,8 +2,7 @@
 
 use std::net::{Ipv6Addr, TcpListener};
 
-use testcontainers::{core::WaitFor, runners::SyncRunner, GenericImage};
-use testcontainers::core::ports::ExposedPort;
+use testcontainers::{core::{WaitFor, ExposedPort}, runners::SyncRunner, GenericImage};
 
 /// Test the functionality of exposing container ports over both IPv4 and IPv6.
 #[test]
