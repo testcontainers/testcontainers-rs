@@ -4,7 +4,7 @@ use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
     Image, TestcontainersError,
 };
-use crate::core::ports::{ExposedPort, InternetProtocol};
+use crate::core::ports::{ExposedPort};
 
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
@@ -31,8 +31,7 @@ pub struct ContainerRequest<I: Image> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortMapping {
     pub local: u16,
-    pub internal: u16,
-    pub protocol: InternetProtocol
+    pub internal: ExposedPort
 }
 
 #[derive(parse_display::Display, Debug, Clone)]
@@ -170,14 +169,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
     }
 }
 
-impl From<(u16, u16)> for PortMapping {
-    fn from((local, internal): (u16, u16)) -> Self {
-        PortMapping { local, internal, protocol: InternetProtocol::Tcp }
-    }
-}
-
-impl From<(u16, u16, InternetProtocol)> for PortMapping {
-    fn from((local, internal, protocol): (u16, u16, InternetProtocol)) -> Self {
-        PortMapping { local, internal, protocol }
+impl From<(u16, ExposedPort)> for PortMapping {
+    fn from((local, internal): (u16, ExposedPort)) -> Self {
+        PortMapping { local, internal }
     }
 }

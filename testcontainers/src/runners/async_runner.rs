@@ -17,7 +17,6 @@ use crate::{
     },
     ContainerAsync, ContainerRequest, Image,
 };
-use crate::core::ports::ExposedPort;
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -27,11 +26,11 @@ const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 /// ## Example
 ///
 /// ```rust,no_run
-/// use testcontainers::{core::WaitFor, runners::AsyncRunner, GenericImage};
+/// use testcontainers::{core::{WaitFor, ports::{ExposedPort}}, runners::AsyncRunner, GenericImage};
 ///
 /// async fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
-///         .with_exposed_port(6379)
+///         .with_exposed_port(ExposedPort::Tcp(6379))
 ///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
 ///         .start()
 ///         .await;
@@ -139,7 +138,7 @@ where
                 let mapped_ports = runnable_image
                     .ports()
                     .map(|ports| ports.iter()
-                        .map(|p| ExposedPort{ port: p.internal, protocol: p.protocol.clone() })
+                        .map(|p| p.internal)
                         .collect::<Vec<_>>())
                     .unwrap_or_default();
 
@@ -160,7 +159,7 @@ where
                 let empty: Vec<_> = Vec::new();
                 let bindings = runnable_image.ports().unwrap_or(&empty).iter().map(|p| {
                     (
-                        format!("{}", ExposedPort{ port: p.internal, protocol: p.protocol.clone() }),
+                        format!("{}", p.internal),
                         Some(vec![PortBinding {
                             host_ip: None,
                             host_port: Some(p.local.to_string()),
@@ -264,7 +263,7 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 mod tests {
     use super::*;
     use crate::{core::WaitFor, images::generic::GenericImage, ImageExt};
-    use crate::core::ports::InternetProtocol;
+    use crate::core::ports::ExposedPort;
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
@@ -285,7 +284,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port() -> anyhow::Result<()> {
         let image = GenericImage::new("simple_web_server", "latest")
-            .with_exposed_port(5000)
+            .with_exposed_port(ExposedPort::Tcp(5000))
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start().await?;
@@ -309,8 +308,8 @@ mod tests {
         let generic_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             // Explicitly expose the port, which otherwise would not be available.
-            .with_exposed_port((udp_port, InternetProtocol::Udp))
-            .with_exposed_port((sctp_port, InternetProtocol::Sctp));
+            .with_exposed_port(ExposedPort::Udp(udp_port))
+            .with_exposed_port(ExposedPort::Sctp(sctp_port));
 
         let container = generic_server.start().await?;
         container.get_host_port_ipv4(udp_port).await?;
@@ -352,8 +351,8 @@ mod tests {
         let client = Client::lazy_client().await?;
         let image = GenericImage::new("hello-world", "latest");
         let container = image
-            .with_mapped_port((123, 456))
-            .with_mapped_port((555, 888))
+            .with_mapped_port((123, ExposedPort::Tcp(456)))
+            .with_mapped_port((555, ExposedPort::Tcp(888)))
             .start()
             .await?;
 
@@ -385,8 +384,8 @@ mod tests {
 
         let image = GenericImage::new("hello-world", "latest");
         let container = image
-            .with_mapped_port((123, udp_port, InternetProtocol::Udp))
-            .with_mapped_port((555, sctp_port, InternetProtocol::Sctp))
+            .with_mapped_port((123, ExposedPort::Udp(udp_port)))
+            .with_mapped_port((555, ExposedPort::Sctp(sctp_port)))
             .start()
             .await?;
 

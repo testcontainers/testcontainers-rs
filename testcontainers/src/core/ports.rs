@@ -1,29 +1,15 @@
 use std::{collections::HashMap, net::IpAddr, num::ParseIntError};
-use std::fmt::{Display, Formatter};
 
 use bollard_stubs::models::{PortBinding, PortMap};
 
-#[derive(Debug, Clone, Eq, PartialEq, Copy)]
-pub enum InternetProtocol {
-    Tcp,
-    Udp,
-    Sctp
-}
-
-impl InternetProtocol {
-    pub fn encode(self) -> String {
-        match self {
-            Self::Tcp => String::from("tcp"),
-            Self::Udp => String::from("udp"),
-            Self::Sctp => String::from("sctp")
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ExposedPort {
-    pub port: u16,
-    pub protocol: InternetProtocol
+#[derive(parse_display::Display, parse_display::FromStr, Debug, Clone, Copy, Eq, PartialEq)]
+pub enum ExposedPort {
+    #[display("{0}/tcp")]
+    Tcp(u16),
+    #[display("{0}/udp")]
+    Udp(u16),
+    #[display("{0}/sctp")]
+    Sctp(u16)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -83,10 +69,13 @@ impl TryFrom<PortMap> for Ports {
         let mut ipv6_mapping = HashMap::new();
         for (internal, external) in ports {
             // internal is of the form '8332/tcp', split off the protocol ...
-            let internal_port = if let Some(internal) = internal.split('/').next() {
-                internal.parse()?
-            } else {
-                continue;
+            let exposed_port = internal.parse::<ExposedPort>()
+                .expect("Internal port");
+
+            let internal_port = match exposed_port {
+                ExposedPort::Tcp(value) => value,
+                ExposedPort::Udp(value) => value,
+                ExposedPort::Sctp(value) => value,
             };
 
             // get the `HostPort` of each external port binding
@@ -126,30 +115,6 @@ impl TryFrom<PortMap> for Ports {
             ipv4_mapping,
             ipv6_mapping,
         })
-    }
-}
-
-impl Display for ExposedPort {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}/{}", self.port, self.protocol)
-    }
-}
-
-impl Display for InternetProtocol {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.encode())
-    }
-}
-
-impl From<u16> for ExposedPort {
-    fn from(port: u16) -> Self {
-        ExposedPort { port ,protocol: InternetProtocol::Tcp }
-    }
-}
-
-impl From<(u16, InternetProtocol)> for ExposedPort {
-    fn from((port, protocol): (u16, InternetProtocol)) -> Self {
-        ExposedPort { port, protocol }
     }
 }
 

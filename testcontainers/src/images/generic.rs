@@ -32,8 +32,8 @@ impl GenericImage {
         self
     }
 
-    pub fn with_exposed_port<P: Into<ExposedPort>>(mut self, exposed_port: P) -> Self {
-        self.exposed_ports.push(exposed_port.into());
+    pub fn with_exposed_port(mut self, port: ExposedPort) -> Self {
+        self.exposed_ports.push(port);
         self
     }
 }
