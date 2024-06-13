@@ -4,6 +4,7 @@ use crate::{
     core::{env, error::Result, ports::Ports, ExecCommand},
     ContainerAsync, Image,
 };
+use crate::core::ports::ExposedPort;
 
 pub(super) mod exec;
 mod sync_reader;
@@ -82,7 +83,7 @@ where
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method returns an error.
-    pub fn get_host_port_ipv4(&self, internal_port: u16) -> Result<u16> {
+    pub fn get_host_port_ipv4(&self, internal_port: ExposedPort) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv4(internal_port))
     }
@@ -92,7 +93,7 @@ where
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method returns an error.
-    pub fn get_host_port_ipv6(&self, internal_port: u16) -> Result<u16> {
+    pub fn get_host_port_ipv6(&self, internal_port: ExposedPort) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv6(internal_port))
     }
