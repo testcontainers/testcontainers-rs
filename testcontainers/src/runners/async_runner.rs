@@ -289,7 +289,7 @@ mod tests {
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start().await?;
         container
-            .get_host_port_ipv4(5000)
+            .get_host_port_ipv4(ExposedPort::Tcp(5000))
             .await
             .expect("Port should be mapped");
         Ok(())
@@ -312,8 +312,8 @@ mod tests {
             .with_exposed_port(ExposedPort::Sctp(sctp_port));
 
         let container = generic_server.start().await?;
-        container.get_host_port_ipv4(udp_port).await?;
-        container.get_host_port_ipv4(sctp_port).await?;
+        container.get_host_port_ipv4(ExposedPort::Udp(udp_port)).await?;
+        container.get_host_port_ipv4(ExposedPort::Sctp(sctp_port)).await?;
 
         let container_details = client.inspect(container.id()).await?;
 

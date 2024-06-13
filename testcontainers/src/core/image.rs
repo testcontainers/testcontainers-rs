@@ -107,7 +107,7 @@ impl ContainerState {
     /// Returns the host port for the given internal port (`IPv4`).
     ///
     /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
-    pub fn host_port_ipv4(&self, internal_port: u16) -> Result<u16, TestcontainersError> {
+    pub fn host_port_ipv4(&self, internal_port: ExposedPort) -> Result<u16, TestcontainersError> {
         self.ports
             .map_to_host_port_ipv4(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {
@@ -119,7 +119,7 @@ impl ContainerState {
     /// Returns the host port for the given internal port (`IPv6`).
     ///
     /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
-    pub fn host_port_ipv6(&self, internal_port: u16) -> Result<u16, TestcontainersError> {
+    pub fn host_port_ipv6(&self, internal_port: ExposedPort) -> Result<u16, TestcontainersError> {
         self.ports
             .map_to_host_port_ipv6(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {

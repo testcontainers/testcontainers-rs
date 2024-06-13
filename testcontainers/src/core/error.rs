@@ -2,6 +2,7 @@ use std::error::Error;
 
 use crate::core::logs::WaitLogError;
 pub use crate::core::{client::ClientError, env::ConfigurationError};
+use crate::core::ports::ExposedPort;
 
 pub type Result<T> = std::result::Result<T, TestcontainersError>;
 
@@ -15,7 +16,7 @@ pub enum TestcontainersError {
     WaitContainer(#[from] WaitContainerError),
     /// Represents an error when a container does not expose a specified port
     #[error("container '{id}' does not expose port {port}")]
-    PortNotExposed { id: String, port: u16 },
+    PortNotExposed { id: String, port: ExposedPort },
     /// Represents an error when a container is missing some information
     #[error(transparent)]
     MissingInfo(#[from] ContainerMissingInfo),

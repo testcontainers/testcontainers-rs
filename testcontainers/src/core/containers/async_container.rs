@@ -18,6 +18,7 @@ use crate::{
     },
     ContainerRequest, Image,
 };
+use crate::core::ports::ExposedPort;
 
 pub(super) mod exec;
 
@@ -92,7 +93,7 @@ where
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method will return an error.
-    pub async fn get_host_port_ipv4(&self, internal_port: u16) -> Result<u16> {
+    pub async fn get_host_port_ipv4(&self, internal_port: ExposedPort) -> Result<u16> {
         self.ports()
             .await?
             .map_to_host_port_ipv4(internal_port)
@@ -107,7 +108,7 @@ where
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method will return an error.
-    pub async fn get_host_port_ipv6(&self, internal_port: u16) -> Result<u16> {
+    pub async fn get_host_port_ipv6(&self, internal_port: ExposedPort) -> Result<u16> {
         self.ports()
             .await?
             .map_to_host_port_ipv6(internal_port)
