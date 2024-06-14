@@ -155,7 +155,7 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     ) -> ContainerRequest<I> {
         let runnable = self.into();
         let mut ports = runnable.ports.unwrap_or_default();
-        ports.push(PortMapping::new(host_port, container_port.into()));
+        ports.push(PortMapping::new(host_port, container_port));
 
         ContainerRequest {
             ports: Some(ports),
