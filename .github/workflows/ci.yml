@@ -4,7 +4,7 @@ on:
   pull_request:
   merge_group:
   push:
-    branches: [main]
+    branches: [ main ]
 
 concurrency:
   group: ${{ github.ref }}
@@ -74,7 +74,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: rustfmt
           override: true
       - name: Rustfmt check

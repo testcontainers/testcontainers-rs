@@ -1,8 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, net::IpAddr, time::Duration};
 
-use crate::core::ports::ExposedPort;
 use crate::{
-    core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
+    core::{mounts::Mount, ports::ExposedPort, ContainerState, ExecCommand, WaitFor},
     Image, TestcontainersError,
 };
 

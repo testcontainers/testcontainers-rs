@@ -1,5 +1,7 @@
-use crate::core::ports::ExposedPort;
-use crate::{core::WaitFor, Image};
+use crate::{
+    core::{ports::ExposedPort, WaitFor},
+    Image,
+};
 
 #[must_use]
 #[derive(Debug, Clone)]
