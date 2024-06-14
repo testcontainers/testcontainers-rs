@@ -2,7 +2,7 @@ pub use self::{
     containers::*,
     image::{CmdWaitFor, ContainerState, ExecCommand, Image, ImageExt, WaitFor},
     mounts::{AccessMode, Mount, MountType},
-    ports::ContainerPort,
+    ports::{ContainerPort, IntoContainerPort},
 };
 
 mod image;

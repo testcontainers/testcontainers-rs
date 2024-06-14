@@ -14,6 +14,14 @@ pub enum ContainerPort {
     Sctp(u16),
 }
 
+/// A trait to allow easy conversion of a `u16` into a `ContainerPort`.
+/// For example, `123.tcp()` is equivalent to `ContainerPort::Tcp(123)`.
+pub trait IntoContainerPort {
+    fn tcp(self) -> ContainerPort;
+    fn udp(self) -> ContainerPort;
+    fn sctp(self) -> ContainerPort;
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum PortMappingError {
     #[error("failed to parse container port: {0}")]
@@ -116,6 +124,20 @@ impl TryFrom<PortMap> for Ports {
             ipv4_mapping,
             ipv6_mapping,
         })
+    }
+}
+
+impl IntoContainerPort for u16 {
+    fn tcp(self) -> ContainerPort {
+        ContainerPort::Tcp(self)
+    }
+
+    fn udp(self) -> ContainerPort {
+        ContainerPort::Udp(self)
+    }
+
+    fn sctp(self) -> ContainerPort {
+        ContainerPort::Sctp(self)
     }
 }
 
@@ -366,21 +388,11 @@ mod tests {
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();
-        expected_ports
-            .ipv6_mapping
-            .insert(ContainerPort::Tcp(8333), 49718);
-        expected_ports
-            .ipv4_mapping
-            .insert(ContainerPort::Sctp(8332), 33078);
-        expected_ports
-            .ipv4_mapping
-            .insert(ContainerPort::Tcp(18332), 33076);
-        expected_ports
-            .ipv4_mapping
-            .insert(ContainerPort::Tcp(8333), 33077);
-        expected_ports
-            .ipv4_mapping
-            .insert(ContainerPort::Udp(18333), 33075);
+        expected_ports.ipv6_mapping.insert(8333.tcp(), 49718);
+        expected_ports.ipv4_mapping.insert(8332.sctp(), 33078);
+        expected_ports.ipv4_mapping.insert(18332.tcp(), 33076);
+        expected_ports.ipv4_mapping.insert(8333.tcp(), 33077);
+        expected_ports.ipv4_mapping.insert(18333.udp(), 33075);
 
         assert_eq!(parsed_ports, expected_ports)
     }

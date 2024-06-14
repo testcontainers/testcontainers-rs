@@ -30,7 +30,7 @@ const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 ///
 /// async fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
-///         .with_exposed_port(ContainerPort::Tcp(6379))
+///         .with_exposed_port(6379.tcp())
 ///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
 ///         .start()
 ///         .await;
@@ -261,7 +261,7 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 mod tests {
     use super::*;
     use crate::{
-        core::{ContainerPort, WaitFor},
+        core::{IntoContainerPort, WaitFor},
         images::generic::GenericImage,
         ImageExt,
     };
@@ -285,12 +285,12 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port() -> anyhow::Result<()> {
         let image = GenericImage::new("simple_web_server", "latest")
-            .with_exposed_port(ContainerPort::Tcp(5000))
+            .with_exposed_port(5000.tcp())
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start().await?;
         container
-            .get_host_port_ipv4(ContainerPort::Tcp(5000))
+            .get_host_port_ipv4(5000.tcp())
             .await
             .expect("Port should be mapped");
         Ok(())
@@ -307,16 +307,12 @@ mod tests {
         let generic_server = GenericImage::new("simple_web_server", "latest")
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             // Explicitly expose the port, which otherwise would not be available.
-            .with_exposed_port(ContainerPort::Udp(udp_port))
-            .with_exposed_port(ContainerPort::Sctp(sctp_port));
+            .with_exposed_port(udp_port.udp())
+            .with_exposed_port(sctp_port.sctp());
 
         let container = generic_server.start().await?;
-        container
-            .get_host_port_ipv4(ContainerPort::Udp(udp_port))
-            .await?;
-        container
-            .get_host_port_ipv4(ContainerPort::Sctp(sctp_port))
-            .await?;
+        container.get_host_port_ipv4(udp_port.udp()).await?;
+        container.get_host_port_ipv4(sctp_port.sctp()).await?;
 
         let container_details = client.inspect(container.id()).await?;
 
@@ -350,8 +346,8 @@ mod tests {
         let client = Client::lazy_client().await?;
         let image = GenericImage::new("hello-world", "latest");
         let container = image
-            .with_mapped_port(123, ContainerPort::Tcp(456))
-            .with_mapped_port(555, ContainerPort::Tcp(888))
+            .with_mapped_port(123, 456.tcp())
+            .with_mapped_port(555, 888.tcp())
             .start()
             .await?;
 
@@ -383,8 +379,8 @@ mod tests {
 
         let image = GenericImage::new("hello-world", "latest");
         let container = image
-            .with_mapped_port(123, ContainerPort::Udp(udp_port))
-            .with_mapped_port(555, ContainerPort::Sctp(sctp_port))
+            .with_mapped_port(123, udp_port.udp())
+            .with_mapped_port(555, sctp_port.sctp())
             .start()
             .await?;
 
