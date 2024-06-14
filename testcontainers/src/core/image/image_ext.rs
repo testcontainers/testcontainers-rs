@@ -61,7 +61,8 @@ pub trait ImageExt<I: Image> {
     ///
     /// let image = GenericImage::new("image", "tag").with_mapped_port(8080, 80.tcp());
     /// ```
-    fn with_mapped_port(self, host_port: u16, container_port: ContainerPort) -> ContainerRequest<I>;
+    fn with_mapped_port(self, host_port: u16, container_port: ContainerPort)
+        -> ContainerRequest<I>;
 
     /// Sets the container to run in privileged mode.
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I>;
@@ -147,7 +148,11 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         runnable
     }
 
-    fn with_mapped_port(self, host_port: u16, container_port: ContainerPort) -> ContainerRequest<I> {
+    fn with_mapped_port(
+        self,
+        host_port: u16,
+        container_port: ContainerPort,
+    ) -> ContainerRequest<I> {
         let runnable = self.into();
         let mut ports = runnable.ports.unwrap_or_default();
         ports.push(PortMapping::new(host_port, container_port.into()));
