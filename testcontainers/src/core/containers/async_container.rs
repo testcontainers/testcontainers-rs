@@ -14,7 +14,7 @@ use crate::{
         macros,
         network::Network,
         ports::Ports,
-        ContainerState, ExecCommand, WaitFor, ExposedPort
+        ContainerState, ExecCommand, ExposedPort, WaitFor,
     },
     ContainerRequest, Image,
 };

@@ -1,10 +1,10 @@
 use std::{borrow::Cow, collections::BTreeMap, net::IpAddr, time::Duration};
 
+use crate::core::ports::ExposedPort;
 use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
     Image, TestcontainersError,
 };
-use crate::core::ports::{ExposedPort};
 
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
@@ -31,7 +31,7 @@ pub struct ContainerRequest<I: Image> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortMapping {
     pub local: u16,
-    pub internal: ExposedPort
+    pub internal: ExposedPort,
 }
 
 #[derive(parse_display::Display, Debug, Clone)]

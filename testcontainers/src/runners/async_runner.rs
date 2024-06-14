@@ -137,9 +137,7 @@ where
             if !is_container_networked {
                 let mapped_ports = runnable_image
                     .ports()
-                    .map(|ports| ports.iter()
-                        .map(|p| p.internal)
-                        .collect::<Vec<_>>())
+                    .map(|ports| ports.iter().map(|p| p.internal).collect::<Vec<_>>())
                     .unwrap_or_default();
 
                 let ports_to_expose = runnable_image
@@ -262,7 +260,11 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::{WaitFor, ExposedPort}, images::generic::GenericImage, ImageExt};
+    use crate::{
+        core::{ExposedPort, WaitFor},
+        images::generic::GenericImage,
+        ImageExt,
+    };
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
@@ -294,8 +296,6 @@ mod tests {
         Ok(())
     }
 
-
-
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port_udp_sctp() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
@@ -311,8 +311,12 @@ mod tests {
             .with_exposed_port(ExposedPort::Sctp(sctp_port));
 
         let container = generic_server.start().await?;
-        container.get_host_port_ipv4(ExposedPort::Udp(udp_port)).await?;
-        container.get_host_port_ipv4(ExposedPort::Sctp(sctp_port)).await?;
+        container
+            .get_host_port_ipv4(ExposedPort::Udp(udp_port))
+            .await?;
+        container
+            .get_host_port_ipv4(ExposedPort::Sctp(sctp_port))
+            .await?;
 
         let container_details = client.inspect(container.id()).await?;
 
@@ -322,8 +326,7 @@ mod tests {
             .ports
             .expect("ports");
 
-        let mut current_ports = current_ports_map.keys()
-            .collect::<Vec<&String>>();
+        let mut current_ports = current_ports_map.keys().collect::<Vec<&String>>();
 
         current_ports.sort();
 
@@ -337,10 +340,7 @@ mod tests {
         expected_ports.push(sctp_expected_port);
         expected_ports.push(tcp_expected_port);
 
-        assert_eq!(
-            current_ports,
-            expected_ports
-        );
+        assert_eq!(current_ports, expected_ports);
 
         Ok(())
     }
@@ -396,8 +396,7 @@ mod tests {
             .port_bindings
             .expect("ports");
 
-        let mut current_ports = current_ports_map.keys()
-            .collect::<Vec<&String>>();
+        let mut current_ports = current_ports_map.keys().collect::<Vec<&String>>();
 
         current_ports.sort();
 
@@ -409,10 +408,7 @@ mod tests {
         expected_ports.push(udp_expected_port);
         expected_ports.push(sctp_expected_port);
 
-        assert_eq!(
-            current_ports,
-            expected_ports
-        );
+        assert_eq!(current_ports, expected_ports);
 
         Ok(())
     }

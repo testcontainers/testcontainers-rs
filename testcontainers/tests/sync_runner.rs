@@ -1,7 +1,7 @@
 #![cfg(feature = "blocking")]
 
 use testcontainers::{
-    core::{CmdWaitFor, ExecCommand, Host, WaitFor, ExposedPort},
+    core::{CmdWaitFor, ExecCommand, ExposedPort, Host, WaitFor},
     runners::SyncRunner,
     *,
 };

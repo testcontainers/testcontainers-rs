@@ -60,7 +60,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        core::{client::Client, mounts::Mount, WaitFor, ExposedPort},
+        core::{client::Client, mounts::Mount, ExposedPort, WaitFor},
         images::generic::GenericImage,
         ImageExt,
     };

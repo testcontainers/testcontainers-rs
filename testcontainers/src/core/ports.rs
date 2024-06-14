@@ -2,14 +2,16 @@ use std::{collections::HashMap, net::IpAddr, num::ParseIntError};
 
 use bollard_stubs::models::{PortBinding, PortMap};
 
-#[derive(parse_display::Display, parse_display::FromStr, Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(
+    parse_display::Display, parse_display::FromStr, Debug, Clone, Copy, Eq, PartialEq, Hash,
+)]
 pub enum ExposedPort {
     #[display("{0}/tcp")]
     Tcp(u16),
     #[display("{0}/udp")]
     Udp(u16),
     #[display("{0}/sctp")]
-    Sctp(u16)
+    Sctp(u16),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -69,8 +71,7 @@ impl TryFrom<PortMap> for Ports {
         let mut ipv6_mapping = HashMap::new();
         for (internal, external) in ports {
             // internal is of the form '8332/tcp', split off the protocol ...
-            let internal_port = internal.parse::<ExposedPort>()
-                .expect("Internal port");
+            let internal_port = internal.parse::<ExposedPort>().expect("Internal port");
 
             // get the `HostPort` of each external port binding
             for binding in external.into_iter().flatten() {
@@ -359,11 +360,21 @@ mod tests {
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();
-        expected_ports.ipv6_mapping.insert(ExposedPort::Tcp(8333), 49718);
-        expected_ports.ipv4_mapping.insert(ExposedPort::Sctp(8332), 33078);
-        expected_ports.ipv4_mapping.insert(ExposedPort::Tcp(18332), 33076);
-        expected_ports.ipv4_mapping.insert(ExposedPort::Tcp(8333), 33077);
-        expected_ports.ipv4_mapping.insert(ExposedPort::Udp(18333), 33075);
+        expected_ports
+            .ipv6_mapping
+            .insert(ExposedPort::Tcp(8333), 49718);
+        expected_ports
+            .ipv4_mapping
+            .insert(ExposedPort::Sctp(8332), 33078);
+        expected_ports
+            .ipv4_mapping
+            .insert(ExposedPort::Tcp(18332), 33076);
+        expected_ports
+            .ipv4_mapping
+            .insert(ExposedPort::Tcp(8333), 33077);
+        expected_ports
+            .ipv4_mapping
+            .insert(ExposedPort::Udp(18333), 33075);
 
         assert_eq!(parsed_ports, expected_ports)
     }
