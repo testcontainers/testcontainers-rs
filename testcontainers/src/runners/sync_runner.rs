@@ -5,7 +5,7 @@ use crate::{core::error::Result, Container, ContainerRequest, Image};
 /// ## Example
 ///
 /// ```rust,no_run
-/// use testcontainers::{core::{WaitFor, ContainerPort}, runners::SyncRunner, GenericImage};
+/// use testcontainers::{core::{WaitFor, IntoContainerPort}, runners::SyncRunner, GenericImage};
 ///
 /// fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
@@ -51,6 +51,7 @@ fn build_sync_runner() -> Result<tokio::runtime::Runtime> {
 #[cfg(test)]
 mod tests {
     use std::{
+        borrow::Cow,
         collections::BTreeMap,
         sync::{Arc, OnceLock},
     };
@@ -60,7 +61,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        core::{client::Client, mounts::Mount, ContainerPort, IntoContainerPort, WaitFor},
+        core::{client::Client, mounts::Mount, IntoContainerPort, WaitFor},
         images::generic::GenericImage,
         ImageExt,
     };
@@ -107,11 +108,13 @@ mod tests {
             vec![WaitFor::message_on_stdout("Hello from Docker!")]
         }
 
-        fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        fn env_vars(
+            &self,
+        ) -> impl IntoIterator<Item = (impl Into<Cow<'_, str>>, impl Into<Cow<'_, str>>)> {
             Box::new(self.env_vars.iter())
         }
 
-        fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
+        fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
             Box::new(self.mounts.iter())
         }
     }
