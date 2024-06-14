@@ -1,3 +1,4 @@
+use crate::core::ports::ExposedPort;
 use crate::{core::WaitFor, Image};
 
 #[must_use]
@@ -7,7 +8,7 @@ pub struct GenericImage {
     tag: String,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
-    exposed_ports: Vec<u16>,
+    exposed_ports: Vec<ExposedPort>,
 }
 
 impl GenericImage {
@@ -31,7 +32,7 @@ impl GenericImage {
         self
     }
 
-    pub fn with_exposed_port(mut self, port: u16) -> Self {
+    pub fn with_exposed_port(mut self, port: ExposedPort) -> Self {
         self.exposed_ports.push(port);
         self
     }
@@ -54,7 +55,7 @@ impl Image for GenericImage {
         self.entrypoint.as_deref()
     }
 
-    fn expose_ports(&self) -> &[u16] {
+    fn expose_ports(&self) -> &[ExposedPort] {
         &self.exposed_ports
     }
 }

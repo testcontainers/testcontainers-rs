@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::BTreeMap, net::IpAddr, time::Duration};
 
+use crate::core::ports::ExposedPort;
 use crate::{
     core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
     Image, TestcontainersError,
@@ -30,7 +31,7 @@ pub struct ContainerRequest<I: Image> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortMapping {
     pub local: u16,
-    pub internal: u16,
+    pub internal: ExposedPort,
 }
 
 #[derive(parse_display::Display, Debug, Clone)]
@@ -129,7 +130,7 @@ impl<I: Image> ContainerRequest<I> {
         self.image.ready_conditions()
     }
 
-    pub fn expose_ports(&self) -> &[u16] {
+    pub fn expose_ports(&self) -> &[ExposedPort] {
         self.image.expose_ports()
     }
 
@@ -168,8 +169,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
     }
 }
 
-impl From<(u16, u16)> for PortMapping {
-    fn from((local, internal): (u16, u16)) -> Self {
+impl From<(u16, ExposedPort)> for PortMapping {
+    fn from((local, internal): (u16, ExposedPort)) -> Self {
         PortMapping { local, internal }
     }
 }
