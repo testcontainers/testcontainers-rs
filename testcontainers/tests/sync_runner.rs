@@ -1,7 +1,8 @@
 #![cfg(feature = "blocking")]
 
+use reqwest::StatusCode;
 use testcontainers::{
-    core::{CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor},
+    core::{CmdWaitFor, ExecCommand, Host, HttpWaitStrategy, IntoContainerPort, WaitFor},
     runners::SyncRunner,
     *,
 };
@@ -32,6 +33,19 @@ impl Image for HelloWorld {
 fn sync_can_run_hello_world() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
     let _container = HelloWorld.start()?;
+    Ok(())
+}
+
+#[test]
+fn sync_wait_for_http() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("simple_web_server", "latest")
+        .with_exposed_port(80.tcp())
+        .with_wait_for(WaitFor::http(
+            HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK),
+        ));
+    let _container = image.start()?;
     Ok(())
 }
 

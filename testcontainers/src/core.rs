@@ -1,8 +1,9 @@
 pub use self::{
     containers::*,
-    image::{CmdWaitFor, ContainerState, ExecCommand, Image, ImageExt, WaitFor},
+    image::{ContainerState, ExecCommand, Image, ImageExt},
     mounts::{AccessMode, Mount, MountType},
     ports::{ContainerPort, IntoContainerPort},
+    wait::{cmd_wait::CmdWaitFor, http_strategy::HttpWaitStrategy, WaitFor},
 };
 
 mod image;
@@ -16,3 +17,4 @@ pub(crate) mod macros;
 pub(crate) mod mounts;
 pub(crate) mod network;
 pub(crate) mod ports;
+pub(crate) mod wait;

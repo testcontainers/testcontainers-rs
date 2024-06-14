@@ -10,11 +10,11 @@ use crate::{
         client::Client,
         env,
         error::{ContainerMissingInfo, ExecError, Result, TestcontainersError, WaitContainerError},
-        image::CmdWaitFor,
         macros,
         network::Network,
         ports::Ports,
-        ContainerPort, ContainerState, ExecCommand, WaitFor,
+        wait::WaitStrategy,
+        CmdWaitFor, ContainerPort, ContainerState, ExecCommand, WaitFor,
     },
     ContainerRequest, Image,
 };
@@ -342,6 +342,9 @@ where
                         }
                     }
                 },
+                WaitFor::Http(http_strategy) => {
+                    http_strategy.wait_until_ready(self).await?;
+                }
                 WaitFor::Nothing => {}
             }
         }
