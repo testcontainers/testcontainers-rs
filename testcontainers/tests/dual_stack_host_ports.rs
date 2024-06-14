@@ -3,7 +3,7 @@
 use std::net::{Ipv6Addr, TcpListener};
 
 use testcontainers::{
-    core::{ExposedPort, WaitFor},
+    core::{ContainerPort, WaitFor},
     runners::SyncRunner,
     GenericImage,
 };
@@ -20,8 +20,8 @@ fn test_ipv4_ipv6_host_ports() -> anyhow::Result<()> {
     // Run one container, and check what ephemeral ports it uses. Perform test HTTP requests to
     // both bound ports.
     let first_container = image.clone().start()?;
-    let first_ipv4_port = first_container.get_host_port_ipv4(ExposedPort::Tcp(80))?;
-    let first_ipv6_port = first_container.get_host_port_ipv6(ExposedPort::Tcp(80))?;
+    let first_ipv4_port = first_container.get_host_port_ipv4(ContainerPort::Tcp(80))?;
+    let first_ipv6_port = first_container.get_host_port_ipv6(ContainerPort::Tcp(80))?;
     assert_eq!(
         "foo",
         reqwest::blocking::get(format!("http://127.0.0.1:{first_ipv4_port}"))?.text()?,
@@ -45,8 +45,8 @@ fn test_ipv4_ipv6_host_ports() -> anyhow::Result<()> {
     // of both IPv4 and IPv6 host port bindings is correct, because at this point,
     // `second_ipv4_port` and `second_ipv6_port` are very unlikely to be the same.
     let second_container = image.start()?;
-    let second_ipv4_port = second_container.get_host_port_ipv4(ExposedPort::Tcp(80))?;
-    let second_ipv6_port = second_container.get_host_port_ipv6(ExposedPort::Tcp(80))?;
+    let second_ipv4_port = second_container.get_host_port_ipv4(ContainerPort::Tcp(80))?;
+    let second_ipv6_port = second_container.get_host_port_ipv6(ContainerPort::Tcp(80))?;
     assert_eq!(
         "foo",
         reqwest::blocking::get(format!("http://127.0.0.1:{second_ipv4_port}"))?.text()?,

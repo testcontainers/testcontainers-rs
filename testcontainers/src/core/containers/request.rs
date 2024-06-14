@@ -1,8 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, net::IpAddr, time::Duration};
 
-use crate::core::ports::ExposedPort;
 use crate::{
-    core::{mounts::Mount, ContainerState, ExecCommand, WaitFor},
+    core::{mounts::Mount, ports::ContainerPort, ContainerState, ExecCommand, WaitFor},
     Image, TestcontainersError,
 };
 
@@ -27,11 +26,11 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
 }
 
-/// Represents a port mapping between a local port and the internal port of a container.
+/// Represents a port mapping between a host's external port and the internal port of a container.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortMapping {
-    pub local: u16,
-    pub internal: ExposedPort,
+    pub(crate) host_port: u16,
+    pub(crate) container_port: ContainerPort,
 }
 
 #[derive(parse_display::Display, Debug, Clone)]
@@ -130,7 +129,7 @@ impl<I: Image> ContainerRequest<I> {
         self.image.ready_conditions()
     }
 
-    pub fn expose_ports(&self) -> &[ExposedPort] {
+    pub fn expose_ports(&self) -> &[ContainerPort] {
         self.image.expose_ports()
     }
 
@@ -169,8 +168,19 @@ impl<I: Image> From<I> for ContainerRequest<I> {
     }
 }
 
-impl From<(u16, ExposedPort)> for PortMapping {
-    fn from((local, internal): (u16, ExposedPort)) -> Self {
-        PortMapping { local, internal }
+impl PortMapping {
+    pub(crate) fn new(local: u16, internal: ContainerPort) -> Self {
+        Self {
+            host_port: local,
+            container_port: internal,
+        }
+    }
+
+    pub fn host_port(&self) -> u16 {
+        self.host_port
+    }
+
+    pub fn container_port(&self) -> ContainerPort {
+        self.container_port
     }
 }

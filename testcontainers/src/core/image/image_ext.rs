@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    core::{CgroupnsMode, Host, Mount, PortMapping},
+    core::{CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
     ContainerRequest, Image,
 };
 
@@ -52,8 +52,12 @@ pub trait ImageExt<I: Image> {
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
-    /// Adds a port mapping to the container.
-    fn with_mapped_port<P: Into<PortMapping>>(self, port: P) -> ContainerRequest<I>;
+    /// Adds a port mapping to the container, mapping the host port to the container's internal port.
+    fn with_mapped_port<EP: Into<ContainerPort>>(
+        self,
+        host_port: u16,
+        exposed_port: EP,
+    ) -> ContainerRequest<I>;
 
     /// Sets the container to run in privileged mode.
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I>;
@@ -139,10 +143,14 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         runnable
     }
 
-    fn with_mapped_port<P: Into<PortMapping>>(self, port: P) -> ContainerRequest<I> {
+    fn with_mapped_port<EP: Into<ContainerPort>>(
+        self,
+        host_port: u16,
+        container_port: EP,
+    ) -> ContainerRequest<I> {
         let runnable = self.into();
         let mut ports = runnable.ports.unwrap_or_default();
-        ports.push(port.into());
+        ports.push(PortMapping::new(host_port, container_port.into()));
 
         ContainerRequest {
             ports: Some(ports),
