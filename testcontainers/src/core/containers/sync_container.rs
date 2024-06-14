@@ -1,7 +1,7 @@
 use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
-    core::{env, error::Result, ports::Ports, ExecCommand, ExposedPort},
+    core::{env, error::Result, ports::Ports, ContainerPort, ExecCommand},
     ContainerAsync, Image,
 };
 
@@ -82,7 +82,7 @@ where
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method returns an error.
-    pub fn get_host_port_ipv4(&self, internal_port: ExposedPort) -> Result<u16> {
+    pub fn get_host_port_ipv4(&self, internal_port: ContainerPort) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv4(internal_port))
     }
@@ -92,7 +92,7 @@ where
     ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method returns an error.
-    pub fn get_host_port_ipv6(&self, internal_port: ExposedPort) -> Result<u16> {
+    pub fn get_host_port_ipv6(&self, internal_port: ContainerPort) -> Result<u16> {
         self.rt()
             .block_on(self.async_impl().get_host_port_ipv6(internal_port))
     }

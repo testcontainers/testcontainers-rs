@@ -4,7 +4,7 @@ pub use exec::{CmdWaitFor, ExecCommand};
 pub use image_ext::ImageExt;
 pub use wait_for::WaitFor;
 
-use super::ports::{ExposedPort, Ports};
+use super::ports::{ContainerPort, Ports};
 use crate::{core::mounts::Mount, TestcontainersError};
 
 mod exec;
@@ -69,7 +69,7 @@ where
     ///
     /// This method is useful when there is a need to expose some ports, but there is
     /// no `EXPOSE` instruction in the Dockerfile of an image.
-    fn expose_ports(&self) -> &[ExposedPort] {
+    fn expose_ports(&self) -> &[ContainerPort] {
         &[]
     }
 
@@ -104,10 +104,10 @@ impl ContainerState {
         }
     }
 
-    /// Returns the host port for the given internal port (`IPv4`).
+    /// Returns the host port for the given internal container's port (`IPv4`).
     ///
     /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
-    pub fn host_port_ipv4(&self, internal_port: ExposedPort) -> Result<u16, TestcontainersError> {
+    pub fn host_port_ipv4(&self, internal_port: ContainerPort) -> Result<u16, TestcontainersError> {
         self.ports
             .map_to_host_port_ipv4(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {
@@ -116,10 +116,10 @@ impl ContainerState {
             })
     }
 
-    /// Returns the host port for the given internal port (`IPv6`).
+    /// Returns the host port for the given internal container's port (`IPv6`).
     ///
     /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
-    pub fn host_port_ipv6(&self, internal_port: ExposedPort) -> Result<u16, TestcontainersError> {
+    pub fn host_port_ipv6(&self, internal_port: ContainerPort) -> Result<u16, TestcontainersError> {
         self.ports
             .map_to_host_port_ipv6(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {

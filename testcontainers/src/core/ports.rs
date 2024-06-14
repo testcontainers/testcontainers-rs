@@ -5,7 +5,7 @@ use bollard_stubs::models::{PortBinding, PortMap};
 #[derive(
     parse_display::Display, parse_display::FromStr, Debug, Clone, Copy, Eq, PartialEq, Hash,
 )]
-pub enum ExposedPort {
+pub enum ContainerPort {
     #[display("{0}/tcp")]
     Tcp(u16),
     #[display("{0}/udp")]
@@ -14,17 +14,27 @@ pub enum ExposedPort {
     Sctp(u16),
 }
 
+/// A trait to allow easy conversion of a `u16` into a `ContainerPort`.
+/// For example, `123.tcp()` is equivalent to `ContainerPort::Tcp(123)`.
+pub trait IntoContainerPort {
+    fn tcp(self) -> ContainerPort;
+    fn udp(self) -> ContainerPort;
+    fn sctp(self) -> ContainerPort;
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum PortMappingError {
-    #[error("failed to parse port: {0}")]
-    FailedToParsePort(#[from] ParseIntError),
+    #[error("failed to parse container port: {0}")]
+    FailedToParseContainerPort(parse_display::ParseError),
+    #[error("failed to parse host port: {0}")]
+    FailedToParseHostPort(ParseIntError),
 }
 
 /// The exposed ports of a running container.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Ports {
-    ipv4_mapping: HashMap<ExposedPort, u16>,
-    ipv6_mapping: HashMap<ExposedPort, u16>,
+    ipv4_mapping: HashMap<ContainerPort, u16>,
+    ipv6_mapping: HashMap<ContainerPort, u16>,
 }
 
 impl Ports {
@@ -52,14 +62,14 @@ impl Ports {
         Self::try_from(port_binding)
     }
 
-    /// Returns the host port for the given internal port, on the host's IPv4 interfaces.
-    pub fn map_to_host_port_ipv4(&self, internal_port: ExposedPort) -> Option<u16> {
-        self.ipv4_mapping.get(&internal_port).cloned()
+    /// Returns the host port for the given internal container's port, on the host's IPv4 interfaces.
+    pub fn map_to_host_port_ipv4(&self, container_port: ContainerPort) -> Option<u16> {
+        self.ipv4_mapping.get(&container_port).cloned()
     }
 
-    /// Returns the host port for the given internal port, on the host's IPv6 interfaces.
-    pub fn map_to_host_port_ipv6(&self, internal_port: ExposedPort) -> Option<u16> {
-        self.ipv6_mapping.get(&internal_port).cloned()
+    /// Returns the host port for the given internal container's port, on the host's IPv6 interfaces.
+    pub fn map_to_host_port_ipv6(&self, container_port: ContainerPort) -> Option<u16> {
+        self.ipv6_mapping.get(&container_port).cloned()
     }
 }
 
@@ -71,35 +81,39 @@ impl TryFrom<PortMap> for Ports {
         let mut ipv6_mapping = HashMap::new();
         for (internal, external) in ports {
             // internal is of the form '8332/tcp', split off the protocol ...
-            let internal_port = internal.parse::<ExposedPort>().expect("Internal port");
+            let container_port = internal
+                .parse::<ContainerPort>()
+                .map_err(PortMappingError::FailedToParseContainerPort)?;
 
             // get the `HostPort` of each external port binding
             for binding in external.into_iter().flatten() {
-                if let Some(external_port) = binding.host_port.as_ref() {
-                    let external_port = external_port.parse()?;
+                if let Some(host_port) = binding.host_port.as_ref() {
+                    let host_port = host_port
+                        .parse()
+                        .map_err(PortMappingError::FailedToParseHostPort)?;
 
                     // switch on the IP version of the `HostIp`
                     let mapping = match binding.host_ip.map(|ip| ip.parse()) {
                         Some(Ok(IpAddr::V4(_))) => {
                             log::debug!(
                                 "Registering IPv4 port mapping: {} -> {}",
-                                internal_port,
-                                external_port
+                                container_port,
+                                host_port
                             );
                             &mut ipv4_mapping
                         }
                         Some(Ok(IpAddr::V6(_))) => {
                             log::debug!(
                                 "Registering IPv6 port mapping: {} -> {}",
-                                internal_port,
-                                external_port
+                                container_port,
+                                host_port
                             );
                             &mut ipv6_mapping
                         }
                         Some(Err(_)) | None => continue,
                     };
 
-                    mapping.insert(internal_port, external_port);
+                    mapping.insert(container_port, host_port);
                 } else {
                     continue;
                 }
@@ -110,6 +124,20 @@ impl TryFrom<PortMap> for Ports {
             ipv4_mapping,
             ipv6_mapping,
         })
+    }
+}
+
+impl IntoContainerPort for u16 {
+    fn tcp(self) -> ContainerPort {
+        ContainerPort::Tcp(self)
+    }
+
+    fn udp(self) -> ContainerPort {
+        ContainerPort::Udp(self)
+    }
+
+    fn sctp(self) -> ContainerPort {
+        ContainerPort::Sctp(self)
     }
 }
 
@@ -360,21 +388,11 @@ mod tests {
             .unwrap_or_default();
 
         let mut expected_ports = Ports::default();
-        expected_ports
-            .ipv6_mapping
-            .insert(ExposedPort::Tcp(8333), 49718);
-        expected_ports
-            .ipv4_mapping
-            .insert(ExposedPort::Sctp(8332), 33078);
-        expected_ports
-            .ipv4_mapping
-            .insert(ExposedPort::Tcp(18332), 33076);
-        expected_ports
-            .ipv4_mapping
-            .insert(ExposedPort::Tcp(8333), 33077);
-        expected_ports
-            .ipv4_mapping
-            .insert(ExposedPort::Udp(18333), 33075);
+        expected_ports.ipv6_mapping.insert(8333.tcp(), 49718);
+        expected_ports.ipv4_mapping.insert(8332.sctp(), 33078);
+        expected_ports.ipv4_mapping.insert(18332.tcp(), 33076);
+        expected_ports.ipv4_mapping.insert(8333.tcp(), 33077);
+        expected_ports.ipv4_mapping.insert(18333.udp(), 33075);
 
         assert_eq!(parsed_ports, expected_ports)
     }

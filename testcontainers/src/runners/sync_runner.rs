@@ -5,11 +5,11 @@ use crate::{core::error::Result, Container, ContainerRequest, Image};
 /// ## Example
 ///
 /// ```rust,no_run
-/// use testcontainers::{core::{WaitFor, ExposedPort}, runners::SyncRunner, GenericImage};
+/// use testcontainers::{core::{WaitFor, IntoContainerPort}, runners::SyncRunner, GenericImage};
 ///
 /// fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
-///         .with_exposed_port(ExposedPort::Tcp(6379))
+///         .with_exposed_port(6379.tcp())
 ///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
 ///         .start()
 ///         .unwrap();
@@ -51,6 +51,7 @@ fn build_sync_runner() -> Result<tokio::runtime::Runtime> {
 #[cfg(test)]
 mod tests {
     use std::{
+        borrow::Cow,
         collections::BTreeMap,
         sync::{Arc, OnceLock},
     };
@@ -60,7 +61,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        core::{client::Client, mounts::Mount, ExposedPort, WaitFor},
+        core::{client::Client, mounts::Mount, IntoContainerPort, WaitFor},
         images::generic::GenericImage,
         ImageExt,
     };
@@ -107,11 +108,13 @@ mod tests {
             vec![WaitFor::message_on_stdout("Hello from Docker!")]
         }
 
-        fn env_vars(&self) -> Box<dyn Iterator<Item = (&String, &String)> + '_> {
+        fn env_vars(
+            &self,
+        ) -> impl IntoIterator<Item = (impl Into<Cow<'_, str>>, impl Into<Cow<'_, str>>)> {
             Box::new(self.env_vars.iter())
         }
 
-        fn mounts(&self) -> Box<dyn Iterator<Item = &Mount> + '_> {
+        fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
             Box::new(self.mounts.iter())
         }
     }
@@ -134,11 +137,11 @@ mod tests {
     #[test]
     fn sync_run_command_should_map_exposed_port() -> anyhow::Result<()> {
         let image = GenericImage::new("simple_web_server", "latest")
-            .with_exposed_port(ExposedPort::Tcp(5000))
+            .with_exposed_port(5000.tcp())
             .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start()?;
-        let res = container.get_host_port_ipv4(ExposedPort::Tcp(5000));
+        let res = container.get_host_port_ipv4(5000.tcp());
         assert!(res.is_ok());
         Ok(())
     }
@@ -147,8 +150,8 @@ mod tests {
     fn sync_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
         let container = image
-            .with_mapped_port((124, ExposedPort::Tcp(456)))
-            .with_mapped_port((556, ExposedPort::Tcp(888)))
+            .with_mapped_port(124, 456.tcp())
+            .with_mapped_port(556, 888.tcp())
             .start()?;
 
         let container_details = inspect(container.id());
