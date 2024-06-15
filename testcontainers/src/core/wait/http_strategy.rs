@@ -4,7 +4,7 @@ use bytes::Bytes;
 use url::{Host, Url};
 
 use crate::{
-    core::{error::WaitContainerError, wait::WaitStrategy, ContainerPort},
+    core::{client::Client, error::WaitContainerError, wait::WaitStrategy, ContainerPort},
     ContainerAsync, Image, TestcontainersError,
 };
 
@@ -205,6 +205,7 @@ impl HttpWaitStrategy {
 impl WaitStrategy for HttpWaitStrategy {
     async fn wait_until_ready<I: Image>(
         self,
+        _client: &Client,
         container: &ContainerAsync<I>,
     ) -> crate::core::error::Result<()> {
         let host = container.get_host().await?;

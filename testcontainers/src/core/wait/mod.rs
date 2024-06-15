@@ -3,15 +3,20 @@ use std::{env::var, fmt::Debug, time::Duration};
 use bytes::Bytes;
 pub use http_strategy::HttpWaitStrategy;
 
-use crate::Image;
+use crate::{
+    core::{client::Client, error::WaitContainerError, wait::health_strategy::HealthWaitStrategy},
+    ContainerAsync, Image,
+};
 
 pub(crate) mod cmd_wait;
+pub(crate) mod health_strategy;
 pub(crate) mod http_strategy;
 
 pub(crate) trait WaitStrategy {
     async fn wait_until_ready<I: Image>(
         self,
-        container: &crate::ContainerAsync<I>,
+        client: &Client,
+        container: &ContainerAsync<I>,
     ) -> crate::core::error::Result<()>;
 }
 
@@ -95,5 +100,41 @@ impl WaitFor {
 impl From<HttpWaitStrategy> for WaitFor {
     fn from(value: HttpWaitStrategy) -> Self {
         Self::Http(value)
+    }
+}
+
+impl WaitStrategy for WaitFor {
+    async fn wait_until_ready<I: Image>(
+        self,
+        client: &Client,
+        container: &ContainerAsync<I>,
+    ) -> crate::core::error::Result<()> {
+        match self {
+            // TODO: introduce log-followers feature and switch to it (wait for signal from follower).
+            //  Thus, avoiding multiple log requests.
+            WaitFor::StdOutMessage { message } => client
+                .stdout_logs(container.id(), true)
+                .wait_for_message(message)
+                .await
+                .map_err(WaitContainerError::from)?,
+            WaitFor::StdErrMessage { message } => client
+                .stderr_logs(container.id(), true)
+                .wait_for_message(message)
+                .await
+                .map_err(WaitContainerError::from)?,
+            WaitFor::Duration { length } => {
+                tokio::time::sleep(length).await;
+            }
+            WaitFor::Healthcheck => {
+                HealthWaitStrategy
+                    .wait_until_ready(client, container)
+                    .await?;
+            }
+            WaitFor::Http(http_strategy) => {
+                http_strategy.wait_until_ready(client, container).await?;
+            }
+            WaitFor::Nothing => {}
+        }
+        Ok(())
     }
 }

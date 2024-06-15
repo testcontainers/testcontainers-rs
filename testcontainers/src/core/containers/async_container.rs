@@ -9,7 +9,7 @@ use crate::{
     core::{
         client::Client,
         env,
-        error::{ContainerMissingInfo, ExecError, Result, TestcontainersError, WaitContainerError},
+        error::{ContainerMissingInfo, ExecError, Result, TestcontainersError},
         macros,
         network::Network,
         ports::Ports,
@@ -303,50 +303,9 @@ where
         let id = self.id();
 
         for condition in ready_conditions {
-            match condition {
-                WaitFor::StdOutMessage { message } => self
-                    .docker_client
-                    .stdout_logs(id, true)
-                    .wait_for_message(message)
-                    .await
-                    .map_err(WaitContainerError::from)?,
-                WaitFor::StdErrMessage { message } => self
-                    .docker_client
-                    .stderr_logs(id, true)
-                    .wait_for_message(message)
-                    .await
-                    .map_err(WaitContainerError::from)?,
-                WaitFor::Duration { length } => {
-                    tokio::time::sleep(length).await;
-                }
-                WaitFor::Healthcheck => loop {
-                    use bollard::models::HealthStatusEnum::*;
-
-                    let health_status = self
-                        .docker_client
-                        .inspect(id)
-                        .await?
-                        .state
-                        .ok_or(WaitContainerError::StateUnavailable)?
-                        .health
-                        .and_then(|health| health.status);
-
-                    match health_status {
-                        Some(HEALTHY) => break,
-                        None | Some(EMPTY) | Some(NONE) => {
-                            Err(WaitContainerError::HealthCheckNotConfigured(id.to_string()))?
-                        }
-                        Some(UNHEALTHY) => Err(WaitContainerError::Unhealthy)?,
-                        Some(STARTING) => {
-                            tokio::time::sleep(Duration::from_millis(100)).await;
-                        }
-                    }
-                },
-                WaitFor::Http(http_strategy) => {
-                    http_strategy.wait_until_ready(self).await?;
-                }
-                WaitFor::Nothing => {}
-            }
+            condition
+                .wait_until_ready(&self.docker_client, self)
+                .await?;
         }
 
         log::debug!("Container {id} is now ready!");
