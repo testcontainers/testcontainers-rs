@@ -32,7 +32,7 @@ pub enum WaitFor {
     /// Wait for a certain amount of time.
     Duration { length: Duration },
     /// Wait for the container's status to become `healthy`.
-    Healthcheck,
+    Healthcheck(HealthWaitStrategy),
     /// Wait for a certain HTTP response.
     Http(HttpWaitStrategy),
 }
@@ -53,8 +53,11 @@ impl WaitFor {
     }
 
     /// Wait for the container to become healthy.
+    ///
+    /// If you need to customize polling interval, use [`HealthWaitStrategy::with_poll_interval`]
+    /// and create the strategy [`WaitFor::Healthcheck`] manually.
     pub fn healthcheck() -> WaitFor {
-        WaitFor::Healthcheck
+        WaitFor::Healthcheck(HealthWaitStrategy::new())
     }
 
     /// Wait for a certain HTTP response.
@@ -125,13 +128,11 @@ impl WaitStrategy for WaitFor {
             WaitFor::Duration { length } => {
                 tokio::time::sleep(length).await;
             }
-            WaitFor::Healthcheck => {
-                HealthWaitStrategy
-                    .wait_until_ready(client, container)
-                    .await?;
+            WaitFor::Healthcheck(strategy) => {
+                strategy.wait_until_ready(client, container).await?;
             }
-            WaitFor::Http(http_strategy) => {
-                http_strategy.wait_until_ready(client, container).await?;
+            WaitFor::Http(strategy) => {
+                strategy.wait_until_ready(client, container).await?;
             }
             WaitFor::Nothing => {}
         }

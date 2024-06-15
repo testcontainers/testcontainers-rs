@@ -7,7 +7,25 @@ use crate::{
     ContainerAsync, Image,
 };
 
-pub(crate) struct HealthWaitStrategy;
+#[derive(Debug, Clone)]
+pub struct HealthWaitStrategy {
+    poll_interval: Duration,
+}
+
+impl HealthWaitStrategy {
+    /// Create a new `HealthWaitStrategy` with default settings.
+    pub fn new() -> Self {
+        Self {
+            poll_interval: Duration::from_millis(100),
+        }
+    }
+
+    /// Set the poll interval for checking the container's health status.
+    pub fn with_poll_interval(mut self, poll_interval: Duration) -> Self {
+        self.poll_interval = poll_interval;
+        self
+    }
+}
 
 impl WaitStrategy for HealthWaitStrategy {
     async fn wait_until_ready<I: Image>(
@@ -31,7 +49,7 @@ impl WaitStrategy for HealthWaitStrategy {
                 )?,
                 Some(UNHEALTHY) => Err(WaitContainerError::Unhealthy)?,
                 Some(STARTING) => {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    tokio::time::sleep(self.poll_interval).await;
                 }
             }
         }
