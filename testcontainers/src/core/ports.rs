@@ -2,6 +2,10 @@ use std::{collections::HashMap, net::IpAddr, num::ParseIntError};
 
 use bollard_stubs::models::{PortBinding, PortMap};
 
+/// Represents a port that is exposed by a container.
+///
+/// There is a helper [`IntoContainerPort`] trait to convert a `u16` into a [`ContainerPort`].
+/// Also, `u16` can be directly converted into a `ContainerPort` using `Into::into`, it will default to `ContainerPort::Tcp`.
 #[derive(
     parse_display::Display, parse_display::FromStr, Debug, Clone, Copy, Eq, PartialEq, Hash,
 )]
@@ -15,7 +19,7 @@ pub enum ContainerPort {
 }
 
 /// A trait to allow easy conversion of a `u16` into a `ContainerPort`.
-/// For example, `123.tcp()` is equivalent to `ContainerPort::Tcp(123)`.
+/// For example, `123.udp()` is equivalent to `ContainerPort::Udp(123)`.
 pub trait IntoContainerPort {
     fn tcp(self) -> ContainerPort;
     fn udp(self) -> ContainerPort;
@@ -138,6 +142,12 @@ impl IntoContainerPort for u16 {
 
     fn sctp(self) -> ContainerPort {
         ContainerPort::Sctp(self)
+    }
+}
+
+impl From<u16> for ContainerPort {
+    fn from(port: u16) -> Self {
+        ContainerPort::Tcp(port)
     }
 }
 
