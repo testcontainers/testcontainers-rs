@@ -1,8 +1,9 @@
 use std::time::Duration;
 
 use bollard::Docker;
+use reqwest::StatusCode;
 use testcontainers::{
-    core::{CmdWaitFor, ExecCommand, WaitFor},
+    core::{wait::HttpWaitStrategy, CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor},
     runners::AsyncRunner,
     GenericImage, *,
 };
@@ -130,6 +131,19 @@ async fn async_run_exec() -> anyhow::Result<()> {
     let mut stderr = String::new();
     res.stderr().read_to_string(&mut stderr).await?;
     assert_eq!(stderr, "stderr 1\nstderr 2\n");
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_wait_for_http() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("simple_web_server", "latest")
+        .with_exposed_port(80.tcp())
+        .with_wait_for(WaitFor::http(
+            HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK),
+        ));
+    let _container = image.start().await?;
     Ok(())
 }
 

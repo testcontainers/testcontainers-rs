@@ -1,15 +1,16 @@
 use std::{borrow::Cow, fmt::Debug};
 
-pub use exec::{CmdWaitFor, ExecCommand};
+pub use exec::ExecCommand;
 pub use image_ext::ImageExt;
-pub use wait_for::WaitFor;
 
 use super::ports::{ContainerPort, Ports};
-use crate::{core::mounts::Mount, TestcontainersError};
+use crate::{
+    core::{mounts::Mount, WaitFor},
+    TestcontainersError,
+};
 
 mod exec;
 mod image_ext;
-mod wait_for;
 
 /// Represents a docker image.
 ///
