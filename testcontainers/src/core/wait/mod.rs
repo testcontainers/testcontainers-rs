@@ -1,17 +1,23 @@
 use std::{env::var, fmt::Debug, time::Duration};
 
 use bytes::Bytes;
+pub use health_strategy::HealthWaitStrategy;
 pub use http_strategy::HttpWaitStrategy;
 
-use crate::Image;
+use crate::{
+    core::{client::Client, error::WaitContainerError},
+    ContainerAsync, Image,
+};
 
 pub(crate) mod cmd_wait;
+pub(crate) mod health_strategy;
 pub(crate) mod http_strategy;
 
 pub(crate) trait WaitStrategy {
     async fn wait_until_ready<I: Image>(
         self,
-        container: &crate::ContainerAsync<I>,
+        client: &Client,
+        container: &ContainerAsync<I>,
     ) -> crate::core::error::Result<()>;
 }
 
@@ -27,7 +33,7 @@ pub enum WaitFor {
     /// Wait for a certain amount of time.
     Duration { length: Duration },
     /// Wait for the container's status to become `healthy`.
-    Healthcheck,
+    Healthcheck(HealthWaitStrategy),
     /// Wait for a certain HTTP response.
     Http(HttpWaitStrategy),
 }
@@ -48,8 +54,11 @@ impl WaitFor {
     }
 
     /// Wait for the container to become healthy.
+    ///
+    /// If you need to customize polling interval, use [`HealthWaitStrategy::with_poll_interval`]
+    /// and create the strategy [`WaitFor::Healthcheck`] manually.
     pub fn healthcheck() -> WaitFor {
-        WaitFor::Healthcheck
+        WaitFor::Healthcheck(HealthWaitStrategy::default())
     }
 
     /// Wait for a certain HTTP response.
@@ -95,5 +104,39 @@ impl WaitFor {
 impl From<HttpWaitStrategy> for WaitFor {
     fn from(value: HttpWaitStrategy) -> Self {
         Self::Http(value)
+    }
+}
+
+impl WaitStrategy for WaitFor {
+    async fn wait_until_ready<I: Image>(
+        self,
+        client: &Client,
+        container: &ContainerAsync<I>,
+    ) -> crate::core::error::Result<()> {
+        match self {
+            // TODO: introduce log-followers feature and switch to it (wait for signal from follower).
+            //  Thus, avoiding multiple log requests.
+            WaitFor::StdOutMessage { message } => client
+                .stdout_logs(container.id(), true)
+                .wait_for_message(message)
+                .await
+                .map_err(WaitContainerError::from)?,
+            WaitFor::StdErrMessage { message } => client
+                .stderr_logs(container.id(), true)
+                .wait_for_message(message)
+                .await
+                .map_err(WaitContainerError::from)?,
+            WaitFor::Duration { length } => {
+                tokio::time::sleep(length).await;
+            }
+            WaitFor::Healthcheck(strategy) => {
+                strategy.wait_until_ready(client, container).await?;
+            }
+            WaitFor::Http(strategy) => {
+                strategy.wait_until_ready(client, container).await?;
+            }
+            WaitFor::Nothing => {}
+        }
+        Ok(())
     }
 }
