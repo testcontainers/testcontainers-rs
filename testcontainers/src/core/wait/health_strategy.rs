@@ -56,3 +56,9 @@ impl WaitStrategy for HealthWaitStrategy {
         Ok(())
     }
 }
+
+impl Default for HealthWaitStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
+}

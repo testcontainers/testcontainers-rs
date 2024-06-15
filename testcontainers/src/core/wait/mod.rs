@@ -1,10 +1,11 @@
 use std::{env::var, fmt::Debug, time::Duration};
 
 use bytes::Bytes;
+pub use health_strategy::HealthWaitStrategy;
 pub use http_strategy::HttpWaitStrategy;
 
 use crate::{
-    core::{client::Client, error::WaitContainerError, wait::health_strategy::HealthWaitStrategy},
+    core::{client::Client, error::WaitContainerError},
     ContainerAsync, Image,
 };
 
@@ -57,7 +58,7 @@ impl WaitFor {
     /// If you need to customize polling interval, use [`HealthWaitStrategy::with_poll_interval`]
     /// and create the strategy [`WaitFor::Healthcheck`] manually.
     pub fn healthcheck() -> WaitFor {
-        WaitFor::Healthcheck(HealthWaitStrategy::new())
+        WaitFor::Healthcheck(HealthWaitStrategy::default())
     }
 
     /// Wait for a certain HTTP response.
