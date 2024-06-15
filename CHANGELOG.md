@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.0] - 2024-06-15
+### Details
+#### Bug Fixes
+- [❗] Make `DOCKER_CONFIG` usage consistent with Docker CLI ([#654](https://github.com/testcontainers/testcontainers-rs/pull/654))
+
+#### Features
+- [❗] Support UDP and SCTP port mappings ([#655](https://github.com/testcontainers/testcontainers-rs/pull/655))
+- Impl `From<u16>` for `ContainerPort` with TCP default ([#658](https://github.com/testcontainers/testcontainers-rs/pull/658))
+- Support HTTP wait strategy ([#659](https://github.com/testcontainers/testcontainers-rs/pull/659))
+- Allow passing `u16` to `Ports`
+
+#### Miscellaneous Tasks
+- Use nightly `rustfmt` ([#657](https://github.com/testcontainers/testcontainers-rs/pull/657))
+
+#### Refactor
+- [❗] Get rid of associated type `ImageArgs` and rename to `cmd` ([#649](https://github.com/testcontainers/testcontainers-rs/pull/649))
+- Avoid unnecessary owned structs and boxing ([#651](https://github.com/testcontainers/testcontainers-rs/pull/651))
+- [❗] Add `ImageExt` trait to avoid explicit conversion to `RunnableImage` ([#652](https://github.com/testcontainers/testcontainers-rs/pull/652))
+- [❗] Rename `RunnableImage` to `ContainerRequest` ([#653](https://github.com/testcontainers/testcontainers-rs/pull/653))
+- [❗] Exposed and mapped ports api ([#656](https://github.com/testcontainers/testcontainers-rs/pull/656))
+- Preliminary refactoring of `wait` strategies ([#661](https://github.com/testcontainers/testcontainers-rs/pull/661))
 ## [0.17.0] - 2024-05-26
 ### Details
 #### Bug Fixes
