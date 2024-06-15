@@ -290,7 +290,7 @@ mod tests {
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start().await?;
         container
-            .get_host_port_ipv4(5000.tcp())
+            .get_host_port_ipv4(5000)
             .await
             .expect("Port should be mapped");
         Ok(())

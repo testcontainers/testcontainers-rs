@@ -90,9 +90,13 @@ where
     /// Returns the mapped host port for an internal port of this docker container, on the host's
     /// IPv4 interfaces.
     ///
+    /// By default, `u16` is considered as TCP port. Also, you can convert `u16` to [`ContainerPort`] port
+    /// by using [`crate::core::IntoContainerPort`] trait.
+    ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method will return an error.
-    pub async fn get_host_port_ipv4(&self, internal_port: ContainerPort) -> Result<u16> {
+    pub async fn get_host_port_ipv4(&self, internal_port: impl Into<ContainerPort>) -> Result<u16> {
+        let internal_port = internal_port.into();
         self.ports()
             .await?
             .map_to_host_port_ipv4(internal_port)
@@ -105,9 +109,13 @@ where
     /// Returns the mapped host port for an internal port of this docker container, on the host's
     /// IPv6 interfaces.
     ///
+    /// By default, `u16` is considered as TCP port. Also, you can convert `u16` to [`ContainerPort`] port
+    /// by using [`crate::core::IntoContainerPort`] trait.
+    ///
     /// This method does **not** magically expose the given port, it simply performs a mapping on
     /// the already exposed ports. If a docker container does not expose a port, this method will return an error.
-    pub async fn get_host_port_ipv6(&self, internal_port: ContainerPort) -> Result<u16> {
+    pub async fn get_host_port_ipv6(&self, internal_port: impl Into<ContainerPort>) -> Result<u16> {
+        let internal_port = internal_port.into();
         self.ports()
             .await?
             .map_to_host_port_ipv6(internal_port)
