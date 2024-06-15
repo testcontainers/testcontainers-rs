@@ -12,6 +12,7 @@ enum with the following variants:
 * `StdOutMessage` - wait for a specific message to appear on the container's stdout
 * `StdErrMessage` - wait for a specific message to appear on the container's stderr
 * `Healthcheck` - wait for the container to be healthy
+* `Http` - wait for an HTTP(S) response with predefined conditions (see [`HttpWaitStrategy`](https://docs.rs/testcontainers/latest/testcontainers/core/wait/struct.HttpWaitStrategy.html) for more details)
 * `Duration` - wait for a specific duration. Usually less preferable and better to combine with other strategies.
 
 [`Image`](https://docs.rs/testcontainers/latest/testcontainers/core/trait.Image.html) implementation
