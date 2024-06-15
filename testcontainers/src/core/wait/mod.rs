@@ -1,7 +1,7 @@
 use std::{env::var, fmt::Debug, time::Duration};
 
 use bytes::Bytes;
-use http_strategy::HttpWaitStrategy;
+pub use http_strategy::HttpWaitStrategy;
 
 use crate::Image;
 

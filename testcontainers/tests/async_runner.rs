@@ -3,7 +3,7 @@ use std::time::Duration;
 use bollard::Docker;
 use reqwest::StatusCode;
 use testcontainers::{
-    core::{CmdWaitFor, ExecCommand, HttpWaitStrategy, IntoContainerPort, WaitFor},
+    core::{wait::HttpWaitStrategy, CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor},
     runners::AsyncRunner,
     GenericImage, *,
 };

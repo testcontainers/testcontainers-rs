@@ -2,7 +2,7 @@
 
 use reqwest::StatusCode;
 use testcontainers::{
-    core::{CmdWaitFor, ExecCommand, Host, HttpWaitStrategy, IntoContainerPort, WaitFor},
+    core::{wait::HttpWaitStrategy, CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor},
     runners::SyncRunner,
     *,
 };
