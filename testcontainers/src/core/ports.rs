@@ -67,13 +67,13 @@ impl Ports {
     }
 
     /// Returns the host port for the given internal container's port, on the host's IPv4 interfaces.
-    pub fn map_to_host_port_ipv4(&self, container_port: ContainerPort) -> Option<u16> {
-        self.ipv4_mapping.get(&container_port).cloned()
+    pub fn map_to_host_port_ipv4(&self, container_port: impl Into<ContainerPort>) -> Option<u16> {
+        self.ipv4_mapping.get(&container_port.into()).cloned()
     }
 
     /// Returns the host port for the given internal container's port, on the host's IPv6 interfaces.
-    pub fn map_to_host_port_ipv6(&self, container_port: ContainerPort) -> Option<u16> {
-        self.ipv6_mapping.get(&container_port).cloned()
+    pub fn map_to_host_port_ipv6(&self, container_port: impl Into<ContainerPort>) -> Option<u16> {
+        self.ipv6_mapping.get(&container_port.into()).cloned()
     }
 }
 
