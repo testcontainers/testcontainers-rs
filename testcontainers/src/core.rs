@@ -16,5 +16,5 @@ pub(crate) mod logs;
 pub(crate) mod macros;
 pub(crate) mod mounts;
 pub(crate) mod network;
-pub(crate) mod ports;
+pub mod ports;
 pub mod wait;
