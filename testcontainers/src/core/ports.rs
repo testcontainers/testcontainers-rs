@@ -131,6 +131,15 @@ impl TryFrom<PortMap> for Ports {
     }
 }
 
+impl ContainerPort {
+    /// Returns the port number, regardless of the protocol.
+    pub fn as_u16(self) -> u16 {
+        match self {
+            ContainerPort::Tcp(port) | ContainerPort::Udp(port) | ContainerPort::Sctp(port) => port,
+        }
+    }
+}
+
 impl IntoContainerPort for u16 {
     fn tcp(self) -> ContainerPort {
         ContainerPort::Tcp(self)
