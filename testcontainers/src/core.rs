@@ -8,12 +8,12 @@ pub use self::{
 
 mod image;
 
+pub(crate) mod async_drop;
 pub(crate) mod client;
 pub(crate) mod containers;
 pub(crate) mod env;
 pub mod error;
 pub(crate) mod logs;
-pub(crate) mod macros;
 pub(crate) mod mounts;
 pub(crate) mod network;
 pub mod ports;
