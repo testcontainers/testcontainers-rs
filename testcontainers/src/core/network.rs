@@ -4,11 +4,12 @@ use std::{
     sync::{Arc, OnceLock, Weak},
 };
 
-use tokio::{runtime::RuntimeFlavor, sync::Mutex};
+use tokio::sync::Mutex;
 
 use crate::core::{
+    async_drop,
     client::{Client, ClientError},
-    env, macros,
+    env,
 };
 
 pub(crate) static CREATED_NETWORKS: OnceLock<Mutex<HashMap<String, Weak<Network>>>> =
@@ -87,7 +88,7 @@ impl Drop for Network {
                 }
             };
 
-            macros::block_on!(drop_task, "failed to remove network on drop");
+            async_drop::async_drop(drop_task);
         }
     }
 }

@@ -1,16 +1,13 @@
 use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
-use tokio::{
-    io::{AsyncBufRead, AsyncReadExt},
-    runtime::RuntimeFlavor,
-};
+use tokio::io::{AsyncBufRead, AsyncReadExt};
 
 use crate::{
     core::{
+        async_drop,
         client::Client,
         env,
         error::{ContainerMissingInfo, ExecError, Result, TestcontainersError},
-        macros,
         network::Network,
         ports::Ports,
         wait::WaitStrategy,
@@ -352,7 +349,8 @@ where
                 log::debug!("Container {id} was successfully dropped");
             };
 
-            macros::block_on!(drop_task, "failed to remove container on drop");
+            async_drop::async_drop(drop_task);
+            // async_drop::block_on!(drop_task, "failed to remove container on drop");
         }
     }
 }
