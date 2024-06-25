@@ -12,7 +12,7 @@ static ASYNC_RUNTIME: OnceLock<Mutex<Weak<tokio::runtime::Runtime>>> = OnceLock:
 /// ## Example
 ///
 /// ```rust,no_run
-/// use testcontainers::{core::{WaitFor, IntoContainerPort}, runners::SyncRunner, GenericImage};
+/// use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::SyncRunner, GenericImage};
 ///
 /// fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
