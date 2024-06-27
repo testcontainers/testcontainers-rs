@@ -70,6 +70,8 @@ impl HttpWaitStrategy {
     /// Set the custom client for the request.
     ///
     /// Allows to customize the client, enabling features like TLS, accept_invalid_certs, proxies, etc.
+    /// If you need to use particular features of `reqwest`, just add `reqwest` to your dependencies with desired features enabled.
+    /// After that, you can create a client with the desired configuration and pass it to the wait strategy.
     pub fn with_client(mut self, client: reqwest::Client) -> Self {
         self.client = Some(client);
         self
