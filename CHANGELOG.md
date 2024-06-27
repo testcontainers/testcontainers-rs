@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.0] - 2024-06-27
+### Details
+#### Bug Fixes
+- [❗] Use `rustls-tls` as default for `reqwest` ([#672](https://github.com/testcontainers/testcontainers-rs/pull/672))
+
+#### Documentation
+- Update examples of `GenericImage::with_exposed_port` ([#670](https://github.com/testcontainers/testcontainers-rs/pull/670))
+
+#### Features
+- Add ability to convert `ContainerPort` to `u16` ([#664](https://github.com/testcontainers/testcontainers-rs/pull/664))
+
+#### Miscellaneous Tasks
+- Make `ports` module public ([#665](https://github.com/testcontainers/testcontainers-rs/pull/665))
+
+#### Performance
+- Use separate dropper thread for `current_thread` flavor ([#666](https://github.com/testcontainers/testcontainers-rs/pull/666))
+
+#### Refactor
+- Use multi-threaded runtime for blocking feature ([#667](https://github.com/testcontainers/testcontainers-rs/pull/667))
 ## [0.18.0] - 2024-06-15
 ### Details
 #### Bug Fixes
