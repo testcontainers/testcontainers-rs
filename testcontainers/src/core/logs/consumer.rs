@@ -14,7 +14,7 @@ where
 {
     fn accept<'a>(&'a self, record: &'a LogFrame) -> BoxFuture<'a, ()> {
         // preferably to spawn blocking task
-        async {
+        async move {
             self(record);
         }
         .boxed()
