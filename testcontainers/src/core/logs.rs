@@ -26,7 +26,7 @@ pub enum WaitLogError {
 
 #[derive(Copy, Clone, Debug, parse_display::Display)]
 #[display(style = "lowercase")]
-pub(crate) enum LogSource {
+pub enum LogSource {
     StdOut,
     StdErr,
 }
@@ -42,6 +42,13 @@ impl LogSource {
 }
 
 impl LogFrame {
+    pub fn source(&self) -> LogSource {
+        match self {
+            LogFrame::StdOut(_) => LogSource::StdOut,
+            LogFrame::StdErr(_) => LogSource::StdErr,
+        }
+    }
+
     pub fn bytes(&self) -> &Bytes {
         match self {
             LogFrame::StdOut(bytes) => bytes,
@@ -74,23 +81,29 @@ impl WaitingStreamWrapper {
     pub(crate) async fn wait_for_message(
         &mut self,
         message: impl AsRef<[u8]>,
+        times: usize,
     ) -> Result<(), WaitLogError> {
         let msg_finder = Finder::new(message.as_ref());
         let mut messages = Vec::new();
+        let mut found_times = 0;
         while let Some(message) = self.inner.next().await.transpose()? {
             messages.push(message.clone());
             if self.enable_cache {
                 self.cache.push(Ok(message.clone()));
             }
             let match_found = msg_finder.find(message.as_ref()).is_some();
-            if match_found {
-                log::debug!("Found message after comparing {} lines", messages.len());
+            found_times += usize::from(match_found); // can't overflow, because of check below
+            if found_times == times {
+                log::debug!(
+                    "Message found {times} times after comparing {} lines",
+                    messages.len()
+                );
                 return Ok(());
             }
         }
 
         log::warn!(
-            "Failed to find message '{}' after comparing {} lines.",
+            "Failed to find message '{}' {times} times after comparing {} lines.",
             String::from_utf8_lossy(message.as_ref()),
             messages.len()
         );
@@ -125,11 +138,14 @@ mod tests {
             Message one
             Message two
             Message three
+            Message three
         "
         .into())])));
 
-        let result = log_stream.wait_for_message("Message three").await;
+        let result = log_stream.wait_for_message("Message three", 2).await;
+        assert!(result.is_ok());
 
-        assert!(result.is_ok())
+        let result = log_stream.wait_for_message("Message two", 2).await;
+        assert!(result.is_err());
     }
 }

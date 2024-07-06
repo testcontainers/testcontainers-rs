@@ -39,9 +39,7 @@ where
     /// up.
     ///
     /// The conditions returned from this method are evaluated **in the order** they are returned. Therefore
-    /// you most likely want to start with a [`WaitFor::StdOutMessage`] or [`WaitFor::StdErrMessage`] and
-    /// potentially follow up with a [`WaitFor::Duration`] in case the container usually needs a little
-    /// more time before it is ready.
+    /// you most likely want to start with a [`WaitFor::Log`] or [`WaitFor::Http`].
     fn ready_conditions(&self) -> Vec<WaitFor>;
 
     /// Returns the environment variables that needs to be set when a container is created.
