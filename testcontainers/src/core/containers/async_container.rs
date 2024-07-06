@@ -77,7 +77,7 @@ where
                         }
                     }
                     Err(err) => {
-                        log::error!("Failed to read log frame for container {container_id}: {err}",);
+                        log::warn!("Failed to read log frame for container {container_id}: {err}",);
                     }
                 }
             }
