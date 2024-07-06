@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    core::{logs::consumer::LogConsumer, CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
+    core::{CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
     ContainerRequest, Image,
 };
 
