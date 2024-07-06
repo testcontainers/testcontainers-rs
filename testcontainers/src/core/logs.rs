@@ -134,13 +134,12 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn given_logs_when_line_contains_message_should_find_it() {
-        let mut log_stream = WaitingStreamWrapper::new(Box::pin(futures::stream::iter([Ok(r"
-            Message one
-            Message two
-            Message three
-            Message three
-        "
-        .into())])));
+        let mut log_stream = WaitingStreamWrapper::new(Box::pin(futures::stream::iter([
+            Ok("Message one"),
+            Ok("Message two"),
+            Ok("Message three"),
+            Ok("Message three"),
+        ])));
 
         let result = log_stream.wait_for_message("Message three", 2).await;
         assert!(result.is_ok());
