@@ -1,13 +1,21 @@
-use std::{borrow::Cow, collections::BTreeMap, net::IpAddr, time::Duration};
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    fmt::{Debug, Formatter},
+    net::IpAddr,
+    time::Duration,
+};
 
 use crate::{
-    core::{mounts::Mount, ports::ContainerPort, ContainerState, ExecCommand, WaitFor},
+    core::{
+        logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort, ContainerState,
+        ExecCommand, WaitFor,
+    },
     Image, TestcontainersError,
 };
 
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
-#[derive(Debug, Clone)]
 pub struct ContainerRequest<I: Image> {
     pub(crate) image: I,
     pub(crate) overridden_cmd: Vec<String>,
@@ -24,6 +32,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) cgroupns_mode: Option<CgroupnsMode>,
     pub(crate) userns_mode: Option<String>,
     pub(crate) startup_timeout: Option<Duration>,
+    pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -164,6 +173,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             cgroupns_mode: None,
             userns_mode: None,
             startup_timeout: None,
+            log_consumers: vec![],
         }
     }
 }
@@ -182,5 +192,27 @@ impl PortMapping {
 
     pub fn container_port(&self) -> ContainerPort {
         self.container_port
+    }
+}
+
+impl<I: Image + Debug> Debug for ContainerRequest<I> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContainerRequest")
+            .field("image", &self.image)
+            .field("overridden_cmd", &self.overridden_cmd)
+            .field("image_name", &self.image_name)
+            .field("image_tag", &self.image_tag)
+            .field("container_name", &self.container_name)
+            .field("network", &self.network)
+            .field("env_vars", &self.env_vars)
+            .field("hosts", &self.hosts)
+            .field("mounts", &self.mounts)
+            .field("ports", &self.ports)
+            .field("privileged", &self.privileged)
+            .field("shm_size", &self.shm_size)
+            .field("cgroupns_mode", &self.cgroupns_mode)
+            .field("userns_mode", &self.userns_mode)
+            .field("startup_timeout", &self.startup_timeout)
+            .finish()
     }
 }

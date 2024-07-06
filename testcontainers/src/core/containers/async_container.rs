@@ -53,16 +53,35 @@ where
     pub(crate) async fn new(
         id: String,
         docker_client: Arc<Client>,
-        image: ContainerRequest<I>,
+        mut container_req: ContainerRequest<I>,
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
+        let log_consumers = std::mem::take(&mut container_req.log_consumers);
         let container = ContainerAsync {
             id,
-            image,
+            image: container_req,
             docker_client,
             network,
             dropped: false,
         };
+
+        let mut logs = container.docker_client.logs(&container.id, true);
+        let container_id = container.id.clone();
+        tokio::spawn(async move {
+            while let Some(result) = logs.next().await {
+                match result {
+                    Ok(record) => {
+                        for consumer in &log_consumers {
+                            consumer.accept(&record).await;
+                            tokio::task::yield_now().await;
+                        }
+                    }
+                    Err(err) => {
+                        log::error!("Failed to read log frame for container {container_id}: {err}",);
+                    }
+                }
+            }
+        });
 
         let ready_conditions = container.image().ready_conditions();
         container.block_until_ready(ready_conditions).await?;
