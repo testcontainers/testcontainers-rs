@@ -16,6 +16,7 @@ use crate::{
 
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
+#[derive(Debug)]
 pub struct ContainerRequest<I: Image> {
     pub(crate) image: I,
     pub(crate) overridden_cmd: Vec<String>,
