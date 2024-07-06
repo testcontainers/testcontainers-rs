@@ -52,8 +52,8 @@ where
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
-        let runnable_image = self.into();
-        let startup_timeout = runnable_image
+        let container_req = self.into();
+        let startup_timeout = container_req
             .startup_timeout()
             .unwrap_or(DEFAULT_STARTUP_TIMEOUT);
 
@@ -61,25 +61,25 @@ where
             let client = Client::lazy_client().await?;
             let mut create_options: Option<CreateContainerOptions<String>> = None;
 
-            let extra_hosts: Vec<_> = runnable_image
+            let extra_hosts: Vec<_> = container_req
                 .hosts()
                 .map(|(key, value)| format!("{key}:{value}"))
                 .collect();
 
             let mut config: Config<String> = Config {
-                image: Some(runnable_image.descriptor()),
+                image: Some(container_req.descriptor()),
                 host_config: Some(HostConfig {
-                    privileged: Some(runnable_image.privileged()),
+                    privileged: Some(container_req.privileged()),
                     extra_hosts: Some(extra_hosts),
-                    cgroupns_mode: runnable_image.cgroupns_mode().map(|mode| mode.into()),
-                    userns_mode: runnable_image.userns_mode().map(|v| v.to_string()),
+                    cgroupns_mode: container_req.cgroupns_mode().map(|mode| mode.into()),
+                    userns_mode: container_req.userns_mode().map(|v| v.to_string()),
                     ..Default::default()
                 }),
                 ..Default::default()
             };
 
             // shared memory
-            if let Some(bytes) = runnable_image.shm_size() {
+            if let Some(bytes) = container_req.shm_size() {
                 config.host_config = config.host_config.map(|mut host_config| {
                     host_config.shm_size = Some(bytes as i64);
                     host_config
@@ -87,7 +87,7 @@ where
             }
 
             // create network and add it to container creation
-            let network = if let Some(network) = runnable_image.network() {
+            let network = if let Some(network) = container_req.network() {
                 config.host_config = config.host_config.map(|mut host_config| {
                     host_config.network_mode = Some(network.to_string());
                     host_config
@@ -98,7 +98,7 @@ where
             };
 
             // name of the container
-            if let Some(name) = runnable_image.container_name() {
+            if let Some(name) = container_req.container_name() {
                 create_options = Some(CreateContainerOptions {
                     name: name.to_owned(),
                     platform: None,
@@ -106,14 +106,14 @@ where
             }
 
             // handle environment variables
-            let envs: Vec<String> = runnable_image
+            let envs: Vec<String> = container_req
                 .env_vars()
                 .map(|(k, v)| format!("{k}={v}"))
                 .collect();
             config.env = Some(envs);
 
             // mounts and volumes
-            let mounts: Vec<_> = runnable_image.mounts().map(Into::into).collect();
+            let mounts: Vec<_> = container_req.mounts().map(Into::into).collect();
 
             if !mounts.is_empty() {
                 config.host_config = config.host_config.map(|mut host_config| {
@@ -123,11 +123,11 @@ where
             }
 
             // entrypoint
-            if let Some(entrypoint) = runnable_image.entrypoint() {
+            if let Some(entrypoint) = container_req.entrypoint() {
                 config.entrypoint = Some(vec![entrypoint.to_string()]);
             }
 
-            let is_container_networked = runnable_image
+            let is_container_networked = container_req
                 .network()
                 .as_ref()
                 .map(|network| network.starts_with("container:"))
@@ -135,12 +135,12 @@ where
 
             // expose ports
             if !is_container_networked {
-                let mapped_ports = runnable_image
+                let mapped_ports = container_req
                     .ports()
                     .map(|ports| ports.iter().map(|p| p.container_port).collect::<Vec<_>>())
                     .unwrap_or_default();
 
-                let ports_to_expose = runnable_image
+                let ports_to_expose = container_req
                     .expose_ports()
                     .iter()
                     .copied()
@@ -153,9 +153,9 @@ where
             }
 
             // ports
-            if runnable_image.ports().is_some() {
+            if container_req.ports().is_some() {
                 let empty: Vec<_> = Vec::new();
-                let bindings = runnable_image.ports().unwrap_or(&empty).iter().map(|p| {
+                let bindings = container_req.ports().unwrap_or(&empty).iter().map(|p| {
                     (
                         format!("{}", p.container_port),
                         Some(vec![PortBinding {
@@ -176,7 +176,7 @@ where
                 });
             }
 
-            let cmd: Vec<_> = runnable_image.cmd().map(|v| v.to_string()).collect();
+            let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
             if !cmd.is_empty() {
                 config.cmd = Some(cmd);
             }
@@ -192,7 +192,7 @@ where
                         status_code: 404, ..
                     },
                 )) => {
-                    client.pull_image(&runnable_image.descriptor()).await?;
+                    client.pull_image(&container_req.descriptor()).await?;
                     client.create_container(create_options, config).await
                 }
                 res => res,
@@ -206,7 +206,7 @@ where
             client.start_container(&container_id).await?;
 
             let container =
-                ContainerAsync::new(container_id, client.clone(), runnable_image, network).await?;
+                ContainerAsync::new(container_id, client.clone(), container_req, network).await?;
 
             let state = ContainerState::new(container.id(), container.ports().await?);
             for cmd in container.image().exec_after_start(state)? {
@@ -220,11 +220,11 @@ where
     }
 
     async fn pull_image(self) -> Result<ContainerRequest<I>> {
-        let runnable_image = self.into();
+        let container_req = self.into();
         let client = Client::lazy_client().await?;
-        client.pull_image(&runnable_image.descriptor()).await?;
+        client.pull_image(&container_req.descriptor()).await?;
 
-        Ok(runnable_image)
+        Ok(container_req)
     }
 }
 

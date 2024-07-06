@@ -20,9 +20,9 @@ pub trait ImageExt<I: Image> {
     ///
     /// assert!(overridden_cmd.cmd().eq(cmd));
     ///
-    /// let another_runnable_image = image.with_cmd(cmd);
+    /// let another_container_req = image.with_cmd(cmd);
     ///
-    /// assert!(another_runnable_image.cmd().eq(overridden_cmd.cmd()));
+    /// assert!(another_container_req.cmd().eq(overridden_cmd.cmd()));
     /// ```
     fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> ContainerRequest<I>;
 
@@ -86,43 +86,43 @@ pub trait ImageExt<I: Image> {
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
 impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_cmd(self, cmd: impl IntoIterator<Item = impl Into<String>>) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             overridden_cmd: cmd.into_iter().map(Into::into).collect(),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_name(self, name: impl Into<String>) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             image_name: Some(name.into()),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_tag(self, tag: impl Into<String>) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             image_tag: Some(tag.into()),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_container_name(self, name: impl Into<String>) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
 
         ContainerRequest {
             container_name: Some(name.into()),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             network: Some(network.into()),
-            ..runnable
+            ..container_req
         }
     }
 
@@ -131,21 +131,21 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         name: impl Into<String>,
         value: impl Into<String>,
     ) -> ContainerRequest<I> {
-        let mut runnable = self.into();
-        runnable.env_vars.insert(name.into(), value.into());
-        runnable
+        let mut container_req = self.into();
+        container_req.env_vars.insert(name.into(), value.into());
+        container_req
     }
 
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I> {
-        let mut runnable = self.into();
-        runnable.hosts.insert(key.into(), value.into());
-        runnable
+        let mut container_req = self.into();
+        container_req.hosts.insert(key.into(), value.into());
+        container_req
     }
 
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I> {
-        let mut runnable = self.into();
-        runnable.mounts.push(mount.into());
-        runnable
+        let mut container_req = self.into();
+        container_req.mounts.push(mount.into());
+        container_req
     }
 
     fn with_mapped_port(
@@ -153,53 +153,53 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         host_port: u16,
         container_port: ContainerPort,
     ) -> ContainerRequest<I> {
-        let runnable = self.into();
-        let mut ports = runnable.ports.unwrap_or_default();
+        let container_req = self.into();
+        let mut ports = container_req.ports.unwrap_or_default();
         ports.push(PortMapping::new(host_port, container_port));
 
         ContainerRequest {
             ports: Some(ports),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             privileged,
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             cgroupns_mode: Some(cgroupns_mode),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_userns_mode(self, userns_mode: &str) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             userns_mode: Some(String::from(userns_mode)),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_shm_size(self, bytes: u64) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             shm_size: Some(bytes),
-            ..runnable
+            ..container_req
         }
     }
 
     fn with_startup_timeout(self, timeout: Duration) -> ContainerRequest<I> {
-        let runnable = self.into();
+        let container_req = self.into();
         ContainerRequest {
             startup_timeout: Some(timeout),
-            ..runnable
+            ..container_req
         }
     }
 }
