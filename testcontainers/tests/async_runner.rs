@@ -4,7 +4,9 @@ use bollard::Docker;
 use reqwest::StatusCode;
 use testcontainers::{
     core::{
-        logs::LogFrame, wait::HttpWaitStrategy, CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor,
+        logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
+        wait::HttpWaitStrategy,
+        CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor,
     },
     runners::AsyncRunner,
     GenericImage, *,
@@ -181,6 +183,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
                 let _ = tx.send(());
             }
         })
+        .with_log_consumer(LoggingConsumer::new().with_stderr_level(log::Level::Error))
         .start()
         .await?;
     rx.recv()?; // notification from consumer

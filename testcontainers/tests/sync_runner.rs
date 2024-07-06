@@ -2,7 +2,11 @@
 
 use reqwest::StatusCode;
 use testcontainers::{
-    core::{wait::HttpWaitStrategy, CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor},
+    core::{
+        logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
+        wait::HttpWaitStrategy,
+        CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor,
+    },
     runners::SyncRunner,
     *,
 };
@@ -194,5 +198,23 @@ fn sync_run_exec() -> anyhow::Result<()> {
     let mut stderr = String::new();
     res.stderr().read_to_string(&mut stderr)?;
     assert_eq!(stderr, "stderr 1\nstderr 2\n");
+    Ok(())
+}
+
+#[test]
+fn sync_run_with_log_consumer() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    let _container = HelloWorld
+        .with_log_consumer(move |frame: &LogFrame| {
+            // notify when the expected message is found
+            if String::from_utf8_lossy(frame.bytes()) == "Hello from Docker!\n" {
+                let _ = tx.send(());
+            }
+        })
+        .with_log_consumer(LoggingConsumer::new().with_stderr_level(log::Level::Error))
+        .start()?;
+    rx.recv()?; // notification from consumer
     Ok(())
 }
