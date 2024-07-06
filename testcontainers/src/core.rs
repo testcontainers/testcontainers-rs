@@ -13,7 +13,7 @@ pub(crate) mod client;
 pub(crate) mod containers;
 pub(crate) mod env;
 pub mod error;
-pub(crate) mod logs;
+pub mod logs;
 pub(crate) mod mounts;
 pub(crate) mod network;
 pub mod ports;
