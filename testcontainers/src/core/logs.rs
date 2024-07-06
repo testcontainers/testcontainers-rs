@@ -4,6 +4,7 @@ use bytes::Bytes;
 use futures::{stream::BoxStream, StreamExt};
 use memchr::memmem::Finder;
 
+pub mod consumer;
 pub(crate) mod stream;
 
 #[derive(Debug, Clone)]
@@ -37,6 +38,15 @@ impl LogSource {
 
     pub(super) fn is_stderr(self) -> bool {
         matches!(self, Self::StdErr)
+    }
+}
+
+impl LogFrame {
+    pub fn bytes(&self) -> &Bytes {
+        match self {
+            LogFrame::StdOut(bytes) => bytes,
+            LogFrame::StdErr(bytes) => bytes,
+        }
     }
 }
 
