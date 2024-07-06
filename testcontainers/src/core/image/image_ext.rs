@@ -82,9 +82,9 @@ pub trait ImageExt<I: Image> {
     /// Sets the startup timeout for the container. The default is 60 seconds.
     fn with_startup_timeout(self, timeout: Duration) -> ContainerRequest<I>;
 
-    /// Sets the log consumer for the container.
+    /// Adds the log consumer to the container.
     ///
-    /// Allows to follow the container logs for the whole lifecycle of the container.
+    /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
 }
 
