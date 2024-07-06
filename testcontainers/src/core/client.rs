@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::io;
 
 use bollard::{
     auth::DockerCredentials,
@@ -12,13 +12,15 @@ use bollard::{
 use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::core::{
     client::exec::ExecResult,
     env,
     env::ConfigurationError,
-    logs::{LogSource, LogStreamAsync},
+    logs::{
+        stream::{LogStream, RawLogStream},
+        LogFrame, LogSource, WaitingStreamWrapper,
+    },
     ports::{PortMappingError, Ports},
 };
 
@@ -94,12 +96,18 @@ impl Client {
         Ok(Client { config, bollard })
     }
 
-    pub(crate) fn stdout_logs(&self, id: &str, follow: bool) -> LogStreamAsync {
-        self.logs(id, LogSource::StdOut, follow)
+    pub(crate) fn stdout_logs(&self, id: &str, follow: bool) -> RawLogStream {
+        self.logs_stream(id, Some(LogSource::StdOut), follow)
+            .into_stdout()
     }
 
-    pub(crate) fn stderr_logs(&self, id: &str, follow: bool) -> LogStreamAsync {
-        self.logs(id, LogSource::StdErr, follow)
+    pub(crate) fn stderr_logs(&self, id: &str, follow: bool) -> RawLogStream {
+        self.logs_stream(id, Some(LogSource::StdErr), follow)
+            .into_stderr()
+    }
+
+    pub(crate) fn logs(&self, id: &str, follow: bool) -> LogStream {
+        self.logs_stream(id, None, follow)
     }
 
     pub(crate) async fn ports(&self, id: &str) -> Result<Ports, ClientError> {
@@ -184,49 +192,9 @@ impl Client {
 
         match res {
             StartExecResults::Attached { output, .. } => {
-                let (stdout_tx, stdout_rx) = tokio::sync::mpsc::unbounded_channel();
-                let (stderr_tx, stderr_rx) = tokio::sync::mpsc::unbounded_channel();
-
-                tokio::spawn(async move {
-                    macro_rules! handle_error {
-                        ($res:expr) => {
-                            if let Err(err) = $res {
-                                log::debug!(
-                                    "Receiver has been dropped, stop producing messages: {}",
-                                    err
-                                );
-                                break;
-                            }
-                        };
-                    }
-                    let mut output = output;
-                    while let Some(chunk) = output.next().await {
-                        match chunk {
-                            Ok(LogOutput::StdOut { message }) => {
-                                handle_error!(stdout_tx.send(Ok(message)));
-                            }
-                            Ok(LogOutput::StdErr { message }) => {
-                                handle_error!(stderr_tx.send(Ok(message)));
-                            }
-                            Err(err) => {
-                                let err = Arc::new(err);
-                                handle_error!(stdout_tx
-                                    .send(Err(io::Error::new(io::ErrorKind::Other, err.clone()))));
-                                handle_error!(
-                                    stderr_tx.send(Err(io::Error::new(io::ErrorKind::Other, err)))
-                                );
-                            }
-                            Ok(_) => {
-                                unreachable!("only stdout and stderr are supported")
-                            }
-                        }
-                    }
-                });
-
-                let stdout = LogStreamAsync::new(UnboundedReceiverStream::new(stdout_rx).boxed())
-                    .enable_cache();
-                let stderr = LogStreamAsync::new(UnboundedReceiverStream::new(stderr_rx).boxed())
-                    .enable_cache();
+                let (stdout, stderr) = LogStream::from(output).split().await;
+                let stdout = WaitingStreamWrapper::new(stdout).enable_cache();
+                let stderr = WaitingStreamWrapper::new(stderr).enable_cache();
 
                 Ok(ExecResult {
                     id: exec.id,
@@ -248,32 +216,21 @@ impl Client {
             .map_err(ClientError::InspectExec)
     }
 
-    fn logs(&self, container_id: &str, log_source: LogSource, follow: bool) -> LogStreamAsync {
+    fn logs_stream(
+        &self,
+        container_id: &str,
+        source_filter: Option<LogSource>,
+        follow: bool,
+    ) -> LogStream {
         let options = LogsOptions {
             follow,
-            stdout: log_source.is_stdout(),
-            stderr: log_source.is_stderr(),
+            stdout: source_filter.map(LogSource::is_stdout).unwrap_or(true),
+            stderr: source_filter.map(LogSource::is_stderr).unwrap_or(true),
             tail: "all".to_owned(),
             ..Default::default()
         };
 
-        let stream = self
-            .bollard
-            .logs(container_id, Some(options))
-            .map_ok(|chunk| chunk.into_bytes())
-            .map_err(|err| match err {
-                bollard::errors::Error::DockerResponseServerError {
-                    status_code: 404,
-                    message,
-                } => io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    format!("Docker container has been dropped: {}", message),
-                ),
-                bollard::errors::Error::IOError { err } => err,
-                err => io::Error::new(io::ErrorKind::Other, err),
-            })
-            .boxed();
-        LogStreamAsync::new(stream)
+        self.bollard.logs(container_id, Some(options)).into()
     }
 
     /// Creates a network with given name and returns an ID
@@ -421,5 +378,34 @@ impl Client {
         };
 
         Some(bollard_credentials)
+    }
+}
+
+impl<BS> From<BS> for LogStream
+where
+    BS: futures::Stream<Item = Result<LogOutput, BollardError>> + Send + 'static,
+{
+    fn from(stream: BS) -> Self {
+        let stream = stream
+            .map_ok(|chunk| match chunk {
+                LogOutput::StdErr { message } => LogFrame::StdErr(message),
+                LogOutput::StdOut { message } => LogFrame::StdOut(message),
+                LogOutput::StdIn { .. } | LogOutput::Console { .. } => {
+                    unreachable!("only stdout and stderr are supported")
+                }
+            })
+            .map_err(|err| match err {
+                BollardError::DockerResponseServerError {
+                    status_code: 404,
+                    message,
+                } => io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    format!("Docker container has been dropped: {}", message),
+                ),
+                bollard::errors::Error::IOError { err } => err,
+                err => io::Error::new(io::ErrorKind::Other, err),
+            })
+            .boxed();
+        LogStream::new(stream)
     }
 }

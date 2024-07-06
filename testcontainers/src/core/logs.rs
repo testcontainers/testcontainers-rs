@@ -4,6 +4,14 @@ use bytes::Bytes;
 use futures::{stream::BoxStream, StreamExt};
 use memchr::memmem::Finder;
 
+pub(crate) mod stream;
+
+#[derive(Debug, Clone)]
+pub enum LogFrame {
+    StdOut(Bytes),
+    StdErr(Bytes),
+}
+
 /// Defines error cases when waiting for a message in a stream.
 #[derive(Debug, thiserror::Error)]
 pub enum WaitLogError {
@@ -23,22 +31,23 @@ pub(crate) enum LogSource {
 }
 
 impl LogSource {
-    pub(super) fn is_stdout(&self) -> bool {
+    pub(super) fn is_stdout(self) -> bool {
         matches!(self, Self::StdOut)
     }
 
-    pub(super) fn is_stderr(&self) -> bool {
+    pub(super) fn is_stderr(self) -> bool {
         matches!(self, Self::StdErr)
     }
 }
 
-pub(crate) struct LogStreamAsync {
+// TODO: extract caching functionality to a separate wrapper
+pub(crate) struct WaitingStreamWrapper {
     inner: BoxStream<'static, Result<Bytes, io::Error>>,
     cache: Vec<Result<Bytes, io::Error>>,
     enable_cache: bool,
 }
 
-impl LogStreamAsync {
+impl WaitingStreamWrapper {
     pub fn new(stream: BoxStream<'static, Result<Bytes, io::Error>>) -> Self {
         Self {
             inner: stream,
@@ -90,7 +99,7 @@ fn display_bytes(bytes: &[Bytes]) -> Vec<Cow<'_, str>> {
         .collect::<Vec<_>>()
 }
 
-impl fmt::Debug for LogStreamAsync {
+impl fmt::Debug for WaitingStreamWrapper {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LogStreamAsync").finish()
     }
@@ -102,7 +111,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn given_logs_when_line_contains_message_should_find_it() {
-        let mut log_stream = LogStreamAsync::new(Box::pin(futures::stream::iter([Ok(r"
+        let mut log_stream = WaitingStreamWrapper::new(Box::pin(futures::stream::iter([Ok(r"
             Message one
             Message two
             Message three

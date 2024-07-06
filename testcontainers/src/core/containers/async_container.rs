@@ -1,6 +1,7 @@
 use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
 use tokio::io::{AsyncBufRead, AsyncReadExt};
+use tokio_stream::StreamExt;
 
 use crate::{
     core::{
@@ -264,7 +265,7 @@ where
     ///   - pass `false` to read logs from startup to present.
     pub fn stdout(&self, follow: bool) -> Pin<Box<dyn AsyncBufRead + Send>> {
         let stdout = self.docker_client.stdout_logs(&self.id, follow);
-        Box::pin(tokio_util::io::StreamReader::new(stdout.into_inner()))
+        Box::pin(tokio_util::io::StreamReader::new(stdout))
     }
 
     /// Returns an asynchronous reader for stderr.
@@ -274,7 +275,7 @@ where
     ///   - pass `false` to read logs from startup to present.
     pub fn stderr(&self, follow: bool) -> Pin<Box<dyn AsyncBufRead + Send>> {
         let stderr = self.docker_client.stderr_logs(&self.id, follow);
-        Box::pin(tokio_util::io::StreamReader::new(stderr.into_inner()))
+        Box::pin(tokio_util::io::StreamReader::new(stderr))
     }
 
     /// Returns stdout as a vector of bytes available at the moment of call (from container startup to present).

@@ -5,7 +5,7 @@ pub use health_strategy::HealthWaitStrategy;
 pub use http_strategy::HttpWaitStrategy;
 
 use crate::{
-    core::{client::Client, error::WaitContainerError},
+    core::{client::Client, error::WaitContainerError, logs::WaitingStreamWrapper},
     ContainerAsync, Image,
 };
 
@@ -114,18 +114,18 @@ impl WaitStrategy for WaitFor {
         container: &ContainerAsync<I>,
     ) -> crate::core::error::Result<()> {
         match self {
-            // TODO: introduce log-followers feature and switch to it (wait for signal from follower).
-            //  Thus, avoiding multiple log requests.
-            WaitFor::StdOutMessage { message } => client
-                .stdout_logs(container.id(), true)
-                .wait_for_message(message)
-                .await
-                .map_err(WaitContainerError::from)?,
-            WaitFor::StdErrMessage { message } => client
-                .stderr_logs(container.id(), true)
-                .wait_for_message(message)
-                .await
-                .map_err(WaitContainerError::from)?,
+            WaitFor::StdOutMessage { message } => {
+                WaitingStreamWrapper::new(client.stdout_logs(container.id(), true))
+                    .wait_for_message(message)
+                    .await
+                    .map_err(WaitContainerError::from)?
+            }
+            WaitFor::StdErrMessage { message } => {
+                WaitingStreamWrapper::new(client.stderr_logs(container.id(), true))
+                    .wait_for_message(message)
+                    .await
+                    .map_err(WaitContainerError::from)?
+            }
             WaitFor::Duration { length } => {
                 tokio::time::sleep(length).await;
             }
@@ -135,7 +135,8 @@ impl WaitStrategy for WaitFor {
             WaitFor::Http(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }
-            WaitFor::Nothing => {}
+            // WaitFor::Nothing => {}
+            _ => {}
         }
         Ok(())
     }
