@@ -6,7 +6,6 @@ use crate::{
 };
 
 pub(super) mod exec;
-mod sync_reader;
 
 /// Represents a running docker container.
 ///
@@ -151,9 +150,8 @@ where
     ///   - pass `true` to read logs from the moment the container starts until it stops (returns I/O error with kind `UnexpectedEof` if container removed).
     ///   - pass `false` to read logs from startup to present.
     pub fn stdout(&self, follow: bool) -> Box<dyn BufRead + Send> {
-        Box::new(sync_reader::SyncReadBridge::new(
+        Box::new(tokio_util::io::SyncIoBridge::new(
             self.async_impl().stdout(follow),
-            self.rt().clone(),
         ))
     }
 
@@ -163,9 +161,8 @@ where
     ///   - pass `true` to read logs from the moment the container starts until it stops (returns I/O error with kind `UnexpectedEof` if container removed).
     ///   - pass `false` to read logs from startup to present.
     pub fn stderr(&self, follow: bool) -> Box<dyn BufRead + Send> {
-        Box::new(sync_reader::SyncReadBridge::new(
+        Box::new(tokio_util::io::SyncIoBridge::new(
             self.async_impl().stderr(follow),
-            self.rt().clone(),
         ))
     }
 

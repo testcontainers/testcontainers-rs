@@ -93,7 +93,7 @@ impl WaitingStreamWrapper {
             }
 
             let mut find_iter = msg_finder.find_iter(message.as_ref());
-            while let Some(_) = find_iter.next() {
+            for _ in find_iter.next() {
                 found_times += 1; // can't overflow, because of check below
                 if found_times == times {
                     log::debug!(

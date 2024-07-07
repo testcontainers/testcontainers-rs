@@ -38,7 +38,7 @@ signal-hook = { version = "0.3", optional = true }
 thiserror = "1.0.60"
 tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
 tokio-stream = "0.1.15"
-tokio-util = { version = "0.7.10", features = ["io"] }
+tokio-util = { version = "0.7.10", features = ["io", "io-util"] }
 url = { version = "2", features = ["serde"] }
 
 [features]

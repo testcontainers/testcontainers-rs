@@ -1,9 +1,6 @@
 use std::{fmt, io::BufRead, sync::Arc};
 
-use crate::{
-    core::{async_container, sync_container::sync_reader},
-    TestcontainersError,
-};
+use crate::{core::async_container, TestcontainersError};
 
 /// Represents the result of an executed command in a container.
 pub struct SyncExecResult {
@@ -20,18 +17,12 @@ impl SyncExecResult {
 
     /// Returns an asynchronous reader for stdout.
     pub fn stdout<'b>(&'b mut self) -> Box<dyn BufRead + 'b> {
-        Box::new(sync_reader::SyncReadBridge::new(
-            self.inner.stdout(),
-            self.runtime.clone(),
-        ))
+        Box::new(tokio_util::io::SyncIoBridge::new(self.inner.stdout()))
     }
 
     /// Returns an asynchronous reader for stderr.
     pub fn stderr<'b>(&'b mut self) -> Box<dyn BufRead + 'b> {
-        Box::new(sync_reader::SyncReadBridge::new(
-            self.inner.stderr(),
-            self.runtime.clone(),
-        ))
+        Box::new(tokio_util::io::SyncIoBridge::new(self.inner.stderr()))
     }
 
     /// Returns stdout as a vector of bytes.
