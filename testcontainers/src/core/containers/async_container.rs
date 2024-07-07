@@ -204,13 +204,13 @@ where
         match cmd_ready_condition {
             CmdWaitFor::StdOutMessage { message } => {
                 exec.stdout()
-                    .wait_for_message(&message)
+                    .wait_for_message(&message, 1)
                     .await
                     .map_err(ExecError::from)?;
             }
             CmdWaitFor::StdErrMessage { message } => {
                 exec.stderr()
-                    .wait_for_message(&message)
+                    .wait_for_message(&message, 1)
                     .await
                     .map_err(ExecError::from)?;
             }
