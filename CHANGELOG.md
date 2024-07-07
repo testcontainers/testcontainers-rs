@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.0] - 2024-07-07
+### Details
+#### Bug Fixes
+- [❗] Drop `Clone` impl for `ContainerRequest` ([#680](https://github.com/testcontainers/testcontainers-rs/pull/680))
+- Exclude image pulling time from startup timeout ([#687](https://github.com/testcontainers/testcontainers-rs/pull/687))
+- Waiting for mutiple messages from the same log frame ([#688](https://github.com/testcontainers/testcontainers-rs/pull/688))
+- Pass correct log-source for `stderr` wait strategy ([#692](https://github.com/testcontainers/testcontainers-rs/pull/692))
+
+#### Features
+- Introduce log consumers ([#681](https://github.com/testcontainers/testcontainers-rs/pull/681))
+- Introduce `LoggingConsumer` based on `log` crate ([#682](https://github.com/testcontainers/testcontainers-rs/pull/682))
+- [❗] Enhance `LogWaitStrategy` to wait for message appearance multiple times ([#683](https://github.com/testcontainers/testcontainers-rs/pull/683))
+- [❗] Introduce `ExitWaitStrategy` ([#684](https://github.com/testcontainers/testcontainers-rs/pull/684))
+
+#### Miscellaneous Tasks
+- Get rid of outdated variables naming  ([#679](https://github.com/testcontainers/testcontainers-rs/pull/679))
+- Relax log level for log producer error ([#685](https://github.com/testcontainers/testcontainers-rs/pull/685))
+- Re-configure blocking runtime ([#690](https://github.com/testcontainers/testcontainers-rs/pull/690))
+
+#### Performance
+- Avoid spawning log producer without consumers ([#689](https://github.com/testcontainers/testcontainers-rs/pull/689))
+
+#### Refactor
+- Internal log processing structures ([#678](https://github.com/testcontainers/testcontainers-rs/pull/678))
+
+#### Styling
+- Apply clippy suggestion ([#693](https://github.com/testcontainers/testcontainers-rs/pull/693))
 ## [0.19.0] - 2024-06-27
 ### Details
 #### Bug Fixes
