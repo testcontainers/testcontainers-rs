@@ -65,23 +65,27 @@ where
             dropped: false,
         };
 
-        let mut logs = container.docker_client.logs(&container.id, true);
-        let container_id = container.id.clone();
-        tokio::spawn(async move {
-            while let Some(result) = logs.next().await {
-                match result {
-                    Ok(record) => {
-                        for consumer in &log_consumers {
-                            consumer.accept(&record).await;
-                            tokio::task::yield_now().await;
+        if !log_consumers.is_empty() {
+            let mut logs = container.docker_client.logs(&container.id, true);
+            let container_id = container.id.clone();
+            tokio::spawn(async move {
+                while let Some(result) = logs.next().await {
+                    match result {
+                        Ok(record) => {
+                            for consumer in &log_consumers {
+                                consumer.accept(&record).await;
+                                tokio::task::yield_now().await;
+                            }
+                        }
+                        Err(err) => {
+                            log::warn!(
+                                "Failed to read log frame for container {container_id}: {err}",
+                            );
                         }
                     }
-                    Err(err) => {
-                        log::warn!("Failed to read log frame for container {container_id}: {err}",);
-                    }
                 }
-            }
-        });
+            });
+        }
 
         let ready_conditions = container.image().ready_conditions();
         container.block_until_ready(ready_conditions).await?;
