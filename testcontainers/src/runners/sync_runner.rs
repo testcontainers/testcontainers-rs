@@ -64,6 +64,8 @@ fn lazy_sync_runner() -> Result<Arc<tokio::runtime::Runtime>> {
                 // we need to use multi-thread runtime,
                 // because we may spawn background tasks that must keep running regardless of `block_on` calls
                 tokio::runtime::Builder::new_multi_thread()
+                    .thread_name("testcontainers-worker")
+                    .worker_threads(2)
                     .enable_all()
                     .build()?,
             );
@@ -96,7 +98,7 @@ mod tests {
     fn runtime() -> &'static Runtime {
         RUNTIME.get_or_init(|| {
             tokio::runtime::Builder::new_multi_thread()
-                .thread_name("testcontainers-worker")
+                .thread_name("testcontainers-test")
                 .worker_threads(2)
                 .enable_all()
                 .build()
