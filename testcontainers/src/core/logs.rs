@@ -135,7 +135,7 @@ impl fmt::Debug for WaitingStreamWrapper {
 mod tests {
     use super::*;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn given_logs_when_line_contains_message_should_find_it() {
         let _ = pretty_env_logger::try_init();
         let log_stream = || {

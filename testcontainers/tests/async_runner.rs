@@ -101,6 +101,7 @@ async fn async_run_exec() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     let image = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stderr("server will be listening to"))
         .with_wait_for(WaitFor::log(
             LogWaitStrategy::stdout("server is ready").with_times(2),
         ))
