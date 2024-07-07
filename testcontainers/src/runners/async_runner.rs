@@ -53,156 +53,157 @@ where
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
         let container_req = self.into();
+
+        let client = Client::lazy_client().await?;
+        let mut create_options: Option<CreateContainerOptions<String>> = None;
+
+        let extra_hosts: Vec<_> = container_req
+            .hosts()
+            .map(|(key, value)| format!("{key}:{value}"))
+            .collect();
+
+        let mut config: Config<String> = Config {
+            image: Some(container_req.descriptor()),
+            host_config: Some(HostConfig {
+                privileged: Some(container_req.privileged()),
+                extra_hosts: Some(extra_hosts),
+                cgroupns_mode: container_req.cgroupns_mode().map(|mode| mode.into()),
+                userns_mode: container_req.userns_mode().map(|v| v.to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        // shared memory
+        if let Some(bytes) = container_req.shm_size() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.shm_size = Some(bytes as i64);
+                host_config
+            });
+        }
+
+        // create network and add it to container creation
+        let network = if let Some(network) = container_req.network() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.network_mode = Some(network.to_string());
+                host_config
+            });
+            Network::new(network, client.clone()).await?
+        } else {
+            None
+        };
+
+        // name of the container
+        if let Some(name) = container_req.container_name() {
+            create_options = Some(CreateContainerOptions {
+                name: name.to_owned(),
+                platform: None,
+            })
+        }
+
+        // handle environment variables
+        let envs: Vec<String> = container_req
+            .env_vars()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
+        config.env = Some(envs);
+
+        // mounts and volumes
+        let mounts: Vec<_> = container_req.mounts().map(Into::into).collect();
+
+        if !mounts.is_empty() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.mounts = Some(mounts);
+                host_config
+            });
+        }
+
+        // entrypoint
+        if let Some(entrypoint) = container_req.entrypoint() {
+            config.entrypoint = Some(vec![entrypoint.to_string()]);
+        }
+
+        let is_container_networked = container_req
+            .network()
+            .as_ref()
+            .map(|network| network.starts_with("container:"))
+            .unwrap_or(false);
+
+        // expose ports
+        if !is_container_networked {
+            let mapped_ports = container_req
+                .ports()
+                .map(|ports| ports.iter().map(|p| p.container_port).collect::<Vec<_>>())
+                .unwrap_or_default();
+
+            let ports_to_expose = container_req
+                .expose_ports()
+                .iter()
+                .copied()
+                .chain(mapped_ports)
+                .map(|p| (format!("{p}"), HashMap::new()))
+                .collect();
+
+            // exposed ports of the image + mapped ports
+            config.exposed_ports = Some(ports_to_expose);
+        }
+
+        // ports
+        if container_req.ports().is_some() {
+            let empty: Vec<_> = Vec::new();
+            let bindings = container_req.ports().unwrap_or(&empty).iter().map(|p| {
+                (
+                    format!("{}", p.container_port),
+                    Some(vec![PortBinding {
+                        host_ip: None,
+                        host_port: Some(p.host_port.to_string()),
+                    }]),
+                )
+            });
+
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.port_bindings = Some(bindings.collect());
+                host_config
+            });
+        } else if !is_container_networked {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.publish_all_ports = Some(true);
+                host_config
+            });
+        }
+
+        let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
+        if !cmd.is_empty() {
+            config.cmd = Some(cmd);
+        }
+
+        // create the container with options
+        let create_result = client
+            .create_container(create_options.clone(), config.clone())
+            .await;
+        let container_id = match create_result {
+            Ok(id) => Ok(id),
+            Err(ClientError::CreateContainer(
+                bollard::errors::Error::DockerResponseServerError {
+                    status_code: 404, ..
+                },
+            )) => {
+                client.pull_image(&container_req.descriptor()).await?;
+                client.create_container(create_options, config).await
+            }
+            res => res,
+        }?;
+
+        #[cfg(feature = "watchdog")]
+        if client.config.command() == crate::core::env::Command::Remove {
+            crate::watchdog::register(container_id.clone());
+        }
+
         let startup_timeout = container_req
             .startup_timeout()
             .unwrap_or(DEFAULT_STARTUP_TIMEOUT);
 
         tokio::time::timeout(startup_timeout, async {
-            let client = Client::lazy_client().await?;
-            let mut create_options: Option<CreateContainerOptions<String>> = None;
-
-            let extra_hosts: Vec<_> = container_req
-                .hosts()
-                .map(|(key, value)| format!("{key}:{value}"))
-                .collect();
-
-            let mut config: Config<String> = Config {
-                image: Some(container_req.descriptor()),
-                host_config: Some(HostConfig {
-                    privileged: Some(container_req.privileged()),
-                    extra_hosts: Some(extra_hosts),
-                    cgroupns_mode: container_req.cgroupns_mode().map(|mode| mode.into()),
-                    userns_mode: container_req.userns_mode().map(|v| v.to_string()),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            };
-
-            // shared memory
-            if let Some(bytes) = container_req.shm_size() {
-                config.host_config = config.host_config.map(|mut host_config| {
-                    host_config.shm_size = Some(bytes as i64);
-                    host_config
-                });
-            }
-
-            // create network and add it to container creation
-            let network = if let Some(network) = container_req.network() {
-                config.host_config = config.host_config.map(|mut host_config| {
-                    host_config.network_mode = Some(network.to_string());
-                    host_config
-                });
-                Network::new(network, client.clone()).await?
-            } else {
-                None
-            };
-
-            // name of the container
-            if let Some(name) = container_req.container_name() {
-                create_options = Some(CreateContainerOptions {
-                    name: name.to_owned(),
-                    platform: None,
-                })
-            }
-
-            // handle environment variables
-            let envs: Vec<String> = container_req
-                .env_vars()
-                .map(|(k, v)| format!("{k}={v}"))
-                .collect();
-            config.env = Some(envs);
-
-            // mounts and volumes
-            let mounts: Vec<_> = container_req.mounts().map(Into::into).collect();
-
-            if !mounts.is_empty() {
-                config.host_config = config.host_config.map(|mut host_config| {
-                    host_config.mounts = Some(mounts);
-                    host_config
-                });
-            }
-
-            // entrypoint
-            if let Some(entrypoint) = container_req.entrypoint() {
-                config.entrypoint = Some(vec![entrypoint.to_string()]);
-            }
-
-            let is_container_networked = container_req
-                .network()
-                .as_ref()
-                .map(|network| network.starts_with("container:"))
-                .unwrap_or(false);
-
-            // expose ports
-            if !is_container_networked {
-                let mapped_ports = container_req
-                    .ports()
-                    .map(|ports| ports.iter().map(|p| p.container_port).collect::<Vec<_>>())
-                    .unwrap_or_default();
-
-                let ports_to_expose = container_req
-                    .expose_ports()
-                    .iter()
-                    .copied()
-                    .chain(mapped_ports)
-                    .map(|p| (format!("{p}"), HashMap::new()))
-                    .collect();
-
-                // exposed ports of the image + mapped ports
-                config.exposed_ports = Some(ports_to_expose);
-            }
-
-            // ports
-            if container_req.ports().is_some() {
-                let empty: Vec<_> = Vec::new();
-                let bindings = container_req.ports().unwrap_or(&empty).iter().map(|p| {
-                    (
-                        format!("{}", p.container_port),
-                        Some(vec![PortBinding {
-                            host_ip: None,
-                            host_port: Some(p.host_port.to_string()),
-                        }]),
-                    )
-                });
-
-                config.host_config = config.host_config.map(|mut host_config| {
-                    host_config.port_bindings = Some(bindings.collect());
-                    host_config
-                });
-            } else if !is_container_networked {
-                config.host_config = config.host_config.map(|mut host_config| {
-                    host_config.publish_all_ports = Some(true);
-                    host_config
-                });
-            }
-
-            let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
-            if !cmd.is_empty() {
-                config.cmd = Some(cmd);
-            }
-
-            // create the container with options
-            let create_result = client
-                .create_container(create_options.clone(), config.clone())
-                .await;
-            let container_id = match create_result {
-                Ok(id) => Ok(id),
-                Err(ClientError::CreateContainer(
-                    bollard::errors::Error::DockerResponseServerError {
-                        status_code: 404, ..
-                    },
-                )) => {
-                    client.pull_image(&container_req.descriptor()).await?;
-                    client.create_container(create_options, config).await
-                }
-                res => res,
-            }?;
-
-            #[cfg(feature = "watchdog")]
-            if client.config.command() == crate::core::env::Command::Remove {
-                crate::watchdog::register(container_id.clone());
-            }
-
             client.start_container(&container_id).await?;
 
             let container =
