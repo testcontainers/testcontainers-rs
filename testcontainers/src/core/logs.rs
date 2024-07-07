@@ -85,20 +85,23 @@ impl WaitingStreamWrapper {
     ) -> Result<(), WaitLogError> {
         let msg_finder = Finder::new(message.as_ref());
         let mut messages = Vec::new();
-        let mut found_times = 0;
+        let mut found_times: usize = 0;
         while let Some(message) = self.inner.next().await.transpose()? {
             messages.push(message.clone());
             if self.enable_cache {
                 self.cache.push(Ok(message.clone()));
             }
-            let match_found = msg_finder.find(message.as_ref()).is_some();
-            found_times += usize::from(match_found); // can't overflow, because of check below
-            if found_times == times {
-                log::debug!(
-                    "Message found {times} times after comparing {} lines",
-                    messages.len()
-                );
-                return Ok(());
+
+            let mut find_iter = msg_finder.find_iter(message.as_ref());
+            while let Some(_) = find_iter.next() {
+                found_times += 1; // can't overflow, because of check below
+                if found_times == times {
+                    log::debug!(
+                        "Message found {times} times after comparing {} lines",
+                        messages.len()
+                    );
+                    return Ok(());
+                }
             }
         }
 
@@ -134,17 +137,30 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn given_logs_when_line_contains_message_should_find_it() {
-        let mut log_stream = WaitingStreamWrapper::new(Box::pin(futures::stream::iter([
-            Ok("Message one".into()),
-            Ok("Message two".into()),
-            Ok("Message three".into()),
-            Ok("Message three".into()),
-        ])));
+        let _ = pretty_env_logger::try_init();
+        let log_stream = || {
+            WaitingStreamWrapper::new(Box::pin(futures::stream::iter([
+                Ok(r"
+            Message one
+            Message two
+            Message three
+            Message three
+        "
+                .into()),
+                Ok("Message three".into()),
+            ])))
+        };
 
-        let result = log_stream.wait_for_message("Message three", 2).await;
+        let result = log_stream().wait_for_message("Message one", 1).await;
         assert!(result.is_ok());
 
-        let result = log_stream.wait_for_message("Message two", 2).await;
+        let result = log_stream().wait_for_message("Message two", 2).await;
         assert!(result.is_err());
+
+        let result = log_stream().wait_for_message("Message three", 1).await;
+        assert!(result.is_ok());
+
+        let result = log_stream().wait_for_message("Message three", 3).await;
+        assert!(result.is_ok());
     }
 }
