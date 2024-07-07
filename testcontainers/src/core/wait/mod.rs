@@ -49,7 +49,7 @@ impl WaitFor {
 
     /// Wait for the message to appear on the container's stderr.
     pub fn message_on_stderr(message: impl AsRef<[u8]>) -> WaitFor {
-        Self::log(LogWaitStrategy::new(LogSource::StdOut, message))
+        Self::log(LogWaitStrategy::new(LogSource::StdErr, message))
     }
 
     /// Wait for the message to appear on the container's stdout.
