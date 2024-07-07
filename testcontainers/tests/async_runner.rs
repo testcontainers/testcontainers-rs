@@ -5,7 +5,7 @@ use reqwest::StatusCode;
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::HttpWaitStrategy,
+        wait::{HttpWaitStrategy, LogWaitStrategy},
         CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor,
     },
     runners::AsyncRunner,
@@ -98,7 +98,9 @@ async fn async_run_exec() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     let image = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .with_wait_for(WaitFor::log(
+            LogWaitStrategy::stdout("server is ready").with_times(2),
+        ))
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
 
