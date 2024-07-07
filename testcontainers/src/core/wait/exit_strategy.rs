@@ -55,7 +55,7 @@ impl WaitStrategy for ExitWaitStrategy {
 
             if let Some(expected_code) = self.expected_code {
                 let exit_code = container_state.exit_code;
-                if exit_code == Some(expected_code) {
+                if exit_code != Some(expected_code) {
                     return Err(WaitContainerError::UnexpectedExitCode {
                         expected: expected_code,
                         actual: exit_code,
