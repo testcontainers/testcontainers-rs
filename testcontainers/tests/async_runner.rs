@@ -5,7 +5,7 @@ use reqwest::StatusCode;
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::{HttpWaitStrategy, LogWaitStrategy},
+        wait::{ExitWaitStrategy, HttpWaitStrategy, LogWaitStrategy},
         CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor,
     },
     runners::AsyncRunner,
@@ -26,7 +26,10 @@ impl Image for HelloWorld {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Hello from Docker!")]
+        vec![
+            WaitFor::message_on_stdout("Hello from Docker!"),
+            WaitFor::exit(ExitWaitStrategy::new().with_exit_code(0)),
+        ]
     }
 }
 

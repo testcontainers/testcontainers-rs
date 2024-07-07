@@ -62,6 +62,8 @@ pub enum WaitContainerError {
     Unhealthy,
     #[error("container startup timeout")]
     StartupTimeout,
+    #[error("container exited with unexpected code: expected {expected}, actual {actual:?}")]
+    UnexpectedExitCode { expected: i64, actual: Option<i64> },
 }
 
 impl TestcontainersError {

@@ -1,5 +1,6 @@
 use std::{env::var, fmt::Debug, time::Duration};
 
+pub use exit_strategy::ExitWaitStrategy;
 pub use health_strategy::HealthWaitStrategy;
 pub use http_strategy::HttpWaitStrategy;
 pub use log_strategy::LogWaitStrategy;
@@ -10,6 +11,7 @@ use crate::{
 };
 
 pub(crate) mod cmd_wait;
+pub(crate) mod exit_strategy;
 pub(crate) mod health_strategy;
 pub(crate) mod http_strategy;
 pub(crate) mod log_strategy;
@@ -35,6 +37,8 @@ pub enum WaitFor {
     Healthcheck(HealthWaitStrategy),
     /// Wait for a certain HTTP response.
     Http(HttpWaitStrategy),
+    /// Wait for the container to exit.
+    Exit(ExitWaitStrategy),
 }
 
 impl WaitFor {
@@ -64,6 +68,11 @@ impl WaitFor {
     /// Wait for a certain HTTP response.
     pub fn http(http_strategy: HttpWaitStrategy) -> WaitFor {
         WaitFor::Http(http_strategy)
+    }
+
+    /// Wait for the container to exit.
+    pub fn exit(exit_strategy: ExitWaitStrategy) -> WaitFor {
+        WaitFor::Exit(exit_strategy)
     }
 
     /// Wait for a certain amount of seconds.
@@ -122,6 +131,9 @@ impl WaitStrategy for WaitFor {
                 strategy.wait_until_ready(client, container).await?;
             }
             WaitFor::Http(strategy) => {
+                strategy.wait_until_ready(client, container).await?;
+            }
+            WaitFor::Exit(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }
             WaitFor::Nothing => {}
