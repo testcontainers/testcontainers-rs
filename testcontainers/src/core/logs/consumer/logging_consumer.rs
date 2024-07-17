@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use futures::{future::BoxFuture, FutureExt};
 
 use crate::core::logs::{consumer::LogConsumer, LogFrame};
@@ -9,6 +11,7 @@ use crate::core::logs::{consumer::LogConsumer, LogFrame};
 pub struct LoggingConsumer {
     stdout_level: log::Level,
     stderr_level: log::Level,
+    prefix: Option<String>,
 }
 
 impl LoggingConsumer {
@@ -17,6 +20,7 @@ impl LoggingConsumer {
         Self {
             stdout_level: log::Level::Info,
             stderr_level: log::Level::Info,
+            prefix: None,
         }
     }
 
@@ -31,6 +35,23 @@ impl LoggingConsumer {
         self.stderr_level = level;
         self
     }
+
+    /// Sets a prefix to be added to each log message (space will be added between prefix and message).
+    pub fn with_prefix(mut self, prefix: impl Into<String>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    fn format_message<'a>(&self, message: &'a bytes::Bytes) -> Cow<'a, str> {
+        // Remove trailing newlines
+        let message = String::from_utf8_lossy(message);
+
+        if let Some(prefix) = &self.prefix {
+            Cow::Owned(format!("{} {}", prefix, message))
+        } else {
+            message
+        }
+    }
 }
 
 impl Default for LoggingConsumer {
@@ -44,10 +65,10 @@ impl LogConsumer for LoggingConsumer {
         async move {
             match record {
                 LogFrame::StdOut(bytes) => {
-                    log::log!(self.stdout_level, "{}", String::from_utf8_lossy(bytes));
+                    log::log!(self.stdout_level, "{}", self.format_message(bytes));
                 }
                 LogFrame::StdErr(bytes) => {
-                    log::log!(self.stderr_level, "{}", String::from_utf8_lossy(bytes));
+                    log::log!(self.stderr_level, "{}", self.format_message(bytes));
                 }
             }
         }
