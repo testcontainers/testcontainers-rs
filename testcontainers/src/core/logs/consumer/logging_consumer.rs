@@ -42,14 +42,14 @@ impl LoggingConsumer {
         self
     }
 
-    fn format_message<'a>(&self, message: &'a bytes::Bytes) -> Cow<'a, str> {
+    fn format_message<'a>(&self, message: &'a str) -> Cow<'a, str> {
         // Remove trailing newlines
-        let message = String::from_utf8_lossy(message);
+        let message = message.trim_end_matches(|c| c == '\n' || c == '\r');
 
         if let Some(prefix) = &self.prefix {
             Cow::Owned(format!("{} {}", prefix, message))
         } else {
-            message
+            Cow::Borrowed(message)
         }
     }
 }
@@ -65,10 +65,18 @@ impl LogConsumer for LoggingConsumer {
         async move {
             match record {
                 LogFrame::StdOut(bytes) => {
-                    log::log!(self.stdout_level, "{}", self.format_message(bytes));
+                    log::log!(
+                        self.stdout_level,
+                        "{}",
+                        self.format_message(&String::from_utf8_lossy(bytes))
+                    );
                 }
                 LogFrame::StdErr(bytes) => {
-                    log::log!(self.stderr_level, "{}", self.format_message(bytes));
+                    log::log!(
+                        self.stderr_level,
+                        "{}",
+                        self.format_message(&String::from_utf8_lossy(bytes))
+                    );
                 }
             }
         }
