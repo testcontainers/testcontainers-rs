@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.1] - 2024-07-18
+### Details
+#### Bug Fixes
+- Trim newline char from the mirrored messages  ([#699](https://github.com/testcontainers/testcontainers-rs/pull/699))
+
+#### Features
+- Support optional prefix for `LoggingConsumer` ([#698](https://github.com/testcontainers/testcontainers-rs/pull/698))
 ## [0.20.0] - 2024-07-07
 ### Details
 #### Bug Fixes
