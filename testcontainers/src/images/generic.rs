@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{
     core::{ports::ContainerPort, WaitFor},
     Image,
@@ -10,6 +12,7 @@ pub struct GenericImage {
     tag: String,
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
+    cmd: Vec<String>,
     exposed_ports: Vec<ContainerPort>,
 }
 
@@ -20,6 +23,7 @@ impl GenericImage {
             tag: tag.into(),
             wait_for: Vec::new(),
             entrypoint: None,
+            cmd: vec![],
             exposed_ports: Vec::new(),
         }
     }
@@ -31,6 +35,11 @@ impl GenericImage {
 
     pub fn with_entrypoint(mut self, entrypoint: &str) -> Self {
         self.entrypoint = Some(entrypoint.to_string());
+        self
+    }
+
+    pub fn with_cmd(mut self, cmd: Vec<String>) -> Self {
+        self.cmd = cmd;
         self
     }
 
@@ -55,6 +64,10 @@ impl Image for GenericImage {
 
     fn entrypoint(&self) -> Option<&str> {
         self.entrypoint.as_deref()
+    }
+
+    fn cmd(&self) -> impl IntoIterator<Item = impl Into<Cow<'_, str>>> {
+        self.cmd.iter().map(Cow::from)
     }
 
     fn expose_ports(&self) -> &[ContainerPort] {
