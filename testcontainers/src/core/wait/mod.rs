@@ -2,6 +2,8 @@ use std::{env::var, fmt::Debug, time::Duration};
 
 pub use exit_strategy::ExitWaitStrategy;
 pub use health_strategy::HealthWaitStrategy;
+#[cfg(feature = "http_wait")]
+#[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
 pub use http_strategy::HttpWaitStrategy;
 pub use log_strategy::LogWaitStrategy;
 
@@ -13,6 +15,7 @@ use crate::{
 pub(crate) mod cmd_wait;
 pub(crate) mod exit_strategy;
 pub(crate) mod health_strategy;
+#[cfg(feature = "http_wait")]
 pub(crate) mod http_strategy;
 pub(crate) mod log_strategy;
 
@@ -36,6 +39,8 @@ pub enum WaitFor {
     /// Wait for the container's status to become `healthy`.
     Healthcheck(HealthWaitStrategy),
     /// Wait for a certain HTTP response.
+    #[cfg(feature = "http_wait")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
     Http(HttpWaitStrategy),
     /// Wait for the container to exit.
     Exit(ExitWaitStrategy),
@@ -66,6 +71,8 @@ impl WaitFor {
     }
 
     /// Wait for a certain HTTP response.
+    #[cfg(feature = "http_wait")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
     pub fn http(http_strategy: HttpWaitStrategy) -> WaitFor {
         WaitFor::Http(http_strategy)
     }
@@ -110,6 +117,8 @@ impl WaitFor {
     }
 }
 
+#[cfg(feature = "http_wait")]
+#[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
 impl From<HttpWaitStrategy> for WaitFor {
     fn from(value: HttpWaitStrategy) -> Self {
         Self::Http(value)
@@ -130,6 +139,7 @@ impl WaitStrategy for WaitFor {
             WaitFor::Healthcheck(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }
+            #[cfg(feature = "http_wait")]
             WaitFor::Http(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }

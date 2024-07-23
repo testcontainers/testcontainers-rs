@@ -1,10 +1,9 @@
 #![cfg(feature = "blocking")]
 
-use reqwest::StatusCode;
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::{HttpWaitStrategy, LogWaitStrategy},
+        wait::LogWaitStrategy,
         CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor,
     },
     runners::SyncRunner,
@@ -40,9 +39,13 @@ fn sync_can_run_hello_world() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "http_wait")]
 #[test]
 fn sync_wait_for_http() -> anyhow::Result<()> {
+    use crate::core::wait::HttpWaitStrategy;
+
     let _ = pretty_env_logger::try_init();
+    use reqwest::StatusCode;
 
     let image = GenericImage::new("simple_web_server", "latest")
         .with_exposed_port(80.tcp())

@@ -1,7 +1,7 @@
 use std::error::Error;
 
+use crate::core::logs::WaitLogError;
 pub use crate::core::{client::ClientError, env::ConfigurationError, ContainerPort};
-use crate::core::{logs::WaitLogError, wait::http_strategy::HttpWaitError};
 
 pub type Result<T> = std::result::Result<T, TestcontainersError>;
 
@@ -55,7 +55,9 @@ pub enum WaitContainerError {
     #[error("container state is unavailable")]
     StateUnavailable,
     #[error("container is not ready: {0}")]
-    HttpWait(#[from] HttpWaitError),
+    #[cfg(feature = "http_wait")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
+    HttpWait(#[from] crate::core::wait::http_strategy::HttpWaitError),
     #[error("healthcheck is not configured for container: {0}")]
     HealthCheckNotConfigured(String),
     #[error("container is unhealthy")]

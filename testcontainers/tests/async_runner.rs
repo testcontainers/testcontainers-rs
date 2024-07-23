@@ -1,12 +1,11 @@
 use std::time::Duration;
 
 use bollard::Docker;
-use reqwest::StatusCode;
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::{ExitWaitStrategy, HttpWaitStrategy, LogWaitStrategy},
-        CmdWaitFor, ExecCommand, IntoContainerPort, WaitFor,
+        wait::{ExitWaitStrategy, LogWaitStrategy},
+        CmdWaitFor, ExecCommand, WaitFor,
     },
     runners::AsyncRunner,
     GenericImage, *,
@@ -144,8 +143,12 @@ async fn async_run_exec() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "http_wait")]
 #[tokio::test]
 async fn async_wait_for_http() -> anyhow::Result<()> {
+    use reqwest::StatusCode;
+    use testcontainers::core::{wait::HttpWaitStrategy, IntoContainerPort};
+
     let _ = pretty_env_logger::try_init();
 
     let image = GenericImage::new("simple_web_server", "latest")
