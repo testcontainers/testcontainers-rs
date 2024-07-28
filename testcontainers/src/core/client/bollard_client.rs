@@ -9,7 +9,7 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 
 pub(super) fn init(config: &env::Config) -> Result<Docker, bollard::errors::Error> {
     let host = config.docker_host();
-    let host_url = Url::from_str(host).expect("expected a valid Docker Host URL");
+    let host_url = Url::from_str(host)?;
 
     match host_url.scheme() {
         "https" => connect_with_ssl(config),
