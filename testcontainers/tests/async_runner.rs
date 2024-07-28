@@ -41,7 +41,8 @@ async fn bollard_can_run_hello_world_with_multi_thread() -> anyhow::Result<()> {
 }
 
 async fn cleanup_hello_world_image() -> anyhow::Result<()> {
-    let docker = Docker::connect_with_unix_defaults()?;
+    let docker = Docker::connect_with_local_defaults()?;
+
     futures::future::join_all(
         docker
             .list_images::<String>(None)
