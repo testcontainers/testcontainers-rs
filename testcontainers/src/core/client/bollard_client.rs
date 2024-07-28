@@ -1,9 +1,9 @@
-use std::str::FromStr;
-use std::time::Duration;
+use std::{str::FromStr, time::Duration};
 
-use crate::core::env;
 use bollard::{Docker, API_DEFAULT_VERSION};
 use url::Url;
+
+use crate::core::env;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 

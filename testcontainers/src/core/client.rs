@@ -1,13 +1,5 @@
-use crate::core::{
-    client::exec::ExecResult,
-    env,
-    env::ConfigurationError,
-    logs::{
-        stream::{LogStream, RawLogStream},
-        LogFrame, LogSource, WaitingStreamWrapper,
-    },
-    ports::{PortMappingError, Ports},
-};
+use std::{io, str::FromStr};
+
 use bollard::{
     auth::DockerCredentials,
     container::{Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions},
@@ -19,10 +11,19 @@ use bollard::{
 };
 use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
 use futures::{StreamExt, TryStreamExt};
-use std::io;
-use std::str::FromStr;
 use tokio::sync::OnceCell;
 use url::Url;
+
+use crate::core::{
+    client::exec::ExecResult,
+    env,
+    env::ConfigurationError,
+    logs::{
+        stream::{LogStream, RawLogStream},
+        LogFrame, LogSource, WaitingStreamWrapper,
+    },
+    ports::{PortMappingError, Ports},
+};
 
 mod bollard_client;
 mod exec;
