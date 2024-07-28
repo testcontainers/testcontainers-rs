@@ -202,8 +202,8 @@ mod tests {
 
     #[test]
     fn deserialize_java_properties() {
-        let tc_host = "http://tc-host";
-        let docker_host = "http://docker-host";
+        let tc_host = "http://tc-host".into();
+        let docker_host = "http://docker-host".into();
         let tls_verify = 1;
         let cert_path = "/path/to/cert";
 
