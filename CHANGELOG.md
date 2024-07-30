@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0] - 2024-07-30
+### Details
+#### Bug Fixes
+- Don't assume docker host is a url ([#709](https://github.com/testcontainers/testcontainers-rs/pull/709))
+
+#### Miscellaneous Tasks
+- Bump the bollard group across 1 directory with 2 updates ([#710](https://github.com/testcontainers/testcontainers-rs/pull/710))
+
+#### Refactor
+- [❗] Put `reqwest` behind `http_wait` feature ([#705](https://github.com/testcontainers/testcontainers-rs/pull/705))
 ## [0.20.1] - 2024-07-18
 ### Details
 #### Bug Fixes
