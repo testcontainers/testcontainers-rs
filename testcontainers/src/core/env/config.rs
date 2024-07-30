@@ -3,8 +3,6 @@ use std::{
     str::FromStr,
 };
 
-use url::Url;
-
 use crate::core::env::GetEnvValue;
 
 #[derive(Debug, thiserror::Error)]
@@ -35,8 +33,8 @@ pub const DEFAULT_DOCKER_HOST: &str = "npipe:////./pipe/docker_engine";
 
 #[derive(Debug, Default)]
 pub(crate) struct Config {
-    tc_host: Option<Url>,
-    host: Option<Url>,
+    tc_host: Option<String>,
+    host: Option<String>,
     tls_verify: Option<bool>,
     cert_path: Option<PathBuf>,
     command: Option<Command>,
@@ -48,9 +46,9 @@ pub(crate) struct Config {
 #[derive(Debug, Default, serde::Deserialize)]
 struct TestcontainersProperties {
     #[serde(rename = "tc.host")]
-    tc_host: Option<Url>,
+    tc_host: Option<String>,
     #[serde(rename = "docker.host")]
-    host: Option<Url>,
+    host: Option<String>,
     #[serde_as(as = "Option<serde_with::BoolFromInt>")]
     #[serde(rename = "docker.tls.verify")]
     tls_verify: Option<bool>,
@@ -103,11 +101,7 @@ impl Config {
     where
         E: GetEnvValue,
     {
-        let host = E::get_env_value("DOCKER_HOST")
-            .as_deref()
-            .map(FromStr::from_str)
-            .transpose()
-            .map_err(|e: url::ParseError| ConfigurationError::InvalidDockerHost(e.to_string()))?;
+        let host = E::get_env_value("DOCKER_HOST");
         let tls_verify = E::get_env_value("DOCKER_TLS_VERIFY").map(|v| v == "1");
         let cert_path = E::get_env_value("DOCKER_CERT_PATH").map(PathBuf::from);
         let command = E::get_env_value("TESTCONTAINERS_COMMAND")
@@ -132,14 +126,11 @@ impl Config {
     ///  2. `DOCKER_HOST` environment variable.
     ///  3. Docker host from the `docker.host` property in the `~/.testcontainers.properties` file.
     ///  4. Else, the default Docker socket will be returned.
-    pub(crate) fn docker_host(&self) -> Url {
+    pub(crate) fn docker_host(&self) -> &str {
         self.tc_host
-            .as_ref()
-            .or(self.host.as_ref())
-            .cloned()
-            .unwrap_or_else(|| {
-                Url::from_str(DEFAULT_DOCKER_HOST).expect("default host is valid URL")
-            })
+            .as_deref()
+            .or(self.host.as_deref())
+            .unwrap_or(DEFAULT_DOCKER_HOST)
     }
 
     pub(crate) fn tls_verify(&self) -> bool {
@@ -211,8 +202,8 @@ mod tests {
 
     #[test]
     fn deserialize_java_properties() {
-        let tc_host = Url::parse("http://tc-host").unwrap();
-        let docker_host = Url::parse("http://docker-host").unwrap();
+        let tc_host = "http://tc-host".into();
+        let docker_host = "http://docker-host".into();
         let tls_verify = 1;
         let cert_path = "/path/to/cert";
 

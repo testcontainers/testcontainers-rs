@@ -297,6 +297,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port_udp_sctp() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
@@ -370,6 +371,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn async_run_command_should_map_ports_udp_sctp() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;

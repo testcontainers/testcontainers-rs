@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, str::FromStr};
 
 use bollard::{
     auth::DockerCredentials,
@@ -12,6 +12,7 @@ use bollard::{
 use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
+use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
@@ -312,15 +313,16 @@ impl Client {
 
     pub(crate) async fn docker_hostname(&self) -> Result<url::Host, ClientError> {
         let docker_host = self.config.docker_host();
-        match docker_host.scheme() {
-            "tcp" | "http" | "https" => {
-                docker_host
-                    .host()
-                    .map(|host| host.to_owned())
-                    .ok_or_else(|| {
-                        ConfigurationError::InvalidDockerHost(docker_host.to_string()).into()
-                    })
-            }
+        let docker_host_url = Url::from_str(docker_host)
+            .map_err(|e| ConfigurationError::InvalidDockerHost(e.to_string()))?;
+
+        match docker_host_url.scheme() {
+            "tcp" | "http" | "https" => docker_host_url
+                .host()
+                .map(|host| host.to_owned())
+                .ok_or_else(|| {
+                    ConfigurationError::InvalidDockerHost(docker_host.to_string()).into()
+                }),
             "unix" | "npipe" => {
                 if is_in_container().await {
                     let host = self
