@@ -290,7 +290,7 @@ mod tests {
         let image = GenericImage::new("hello-world", "latest");
         let container = image.with_ulimit("nofile", 123, 456).start()?;
 
-        let container_details = inspect(container.id())?;
+        let container_details = inspect(container.id());
 
         let ulimits = container_details
             .host_config
