@@ -172,6 +172,14 @@ where
             });
         }
 
+        // resource ulimits
+        if container_req.ulimits().is_some() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.ulimits = container_req.ulimits.clone();
+                host_config
+            });
+        }
+
         let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
         if !cmd.is_empty() {
             config.cmd = Some(cmd);
@@ -543,6 +551,27 @@ mod tests {
             .privileged
             .expect("Privileged");
         assert!(privileged, "privileged must be `true`");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_include_ulimits() -> anyhow::Result<()> {
+        let image = GenericImage::new("hello-world", "latest");
+        let container = image.with_ulimit("nofile", 123, 456).start().await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let ulimits = container_details
+            .host_config
+            .expect("HostConfig")
+            .ulimits
+            .expect("Privileged");
+
+        assert_eq!(ulimits.len(), 1);
+        assert_eq!(ulimits[0].name, Some("nofile".into()));
+        assert_eq!(ulimits[0].soft, Some(123));
+        assert_eq!(ulimits[0].hard, Some(456));
         Ok(())
     }
 

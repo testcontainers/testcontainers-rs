@@ -286,6 +286,26 @@ mod tests {
     }
 
     #[test]
+    fn sync_run_command_should_include_ulimits() -> anyhow::Result<()> {
+        let image = GenericImage::new("hello-world", "latest");
+        let container = image.with_ulimit("nofile", 123, 456).start()?;
+
+        let container_details = inspect(container.id())?;
+
+        let ulimits = container_details
+            .host_config
+            .expect("HostConfig")
+            .ulimits
+            .expect("Privileged");
+
+        assert_eq!(ulimits.len(), 1);
+        assert_eq!(ulimits[0].name, Some("nofile".into()));
+        assert_eq!(ulimits[0].soft, Some(123));
+        assert_eq!(ulimits[0].hard, Some(456));
+        Ok(())
+    }
+
+    #[test]
     fn sync_run_command_should_set_shared_memory_size() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
         let container = image.with_shm_size(1_000_000).start()?;

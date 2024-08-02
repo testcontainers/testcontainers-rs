@@ -1,17 +1,17 @@
-use std::{
-    borrow::Cow,
-    collections::BTreeMap,
-    fmt::{Debug, Formatter},
-    net::IpAddr,
-    time::Duration,
-};
-
 use crate::{
     core::{
         logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort, ContainerState,
         ExecCommand, WaitFor,
     },
     Image, TestcontainersError,
+};
+use bollard_stubs::models::ResourcesUlimits;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+    fmt::{Debug, Formatter},
+    net::IpAddr,
+    time::Duration,
 };
 
 /// Represents a request to start a container, allowing customization of the container.
@@ -27,6 +27,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) hosts: BTreeMap<String, Host>,
     pub(crate) mounts: Vec<Mount>,
     pub(crate) ports: Option<Vec<PortMapping>>,
+    pub(crate) ulimits: Option<Vec<ResourcesUlimits>>,
     pub(crate) privileged: bool,
     pub(crate) shm_size: Option<u64>,
     pub(crate) cgroupns_mode: Option<CgroupnsMode>,
@@ -93,6 +94,10 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn ports(&self) -> Option<&Vec<PortMapping>> {
         self.ports.as_ref()
+    }
+
+    pub fn ulimits(&self) -> Option<&Vec<ResourcesUlimits>> {
+        self.ulimits.as_ref()
     }
 
     pub fn privileged(&self) -> bool {
@@ -168,6 +173,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             hosts: BTreeMap::default(),
             mounts: Vec::new(),
             ports: None,
+            ulimits: None,
             privileged: false,
             shm_size: None,
             cgroupns_mode: None,
@@ -208,6 +214,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("hosts", &self.hosts)
             .field("mounts", &self.mounts)
             .field("ports", &self.ports)
+            .field("ulimits", &self.ulimits)
             .field("privileged", &self.privileged)
             .field("shm_size", &self.shm_size)
             .field("cgroupns_mode", &self.cgroupns_mode)
