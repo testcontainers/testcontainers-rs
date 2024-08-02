@@ -1,9 +1,11 @@
+use std::time::Duration;
+
+use bollard_stubs::models::ResourcesUlimits;
+
 use crate::{
     core::{logs::consumer::LogConsumer, CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
     ContainerRequest, Image,
 };
-use bollard_stubs::models::ResourcesUlimits;
-use std::time::Duration;
 
 /// Represents an extension for the [`Image`] trait.
 /// Allows to override image defaults and container configuration.
