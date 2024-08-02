@@ -1,17 +1,19 @@
-use crate::{
-    core::{
-        logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort, ContainerState,
-        ExecCommand, WaitFor,
-    },
-    Image, TestcontainersError,
-};
-use bollard_stubs::models::ResourcesUlimits;
 use std::{
     borrow::Cow,
     collections::BTreeMap,
     fmt::{Debug, Formatter},
     net::IpAddr,
     time::Duration,
+};
+
+use bollard_stubs::models::ResourcesUlimits;
+
+use crate::{
+    core::{
+        logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort, ContainerState,
+        ExecCommand, WaitFor,
+    },
+    Image, TestcontainersError,
 };
 
 /// Represents a request to start a container, allowing customization of the container.
