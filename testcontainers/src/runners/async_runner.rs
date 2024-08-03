@@ -5,7 +5,7 @@ use bollard::{
     container::{Config, CreateContainerOptions},
     models::{HostConfig, PortBinding},
 };
-use bollard_stubs::models::HostConfigCgroupnsModeEnum;
+use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
 use crate::{
     core::{
@@ -168,6 +168,23 @@ where
         } else if !is_container_networked {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.publish_all_ports = Some(true);
+                host_config
+            });
+        }
+
+        // resource ulimits
+        if let Some(ulimits) = &container_req.ulimits {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.ulimits = Some(
+                    ulimits
+                        .iter()
+                        .map(|ulimit| ResourcesUlimits {
+                            name: ulimit.name.clone(),
+                            soft: ulimit.soft,
+                            hard: ulimit.hard,
+                        })
+                        .collect(),
+                );
                 host_config
             });
         }
@@ -543,6 +560,27 @@ mod tests {
             .privileged
             .expect("Privileged");
         assert!(privileged, "privileged must be `true`");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_include_ulimits() -> anyhow::Result<()> {
+        let image = GenericImage::new("hello-world", "latest");
+        let container = image.with_ulimit("nofile", 123, Some(456)).start().await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let ulimits = container_details
+            .host_config
+            .expect("HostConfig")
+            .ulimits
+            .expect("Privileged");
+
+        assert_eq!(ulimits.len(), 1);
+        assert_eq!(ulimits[0].name, Some("nofile".into()));
+        assert_eq!(ulimits[0].soft, Some(123));
+        assert_eq!(ulimits[0].hard, Some(456));
         Ok(())
     }
 

@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use bollard_stubs::models::ResourcesUlimits;
+
 use crate::{
     core::{logs::consumer::LogConsumer, CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
     ContainerRequest, Image,
@@ -63,6 +65,16 @@ pub trait ImageExt<I: Image> {
     /// ```
     fn with_mapped_port(self, host_port: u16, container_port: ContainerPort)
         -> ContainerRequest<I>;
+
+    /// Adds a resource ulimit to the container.
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag").with_ulimit("nofile", 65536, Some(65536));
+    /// ```
+    fn with_ulimit(self, name: &str, soft: i64, hard: Option<i64>) -> ContainerRequest<I>;
 
     /// Sets the container to run in privileged mode.
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I>;
@@ -164,6 +176,21 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
 
         ContainerRequest {
             ports: Some(ports),
+            ..container_req
+        }
+    }
+
+    fn with_ulimit(self, name: &str, soft: i64, hard: Option<i64>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        let mut ulimits = container_req.ulimits.unwrap_or_default();
+        ulimits.push(ResourcesUlimits {
+            name: Some(name.into()),
+            soft: Some(soft),
+            hard,
+        });
+
+        ContainerRequest {
+            ulimits: Some(ulimits),
             ..container_req
         }
     }
