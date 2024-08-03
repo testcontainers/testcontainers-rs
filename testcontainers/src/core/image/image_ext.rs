@@ -73,7 +73,7 @@ pub trait ImageExt<I: Image> {
     /// ```rust,no_run
     /// use testcontainers::{GenericImage, ImageExt};
     ///
-    /// let image = GenericImage::new("image", "tag").with_ulimit("nofile", 65536, 65536);
+    /// let image = GenericImage::new("image", "tag").with_ulimit("nofile", 65536, Some(65536));
     /// ```
     fn with_ulimit(self, name: &str, soft: i64, hard: Option<i64>) -> ContainerRequest<I>;
 
