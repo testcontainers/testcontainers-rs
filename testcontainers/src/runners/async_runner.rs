@@ -173,7 +173,7 @@ where
         }
 
         // resource ulimits
-        if let Some(ulimits) = container_req.ulimits() {
+        if let Some(ulimits) = &container_req.ulimits {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.ulimits = Some(
                     ulimits

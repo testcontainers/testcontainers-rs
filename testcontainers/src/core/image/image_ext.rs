@@ -1,10 +1,9 @@
 use std::time::Duration;
 
+use bollard_stubs::models::ResourcesUlimits;
+
 use crate::{
-    core::{
-        logs::consumer::LogConsumer, request::ResourcesUlimits, CgroupnsMode, ContainerPort, Host,
-        Mount, PortMapping,
-    },
+    core::{logs::consumer::LogConsumer, CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
     ContainerRequest, Image,
 };
 

@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+use bollard_stubs::models::ResourcesUlimits;
+
 use crate::{
     core::{
         logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort, ContainerState,
@@ -41,14 +43,6 @@ pub struct ContainerRequest<I: Image> {
 pub struct PortMapping {
     pub(crate) host_port: u16,
     pub(crate) container_port: ContainerPort,
-}
-
-/// Represents a resource ulimit.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ResourcesUlimits {
-    pub(crate) name: Option<String>,
-    pub(crate) soft: Option<i64>,
-    pub(crate) hard: Option<i64>,
 }
 
 #[derive(parse_display::Display, Debug, Clone)]
@@ -102,10 +96,6 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn ports(&self) -> Option<&Vec<PortMapping>> {
         self.ports.as_ref()
-    }
-
-    pub fn ulimits(&self) -> Option<&Vec<ResourcesUlimits>> {
-        self.ulimits.as_ref()
     }
 
     pub fn privileged(&self) -> bool {
