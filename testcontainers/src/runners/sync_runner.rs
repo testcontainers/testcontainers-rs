@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn sync_run_command_should_include_ulimits() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = image.with_ulimit("nofile", 123, 456).start()?;
+        let container = image.with_ulimit("nofile", 123, Some(456)).start()?;
 
         let container_details = inspect(container.id());
 

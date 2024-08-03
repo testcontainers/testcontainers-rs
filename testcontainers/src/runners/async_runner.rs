@@ -5,7 +5,7 @@ use bollard::{
     container::{Config, CreateContainerOptions},
     models::{HostConfig, PortBinding},
 };
-use bollard_stubs::models::HostConfigCgroupnsModeEnum;
+use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
 use crate::{
     core::{
@@ -173,9 +173,18 @@ where
         }
 
         // resource ulimits
-        if container_req.ulimits().is_some() {
+        if let Some(ulimits) = container_req.ulimits() {
             config.host_config = config.host_config.map(|mut host_config| {
-                host_config.ulimits = container_req.ulimits.clone();
+                host_config.ulimits = Some(
+                    ulimits
+                        .iter()
+                        .map(|ulimit| ResourcesUlimits {
+                            name: ulimit.name.clone(),
+                            soft: ulimit.soft,
+                            hard: ulimit.hard,
+                        })
+                        .collect(),
+                );
                 host_config
             });
         }
@@ -557,7 +566,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_include_ulimits() -> anyhow::Result<()> {
         let image = GenericImage::new("hello-world", "latest");
-        let container = image.with_ulimit("nofile", 123, 456).start().await?;
+        let container = image.with_ulimit("nofile", 123, Some(456)).start().await?;
 
         let client = Client::lazy_client().await?;
         let container_details = client.inspect(container.id()).await?;
