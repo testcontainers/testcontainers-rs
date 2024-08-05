@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.1] - 2024-08-05
+### Details
+#### Features
+- Allow configuring resource ulimits ([#714](https://github.com/testcontainers/testcontainers-rs/pull/714))
 ## [0.21.0] - 2024-07-30
 ### Details
 #### Bug Fixes
