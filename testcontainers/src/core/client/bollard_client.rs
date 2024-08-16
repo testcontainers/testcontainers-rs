@@ -8,7 +8,7 @@ use crate::core::env;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2 * 60);
 
 pub(super) fn init(config: &env::Config) -> Result<Docker, bollard::errors::Error> {
-    let host = config.docker_host();
+    let host = &config.docker_host();
     let host_url = Url::from_str(host)?;
 
     match host_url.scheme() {
@@ -36,7 +36,7 @@ fn connect_with_ssl(config: &env::Config) -> Result<Docker, bollard::errors::Err
     let cert_path = config.cert_path().expect("cert path not found");
 
     Docker::connect_with_ssl(
-        config.docker_host(),
+        &config.docker_host(),
         &cert_path.join("key.pem"),
         &cert_path.join("cert.pem"),
         &cert_path.join("ca.pem"),

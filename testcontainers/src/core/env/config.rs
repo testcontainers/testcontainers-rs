@@ -1,4 +1,6 @@
 use std::{
+    borrow::Cow,
+    env::var,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -126,11 +128,21 @@ impl Config {
     ///  2. `DOCKER_HOST` environment variable.
     ///  3. Docker host from the `docker.host` property in the `~/.testcontainers.properties` file.
     ///  4. Else, the default Docker socket will be returned.
-    pub(crate) fn docker_host(&self) -> &str {
+    pub(crate) fn docker_host(&self) -> Cow<'_, str> {
         self.tc_host
             .as_deref()
             .or(self.host.as_deref())
-            .unwrap_or(DEFAULT_DOCKER_HOST)
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| {
+                // Docker Desktop on macOS creates the socket in the user's home directory
+                // from version 4.13.0.
+                // https://github.com/docker/for-mac/issues/6529
+                if cfg!(target_os = "macos") {
+                    format!("unix://{}/.docker/run/docker.sock", var("HOME").unwrap()).into()
+                } else {
+                    DEFAULT_DOCKER_HOST.into()
+                }
+            })
     }
 
     pub(crate) fn tls_verify(&self) -> bool {
