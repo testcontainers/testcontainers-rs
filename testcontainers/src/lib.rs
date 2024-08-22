@@ -2,6 +2,7 @@
 #![warn(rust_2018_idioms)]
 #![cfg_attr(docsrs, deny(rustdoc::broken_intra_doc_links))]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![forbid(unsafe_code)]
 
 //! A library for integration testing against docker containers from within Rust.
 //!
