@@ -157,7 +157,7 @@ impl<I: Image> ContainerRequest<I> {
     pub fn startup_timeout(&self) -> Option<Duration> {
         self.startup_timeout
     }
-    
+
     pub fn working_dir(&self) -> Option<&str> {
         self.working_dir.as_deref()
     }

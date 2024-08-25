@@ -663,7 +663,10 @@ mod tests {
             .expect("ContainerConfig")
             .working_dir
             .expect("WorkingDir");
-        assert_eq!(expected_working_dir, &working_dir, "working dir must be `foo`");
+        assert_eq!(
+            expected_working_dir, &working_dir,
+            "working dir must be `foo`"
+        );
         Ok(())
     }
 }
