@@ -94,6 +94,9 @@ pub trait ImageExt<I: Image> {
     /// Sets the startup timeout for the container. The default is 60 seconds.
     fn with_startup_timeout(self, timeout: Duration) -> ContainerRequest<I>;
 
+    /// Sets the working directory. The default is defined by the underlying image, which in turn may default to `/`.
+    fn with_working_dir(self, working_dir: impl Into<String>) -> ContainerRequest<I>;
+
     /// Adds the log consumer to the container.
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
@@ -231,6 +234,14 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let container_req = self.into();
         ContainerRequest {
             startup_timeout: Some(timeout),
+            ..container_req
+        }
+    }
+
+    fn with_working_dir(self, working_dir: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            working_dir: Some(working_dir.into()),
             ..container_req
         }
     }

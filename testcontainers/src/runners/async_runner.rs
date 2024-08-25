@@ -71,6 +71,7 @@ where
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
                 ..Default::default()
             }),
+            working_dir: container_req.working_dir().map(|dir| dir.to_string()),
             ..Default::default()
         };
 
@@ -645,6 +646,24 @@ mod tests {
             .userns_mode
             .expect("UsernsMode");
         assert_eq!("host", userns_mode, "userns mode must be `host`");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_working_dir() -> anyhow::Result<()> {
+        let image = GenericImage::new("hello-world", "latest");
+        let expected_working_dir = "/foo";
+        let container = image.with_working_dir(expected_working_dir).start().await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let working_dir = container_details
+            .config
+            .expect("ContainerConfig")
+            .working_dir
+            .expect("WorkingDir");
+        assert_eq!(expected_working_dir, &working_dir, "working dir must be `foo`");
         Ok(())
     }
 }
