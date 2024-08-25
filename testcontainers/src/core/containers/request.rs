@@ -35,6 +35,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) cgroupns_mode: Option<CgroupnsMode>,
     pub(crate) userns_mode: Option<String>,
     pub(crate) startup_timeout: Option<Duration>,
+    pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
 }
 
@@ -156,6 +157,10 @@ impl<I: Image> ContainerRequest<I> {
     pub fn startup_timeout(&self) -> Option<Duration> {
         self.startup_timeout
     }
+
+    pub fn working_dir(&self) -> Option<&str> {
+        self.working_dir.as_deref()
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -177,6 +182,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             cgroupns_mode: None,
             userns_mode: None,
             startup_timeout: None,
+            working_dir: None,
             log_consumers: vec![],
         }
     }
@@ -218,6 +224,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("cgroupns_mode", &self.cgroupns_mode)
             .field("userns_mode", &self.userns_mode)
             .field("startup_timeout", &self.startup_timeout)
+            .field("working_dir", &self.working_dir)
             .finish()
     }
 }
