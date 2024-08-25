@@ -224,6 +224,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("cgroupns_mode", &self.cgroupns_mode)
             .field("userns_mode", &self.userns_mode)
             .field("startup_timeout", &self.startup_timeout)
+            .field("working_dir", &self.working_dir)
             .finish()
     }
 }
