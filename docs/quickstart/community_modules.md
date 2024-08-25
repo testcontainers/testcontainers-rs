@@ -13,7 +13,7 @@ This guide will show you how to use it.
       within synchronous tests (feature-gate for `SyncRunner`)
 2. Then start using the modules inside your tests with either `AsyncRunner` or `SyncRunner`
 
-Simple example of using `postgres` module with `SyncRunner` (`blocking` and `posrges` features enabled):
+Simple example of using `postgres` module with `SyncRunner` (`blocking` and `postgres` features enabled):
 
 ```rust
 use testcontainers_modules::{postgres, testcontainers::runners::SyncRunner};
