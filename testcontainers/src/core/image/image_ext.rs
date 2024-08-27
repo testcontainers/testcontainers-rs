@@ -213,19 +213,23 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     }
 
     fn with_cap_add(self, capabilities: Vec<String>) -> ContainerRequest<I> {
-        let container_req = self.into();
-        ContainerRequest {
-            cap_add: Some(capabilities),
-            ..container_req
-        }
+        let mut container_req = self.into();
+        container_req
+            .cap_add
+            .get_or_insert_with(Vec::new)
+            .extend(capabilities);
+
+        container_req
     }
 
     fn with_cap_drop(self, capabilities: Vec<String>) -> ContainerRequest<I> {
-        let container_req = self.into();
-        ContainerRequest {
-            cap_drop: Some(capabilities),
-            ..container_req
-        }
+        let mut container_req = self.into();
+        container_req
+            .cap_drop
+            .get_or_insert_with(Vec::new)
+            .extend(capabilities);
+
+        container_req
     }
 
     fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> ContainerRequest<I> {
