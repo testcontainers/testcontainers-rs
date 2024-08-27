@@ -79,6 +79,12 @@ pub trait ImageExt<I: Image> {
     /// Sets the container to run in privileged mode.
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I>;
 
+    /// Adds the capabilities to the container
+    fn with_cap_add(self, capabilities: Vec<String>) -> ContainerRequest<I>;
+
+    /// Drops the capabilities from the container's capabilities
+    fn with_cap_drop(self, capabilities: Vec<String>) -> ContainerRequest<I>;
+
     /// cgroup namespace mode for the container. Possible values are:
     /// - [`CgroupnsMode::Private`]: the container runs in its own private cgroup namespace
     /// - [`CgroupnsMode::Host`]: use the host system's cgroup namespace
@@ -202,6 +208,22 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let container_req = self.into();
         ContainerRequest {
             privileged,
+            ..container_req
+        }
+    }
+
+    fn with_cap_add(self, capabilities: Vec<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            cap_add: Some(capabilities),
+            ..container_req
+        }
+    }
+
+    fn with_cap_drop(self, capabilities: Vec<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            cap_drop: Some(capabilities),
             ..container_req
         }
     }
