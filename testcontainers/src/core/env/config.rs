@@ -1,9 +1,8 @@
+use dirs::{home_dir, runtime_dir};
 use std::{
     borrow::Cow,
-    env::var,
     path::{Path, PathBuf},
-    process::Command as StdCommand,
-    str::{from_utf8, FromStr},
+    str::FromStr,
 };
 
 use crate::core::env::GetEnvValue;
@@ -133,7 +132,6 @@ impl Config {
     ///     1. `${XDG_RUNTIME_DIR}/.docker/run/docker.sock`.
     ///     2. `${HOME}/.docker/run/docker.sock`.
     ///     3. `${HOME}/.docker/desktop/docker.sock`.
-    ///     4. `/run/user/${UID}/docker.sock`, where `${UID}` is the user ID of the current user.
     ///  6. The default Docker socket including schema will be returned if none of the above are set.
     pub(crate) fn docker_host(&self) -> Cow<'_, str> {
         self.tc_host
@@ -144,34 +142,28 @@ impl Config {
                 if cfg!(unix) {
                     check_path_exists("/var/run/docker.sock".into())
                         .or_else(|| {
-                            var("XDG_RUNTIME_DIR").ok().and_then(|dir| {
-                                check_path_exists(format!("{dir}/.docker/run/docker.sock",))
+                            runtime_dir().and_then(|dir| {
+                                check_path_exists(format!(
+                                    "{}/.docker/run/docker.sock",
+                                    dir.display()
+                                ))
                             })
                         })
                         .or_else(|| {
-                            check_path_exists(format!(
-                                "{}/.docker/run/docker.sock",
-                                var("HOME").unwrap()
-                            ))
+                            home_dir().and_then(|dir| {
+                                check_path_exists(format!(
+                                    "{}/.docker/run/docker.sock",
+                                    dir.display()
+                                ))
+                            })
                         })
                         .or_else(|| {
-                            check_path_exists(format!(
-                                "{}/.docker/desktop/docker.sock",
-                                var("HOME").unwrap()
-                            ))
-                        })
-                        .or_else(|| {
-                            // Get the user ID of the current user by running `id -u`
-                            StdCommand::new("id")
-                                .arg("-u")
-                                .output()
-                                .ok()
-                                .and_then(|output| {
-                                    from_utf8(&output.stdout).map(|s| s.trim().to_string()).ok()
-                                })
-                                .and_then(|uid| {
-                                    check_path_exists(format!("/run/user/${uid}/docker.sock"))
-                                })
+                            home_dir().and_then(|dir| {
+                                check_path_exists(format!(
+                                    "{}/.docker/desktop/docker.sock",
+                                    dir.display()
+                                ))
+                            })
                         })
                         .map(|p| format!("unix://{p}"))
                         .map(Cow::Owned)
