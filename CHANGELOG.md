@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.0] - 2024-08-30
+### Details
+#### Bug Fixes
+- [❗] Docker socket detection on unix ([#721](https://github.com/testcontainers/testcontainers-rs/pull/721))
+
+#### Features
+- Add `working_dir` to `ContainerRequest`,`ImageExt` ([#724](https://github.com/testcontainers/testcontainers-rs/pull/724))
+
+#### Miscellaneous Tasks
+- Added `#![forbid(unsafe_code)]` to the library ([#722](https://github.com/testcontainers/testcontainers-rs/pull/722))
 ## [0.21.1] - 2024-08-05
 ### Details
 #### Features
