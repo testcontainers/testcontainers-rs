@@ -1,9 +1,10 @@
-use dirs::{home_dir, runtime_dir};
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
     str::FromStr,
 };
+
+use dirs::{home_dir, runtime_dir};
 
 use crate::core::env::GetEnvValue;
 
