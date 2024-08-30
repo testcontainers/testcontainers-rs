@@ -140,26 +140,20 @@ impl Config {
             .map(Cow::Borrowed)
             .unwrap_or_else(|| {
                 if cfg!(unix) {
-                    check_path_exists("/var/run/docker.sock".into())
+                    validate_path("/var/run/docker.sock".into())
                         .or_else(|| {
                             runtime_dir().and_then(|dir| {
-                                check_path_exists(format!(
-                                    "{}/.docker/run/docker.sock",
-                                    dir.display()
-                                ))
+                                validate_path(format!("{}/.docker/run/docker.sock", dir.display()))
                             })
                         })
                         .or_else(|| {
                             home_dir().and_then(|dir| {
-                                check_path_exists(format!(
-                                    "{}/.docker/run/docker.sock",
-                                    dir.display()
-                                ))
+                                validate_path(format!("{}/.docker/run/docker.sock", dir.display()))
                             })
                         })
                         .or_else(|| {
                             home_dir().and_then(|dir| {
-                                check_path_exists(format!(
+                                validate_path(format!(
                                     "{}/.docker/desktop/docker.sock",
                                     dir.display()
                                 ))
@@ -191,8 +185,8 @@ impl Config {
     }
 }
 
-/// Checks if the path exists and returns it if it does.
-fn check_path_exists(path: String) -> Option<String> {
+/// Validate the path exists and return it if it does.
+fn validate_path(path: String) -> Option<String> {
     if Path::new(&path).exists() {
         Some(path)
     } else {
