@@ -1,7 +1,10 @@
 use std::{
+    borrow::Cow,
     path::{Path, PathBuf},
     str::FromStr,
 };
+
+use dirs::{home_dir, runtime_dir};
 
 use crate::core::env::GetEnvValue;
 
@@ -125,12 +128,45 @@ impl Config {
     ///  1. Docker host from the `tc.host` property in the `~/.testcontainers.properties` file.
     ///  2. `DOCKER_HOST` environment variable.
     ///  3. Docker host from the `docker.host` property in the `~/.testcontainers.properties` file.
-    ///  4. Else, the default Docker socket will be returned.
-    pub(crate) fn docker_host(&self) -> &str {
+    ///  4. Read the default Docker socket path, without the unix schema. E.g. `/var/run/docker.sock`.
+    ///  5. Read the rootless Docker socket path, checking in the following alternative locations:
+    ///     1. `${XDG_RUNTIME_DIR}/.docker/run/docker.sock`.
+    ///     2. `${HOME}/.docker/run/docker.sock`.
+    ///     3. `${HOME}/.docker/desktop/docker.sock`.
+    ///  6. The default Docker socket including schema will be returned if none of the above are set.
+    pub(crate) fn docker_host(&self) -> Cow<'_, str> {
         self.tc_host
             .as_deref()
             .or(self.host.as_deref())
-            .unwrap_or(DEFAULT_DOCKER_HOST)
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| {
+                if cfg!(unix) {
+                    validate_path("/var/run/docker.sock".into())
+                        .or_else(|| {
+                            runtime_dir().and_then(|dir| {
+                                validate_path(format!("{}/.docker/run/docker.sock", dir.display()))
+                            })
+                        })
+                        .or_else(|| {
+                            home_dir().and_then(|dir| {
+                                validate_path(format!("{}/.docker/run/docker.sock", dir.display()))
+                            })
+                        })
+                        .or_else(|| {
+                            home_dir().and_then(|dir| {
+                                validate_path(format!(
+                                    "{}/.docker/desktop/docker.sock",
+                                    dir.display()
+                                ))
+                            })
+                        })
+                        .map(|p| format!("unix://{p}"))
+                        .map(Cow::Owned)
+                        .unwrap_or(DEFAULT_DOCKER_HOST.into())
+                } else {
+                    DEFAULT_DOCKER_HOST.into()
+                }
+            })
     }
 
     pub(crate) fn tls_verify(&self) -> bool {
@@ -147,6 +183,15 @@ impl Config {
 
     pub(crate) fn docker_auth_config(&self) -> Option<&str> {
         self.docker_auth_config.as_deref()
+    }
+}
+
+/// Validate the path exists and return it if it does.
+fn validate_path(path: String) -> Option<String> {
+    if Path::new(&path).exists() {
+        Some(path)
+    } else {
+        None
     }
 }
 

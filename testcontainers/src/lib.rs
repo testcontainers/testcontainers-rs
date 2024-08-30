@@ -40,7 +40,12 @@
 //! 1. Docker host from the `tc.host` property in the `~/.testcontainers.properties` file.
 //! 2. `DOCKER_HOST` environment variable.
 //! 3. Docker host from the "docker.host" property in the `~/.testcontainers.properties` file.
-//! 4. Else, the default Docker socket will be returned.
+//! 4. Read the default Docker socket path, without the unix schema. E.g. `/var/run/docker.sock`.
+//! 5. Read the rootless Docker socket path, checking in the following alternative locations:
+//!    1. `${XDG_RUNTIME_DIR}/.docker/run/docker.sock`.
+//!    2. `${HOME}/.docker/run/docker.sock`.
+//!    3. `${HOME}/.docker/desktop/docker.sock`.
+//! 6. The default Docker socket including schema will be returned if none of the above are set.
 //!
 //! ### Docker authentication
 //!
