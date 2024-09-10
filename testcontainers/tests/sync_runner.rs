@@ -223,3 +223,24 @@ fn sync_run_with_log_consumer() -> anyhow::Result<()> {
     rx.recv()?; // notification from consumer
     Ok(())
 }
+
+#[test]
+fn sync_copy_files_to_container() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(2))
+        .with_copy_to(
+            "/tmp/somefile",
+            CopyDataSource::Data("foobar".to_string().into_bytes()),
+        )
+        .with_cmd(vec!["cat", "/tmp/somefile"])
+        .start()?;
+
+    let mut out = String::new();
+    container.stdout(false).read_to_string(&mut out)?;
+
+    assert!(out.contains("foobar"));
+
+    Ok(())
+}

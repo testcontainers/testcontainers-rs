@@ -10,6 +10,7 @@ use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 use crate::{
     core::{
         client::{Client, ClientError},
+        copy::CopyToContainer,
         error::{Result, WaitContainerError},
         mounts::{AccessMode, Mount, MountType},
         network::Network,
@@ -211,6 +212,15 @@ where
             }
             res => res,
         }?;
+
+        let copy_to_sources: Vec<&CopyToContainer> =
+            container_req.copy_to_sources().map(Into::into).collect();
+
+        for copy_to_source in copy_to_sources {
+            client
+                .copy_to_container(&container_id, &copy_to_source)
+                .await?;
+        }
 
         #[cfg(feature = "watchdog")]
         if client.config.command() == crate::core::env::Command::Remove {

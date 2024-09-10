@@ -3,9 +3,13 @@ use std::{borrow::Cow, fmt::Debug};
 pub use exec::ExecCommand;
 pub use image_ext::ImageExt;
 
-use super::ports::{ContainerPort, Ports};
 use crate::{
-    core::{mounts::Mount, WaitFor},
+    core::{
+        copy::CopyToContainer,
+        mounts::Mount,
+        ports::{ContainerPort, Ports},
+        WaitFor,
+    },
     TestcontainersError,
 };
 
@@ -51,6 +55,11 @@ where
 
     /// Returns the mounts that needs to be created when a container is created.
     fn mounts(&self) -> impl IntoIterator<Item = &Mount> {
+        std::iter::empty()
+    }
+
+    /// Returns the files to be copied into the container at startup.
+    fn copy_to_sources(&self) -> impl IntoIterator<Item = &CopyToContainer> {
         std::iter::empty()
     }
 

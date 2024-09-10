@@ -1,8 +1,14 @@
-use std::{io, str::FromStr};
+use std::{
+    io::{self},
+    str::FromStr,
+};
 
 use bollard::{
     auth::DockerCredentials,
-    container::{Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions},
+    container::{
+        Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions,
+        UploadToContainerOptions,
+    },
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     image::CreateImageOptions,
@@ -16,6 +22,7 @@ use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
+    copy::{CopyToContaienrError, CopyToContainer},
     env,
     env::ConfigurationError,
     logs::{
@@ -81,6 +88,10 @@ pub enum ClientError {
     InitExec(BollardError),
     #[error("failed to inspect exec command: {0}")]
     InspectExec(BollardError),
+    #[error("failed to upload data to container: {0}")]
+    UploadToContainerError(BollardError),
+    #[error("failed to prepare data for copy-to-container: {0}")]
+    CopyToContaienrError(CopyToContaienrError),
 }
 
 /// The internal client.
@@ -274,6 +285,32 @@ impl Client {
             .start_container::<String>(container_id, None)
             .await
             .map_err(ClientError::StartContainer)
+    }
+
+    pub(crate) async fn copy_to_container(
+        &self,
+        container_id: impl Into<String>,
+        copy_to_container: &CopyToContainer,
+    ) -> Result<(), ClientError> {
+        let container_id: String = container_id.into();
+        let target_directory = copy_to_container
+            .target_directory()
+            .map_err(ClientError::CopyToContaienrError)?;
+
+        let options = UploadToContainerOptions {
+            path: target_directory,
+            no_overwrite_dir_non_dir: "false".into(),
+        };
+
+        let tar = copy_to_container
+            .tar()
+            .await
+            .map_err(ClientError::CopyToContaienrError)?;
+
+        self.bollard
+            .upload_to_container::<String>(&container_id, Some(options), tar)
+            .await
+            .map_err(ClientError::UploadToContainerError)
     }
 
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {

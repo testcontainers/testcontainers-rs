@@ -11,6 +11,7 @@ mod image;
 pub(crate) mod async_drop;
 pub(crate) mod client;
 pub(crate) mod containers;
+pub(crate) mod copy;
 pub(crate) mod env;
 pub mod error;
 pub mod logs;
