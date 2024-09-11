@@ -18,7 +18,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 
 We rely on `rustfmt` (`nightly`):
 ```shell
-cargo +nightly fmt - - all
+cargo +nightly fmt --all -- --check
 ```
 
 ### Commits
