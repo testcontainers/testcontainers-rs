@@ -8,7 +8,7 @@ use testcontainers::{
         CmdWaitFor, ExecCommand, WaitFor,
     },
     runners::AsyncRunner,
-    CopyDataSource, GenericImage, Image, ImageExt,
+    GenericImage, Image, ImageExt,
 };
 use tokio::io::AsyncReadExt;
 
@@ -204,10 +204,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
 async fn async_copy_files_to_container() -> anyhow::Result<()> {
     let container = GenericImage::new("alpine", "latest")
         .with_wait_for(WaitFor::seconds(2))
-        .with_copy_to(
-            "/tmp/somefile",
-            CopyDataSource::from("foobar".to_string().into_bytes()),
-        )
+        .with_copy_to("/tmp/somefile", "foobar".to_string().into_bytes())
         .with_cmd(vec!["cat", "/tmp/somefile"])
         .start()
         .await?;

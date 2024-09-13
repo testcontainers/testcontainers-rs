@@ -5,8 +5,8 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct CopyToContainer {
-    pub target: String,
-    pub source: CopyDataSource,
+    target: String,
+    source: CopyDataSource,
 }
 
 #[derive(Debug, Clone)]
@@ -24,20 +24,28 @@ pub enum CopyToContaienrError {
 }
 
 impl CopyToContainer {
-    pub fn target_directory(&self) -> Result<String, CopyToContaienrError> {
-        match path::Path::new(&self.target).parent() {
-            Some(v) => Ok(v.display().to_string()),
-            None => return Err(CopyToContaienrError::PathNameError(self.target.clone())),
+    pub fn new(source: impl Into<CopyDataSource>, target: impl Into<String>) -> Self {
+        Self {
+            source: source.into(),
+            target: target.into(),
         }
     }
 
-    pub async fn tar(&self) -> Result<bytes::Bytes, CopyToContaienrError> {
+    pub(crate) fn target_directory(&self) -> Result<String, CopyToContaienrError> {
+        path::Path::new(&self.target)
+            .parent()
+            .map(path::Path::display)
+            .map(|dir| dir.to_string())
+            .ok_or_else(|| CopyToContaienrError::PathNameError(self.target.clone()))
+    }
+
+    pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContaienrError> {
         self.source.tar(&self.target).await
     }
 }
 
 impl CopyDataSource {
-    pub async fn tar(
+    pub(crate) async fn tar(
         &self,
         target_path: impl Into<String>,
     ) -> Result<bytes::Bytes, CopyToContaienrError> {
@@ -46,10 +54,10 @@ impl CopyDataSource {
 
         match self {
             CopyDataSource::File(file_path) => {
-                let mut f = &mut tokio::fs::File::open(file_path)
+                let f = &mut tokio::fs::File::open(file_path)
                     .await
                     .map_err(CopyToContaienrError::IoError)?;
-                ar.append_file(&target_path, &mut f)
+                ar.append_file(&target_path, f)
                     .await
                     .map_err(CopyToContaienrError::IoError)?;
             }

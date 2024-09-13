@@ -59,8 +59,11 @@ pub trait ImageExt<I: Image> {
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
     /// Copies some source into the container as file
-    fn with_copy_to(self, target: impl Into<String>, source: CopyDataSource)
-        -> ContainerRequest<I>;
+    fn with_copy_to(
+        self,
+        target: impl Into<String>,
+        source: impl Into<CopyDataSource>,
+    ) -> ContainerRequest<I>;
 
     /// Adds a port mapping to the container, mapping the host port to the container's internal port.
     ///
@@ -90,6 +93,7 @@ pub trait ImageExt<I: Image> {
     /// cgroup namespace mode for the container. Possible values are:
     /// - [`CgroupnsMode::Private`]: the container runs in its own private cgroup namespace
     /// - [`CgroupnsMode::Host`]: use the host system's cgroup namespace
+    ///
     /// If not specified, the daemon default is used, which can either be `\"private\"` or `\"host\"`, depending on daemon version, kernel support and configuration.
     fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> ContainerRequest<I>;
 
@@ -179,13 +183,13 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_copy_to(
         self,
         target: impl Into<String>,
-        source: CopyDataSource,
+        source: impl Into<CopyDataSource>,
     ) -> ContainerRequest<I> {
         let mut container_req = self.into();
         let target: String = target.into();
         container_req
             .copy_to_sources
-            .push(CopyToContainer { target, source });
+            .push(CopyToContainer::new(source, target));
         container_req
     }
 

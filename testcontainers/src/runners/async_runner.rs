@@ -218,7 +218,7 @@ where
 
         for copy_to_source in copy_to_sources {
             client
-                .copy_to_container(&container_id, &copy_to_source)
+                .copy_to_container(&container_id, copy_to_source)
                 .await?;
         }
 
