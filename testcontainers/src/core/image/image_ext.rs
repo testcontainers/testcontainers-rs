@@ -3,7 +3,11 @@ use std::time::Duration;
 use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
-    core::{logs::consumer::LogConsumer, CgroupnsMode, ContainerPort, Host, Mount, PortMapping},
+    core::{
+        copy::{CopyDataSource, CopyToContainer},
+        logs::consumer::LogConsumer,
+        CgroupnsMode, ContainerPort, Host, Mount, PortMapping,
+    },
     ContainerRequest, Image,
 };
 
@@ -53,6 +57,10 @@ pub trait ImageExt<I: Image> {
 
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
+
+    /// Copies some source into the container as file
+    fn with_copy_to(self, target: impl Into<String>, source: CopyDataSource)
+        -> ContainerRequest<I>;
 
     /// Adds a port mapping to the container, mapping the host port to the container's internal port.
     ///
@@ -165,6 +173,19 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.mounts.push(mount.into());
+        container_req
+    }
+
+    fn with_copy_to(
+        self,
+        target: impl Into<String>,
+        source: CopyDataSource,
+    ) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        let target: String = target.into();
+        container_req
+            .copy_to_sources
+            .push(CopyToContainer { target, source });
         container_req
     }
 

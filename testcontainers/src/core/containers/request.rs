@@ -10,8 +10,8 @@ use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
     core::{
-        logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort, ContainerState,
-        ExecCommand, WaitFor,
+        copy::CopyToContainer, logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort,
+        ContainerState, ExecCommand, WaitFor,
     },
     Image, TestcontainersError,
 };
@@ -28,6 +28,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
     pub(crate) mounts: Vec<Mount>,
+    pub(crate) copy_to_sources: Vec<CopyToContainer>,
     pub(crate) ports: Option<Vec<PortMapping>>,
     pub(crate) ulimits: Option<Vec<ResourcesUlimits>>,
     pub(crate) privileged: bool,
@@ -93,6 +94,13 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn mounts(&self) -> impl Iterator<Item = &Mount> {
         self.image.mounts().into_iter().chain(self.mounts.iter())
+    }
+
+    pub fn copy_to_sources(&self) -> impl Iterator<Item = &CopyToContainer> {
+        self.image
+            .copy_to_sources()
+            .into_iter()
+            .chain(self.copy_to_sources.iter())
     }
 
     pub fn ports(&self) -> Option<&Vec<PortMapping>> {
@@ -175,6 +183,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
             mounts: Vec::new(),
+            copy_to_sources: Vec::new(),
             ports: None,
             ulimits: None,
             privileged: false,
