@@ -230,10 +230,7 @@ fn sync_copy_files_to_container() -> anyhow::Result<()> {
 
     let container = GenericImage::new("alpine", "latest")
         .with_wait_for(WaitFor::seconds(2))
-        .with_copy_to(
-            "/tmp/somefile",
-            CopyDataSource::Data("foobar".to_string().into_bytes()),
-        )
+        .with_copy_to("/tmp/somefile", "foobar".to_string().into_bytes())
         .with_cmd(vec!["cat", "/tmp/somefile"])
         .start()?;
 
