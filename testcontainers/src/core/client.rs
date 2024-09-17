@@ -293,12 +293,9 @@ impl Client {
         copy_to_container: &CopyToContainer,
     ) -> Result<(), ClientError> {
         let container_id: String = container_id.into();
-        let target_directory = copy_to_container
-            .target_directory()
-            .map_err(ClientError::CopyToContaienrError)?;
 
         let options = UploadToContainerOptions {
-            path: target_directory,
+            path: "/".to_string(),
             no_overwrite_dir_non_dir: "false".into(),
         };
 

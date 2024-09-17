@@ -1,6 +1,6 @@
 use std::{
     io,
-    path::{self, Path, PathBuf},
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug, Clone)]
@@ -31,60 +31,8 @@ impl CopyToContainer {
         }
     }
 
-    pub(crate) fn target_directory(&self) -> Result<String, CopyToContaienrError> {
-        path::Path::new(&self.target)
-            .parent()
-            .map(path::Path::display)
-            .map(|dir| dir.to_string())
-            .ok_or_else(|| CopyToContaienrError::PathNameError(self.target.clone()))
-    }
-
     pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContaienrError> {
         self.source.tar(&self.target).await
-    }
-}
-
-impl CopyDataSource {
-    pub(crate) async fn tar(
-        &self,
-        target_path: impl Into<String>,
-    ) -> Result<bytes::Bytes, CopyToContaienrError> {
-        let target_path: String = target_path.into();
-        let mut ar = tokio_tar::Builder::new(Vec::new());
-
-        match self {
-            CopyDataSource::File(file_path) => {
-                let f = &mut tokio::fs::File::open(file_path)
-                    .await
-                    .map_err(CopyToContaienrError::IoError)?;
-                ar.append_file(&target_path, f)
-                    .await
-                    .map_err(CopyToContaienrError::IoError)?;
-            }
-            CopyDataSource::Data(data) => {
-                let path = path::Path::new(&target_path);
-                let file_name = match path.file_name() {
-                    Some(v) => v,
-                    None => return Err(CopyToContaienrError::PathNameError(target_path)),
-                };
-
-                let mut header = tokio_tar::Header::new_gnu();
-                header.set_size(data.len() as u64);
-                header.set_mode(0o0644);
-                header.set_cksum();
-
-                ar.append_data(&mut header, file_name, data.as_slice())
-                    .await
-                    .map_err(CopyToContaienrError::IoError)?;
-            }
-        }
-
-        let bytes = ar
-            .into_inner()
-            .await
-            .map_err(CopyToContaienrError::IoError)?;
-
-        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
     }
 }
 
@@ -101,5 +49,85 @@ impl From<PathBuf> for CopyDataSource {
 impl From<Vec<u8>> for CopyDataSource {
     fn from(value: Vec<u8>) -> Self {
         CopyDataSource::Data(value)
+    }
+}
+
+impl CopyDataSource {
+    pub(crate) async fn tar(
+        &self,
+        target_path: impl Into<String>,
+    ) -> Result<bytes::Bytes, CopyToContaienrError> {
+        let target_path: String = target_path.into();
+
+        let bytes = match self {
+            CopyDataSource::File(source_file_path) => {
+                tar_file(source_file_path, &target_path).await?
+            }
+            CopyDataSource::Data(data) => tar_bytes(data, &target_path).await?,
+        };
+
+        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+    }
+}
+
+async fn tar_file(
+    source_file_path: &Path,
+    target_path: &str,
+) -> Result<Vec<u8>, CopyToContaienrError> {
+    let target_path = make_path_relative(&target_path);
+    let meta = tokio::fs::metadata(source_file_path)
+        .await
+        .map_err(CopyToContaienrError::IoError)?;
+
+    let mut ar = tokio_tar::Builder::new(Vec::new());
+    if meta.is_dir() {
+        ar.append_dir_all(target_path, source_file_path)
+            .await
+            .map_err(CopyToContaienrError::IoError)?;
+    } else {
+        let f = &mut tokio::fs::File::open(source_file_path)
+            .await
+            .map_err(CopyToContaienrError::IoError)?;
+
+        ar.append_file(target_path, f)
+            .await
+            .map_err(CopyToContaienrError::IoError)?;
+    };
+
+    let res = ar
+        .into_inner()
+        .await
+        .map_err(CopyToContaienrError::IoError)?;
+
+    Ok(res)
+}
+
+async fn tar_bytes(data: &Vec<u8>, target_path: &str) -> Result<Vec<u8>, CopyToContaienrError> {
+    let relative_target_path = make_path_relative(&target_path);
+
+    let mut header = tokio_tar::Header::new_gnu();
+    header.set_size(data.len() as u64);
+    header.set_mode(0o0644);
+    header.set_cksum();
+
+    let mut ar = tokio_tar::Builder::new(Vec::new());
+    ar.append_data(&mut header, relative_target_path, data.as_slice())
+        .await
+        .map_err(CopyToContaienrError::IoError)?;
+
+    let res = ar
+        .into_inner()
+        .await
+        .map_err(CopyToContaienrError::IoError)?;
+
+    Ok(res)
+}
+
+fn make_path_relative(path: &str) -> String {
+    // TODO support also absolute windows paths like "C:\temp\foo.txt"
+    if path.starts_with("/") {
+        path.trim_start_matches("/").to_string()
+    } else {
+        path.to_string()
     }
 }

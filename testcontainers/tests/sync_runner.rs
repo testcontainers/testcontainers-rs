@@ -225,7 +225,7 @@ fn sync_run_with_log_consumer() -> anyhow::Result<()> {
 }
 
 #[test]
-fn sync_copy_files_to_container() -> anyhow::Result<()> {
+fn sync_copy_bytes_to_container() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     let container = GenericImage::new("alpine", "latest")
@@ -238,6 +238,36 @@ fn sync_copy_files_to_container() -> anyhow::Result<()> {
     container.stdout(false).read_to_string(&mut out)?;
 
     assert!(out.contains("foobar"));
+
+    Ok(())
+}
+
+#[test]
+fn sync_copy_files_to_container() -> anyhow::Result<()> {
+    let temp_dir = temp_dir::TempDir::new()?;
+    let f1 = temp_dir.child("foo.txt");
+
+    let sub_dir = temp_dir.child("subdir");
+    std::fs::create_dir(&sub_dir)?;
+    let mut f2 = sub_dir.clone();
+    f2.push("bar.txt");
+
+    std::fs::write(&f1, "foofoofoo")?;
+    std::fs::write(&f2, "barbarbar")?;
+
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(2))
+        .with_copy_to("/tmp/somefile", f1)
+        .with_copy_to("/", temp_dir.path())
+        .with_cmd(vec!["cat", "/tmp/somefile", "&&", "cat", "/subdir/bar.txt"])
+        .start()?;
+
+    let mut out = String::new();
+    container.stdout(false).read_to_string(&mut out)?;
+
+    println!("{}", out);
+    assert!(out.contains("foofoofoo"));
+    assert!(out.contains("barbarbar"));
 
     Ok(())
 }
