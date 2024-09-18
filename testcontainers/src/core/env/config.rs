@@ -4,7 +4,7 @@ use std::{
     str::FromStr,
 };
 
-use dirs::{home_dir, runtime_dir};
+use etcetera::BaseStrategy;
 
 use crate::core::env::GetEnvValue;
 
@@ -62,7 +62,7 @@ struct TestcontainersProperties {
 #[cfg(feature = "properties-config")]
 impl TestcontainersProperties {
     async fn load() -> Option<Result<Self, ConfigurationError>> {
-        let home_dir = dirs::home_dir()?;
+        let home_dir = home_dir()?;
         let properties_path = home_dir.join(TESTCONTAINERS_PROPERTIES);
 
         let content = tokio::fs::read(properties_path).await.ok()?;
@@ -195,6 +195,14 @@ fn validate_path(path: String) -> Option<String> {
     }
 }
 
+fn home_dir() -> Option<PathBuf> {
+    etcetera::home_dir().ok()
+}
+
+fn runtime_dir() -> Option<PathBuf> {
+    etcetera::choose_base_strategy().ok()?.runtime_dir()
+}
+
 /// Read the Docker authentication configuration in the following order:
 ///
 /// 1. `DOCKER_AUTH_CONFIG` environment variable, unmarshalling the string value from its JSON representation and using it as the Docker config.
@@ -210,7 +218,7 @@ where
             let mut path_to_config = match E::get_env_value("DOCKER_CONFIG").map(PathBuf::from) {
                 Some(path_to_config) => path_to_config,
                 None => {
-                    let home_dir = dirs::home_dir()?;
+                    let home_dir = home_dir()?;
                     home_dir.join(DEFAULT_DOCKER_CONFIG_PATH)
                 }
             };
