@@ -1,6 +1,9 @@
 use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
-use tokio::io::{AsyncBufRead, AsyncReadExt};
+use tokio::{
+    io::{AsyncBufRead, AsyncReadExt},
+    task::JoinHandle,
+};
 use tokio_stream::StreamExt;
 
 use crate::{
@@ -41,6 +44,7 @@ pub struct ContainerAsync<I: Image> {
     pub(super) docker_client: Arc<Client>,
     #[allow(dead_code)]
     network: Option<Arc<Network>>,
+    log_handler: Option<JoinHandle<()>>,
     dropped: bool,
 }
 
@@ -57,18 +61,19 @@ where
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
         let log_consumers = std::mem::take(&mut container_req.log_consumers);
-        let container = ContainerAsync {
+        let mut container = ContainerAsync {
             id,
             image: container_req,
             docker_client,
             network,
+            log_handler: None,
             dropped: false,
         };
 
         if !log_consumers.is_empty() {
             let mut logs = container.docker_client.logs(&container.id, true);
             let container_id = container.id.clone();
-            tokio::spawn(async move {
+            let log_handler = tokio::spawn(async move {
                 while let Some(result) = logs.next().await {
                     match result {
                         Ok(record) => {
@@ -85,6 +90,8 @@ where
                     }
                 }
             });
+
+            container.log_handler.replace(log_handler);
         }
 
         let ready_conditions = container.image().ready_conditions();
@@ -356,13 +363,22 @@ where
             let id = self.id.clone();
             let client = self.docker_client.clone();
             let command = self.docker_client.config.command();
+            let log_handler = self.log_handler.take();
 
             let drop_task = async move {
                 log::trace!("Drop was called for container {id}, cleaning up");
                 match command {
                     env::Command::Remove => {
+                        if let Some(handle) = log_handler {
+                            if let Err(e) = handle.await {
+                                log::error!("Failed to wait log consumers to finish: {e}");
+                            }
+                            if let Err(e) = client.stop(&id).await {
+                                log::error!("Failed to stop container on drop: {e}")
+                            }
+                        }
                         if let Err(e) = client.rm(&id).await {
-                            log::error!("Failed to remove container on drop: {}", e);
+                            log::error!("Failed to remove container on drop: {e}");
                         }
                     }
                     env::Command::Keep => {}
