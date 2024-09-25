@@ -22,7 +22,7 @@ use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
-    copy::{CopyToContaienrError, CopyToContainer},
+    copy::{CopyToContainer, CopyToContainerError},
     env,
     env::ConfigurationError,
     logs::{
@@ -91,7 +91,7 @@ pub enum ClientError {
     #[error("failed to upload data to container: {0}")]
     UploadToContainerError(BollardError),
     #[error("failed to prepare data for copy-to-container: {0}")]
-    CopyToContaienrError(CopyToContaienrError),
+    CopyToContainerError(CopyToContainerError),
 }
 
 /// The internal client.
@@ -302,7 +302,7 @@ impl Client {
         let tar = copy_to_container
             .tar()
             .await
-            .map_err(ClientError::CopyToContaienrError)?;
+            .map_err(ClientError::CopyToContainerError)?;
 
         self.bollard
             .upload_to_container::<String>(&container_id, Some(options), tar)
