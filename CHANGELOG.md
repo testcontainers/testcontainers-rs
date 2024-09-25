@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.0] - 2024-09-25
+### Details
+#### Bug Fixes
+- Expose public `copy` types ([#734](https://github.com/testcontainers/testcontainers-rs/pull/734))
+
+#### Features
+- Support copy files to container ([#730](https://github.com/testcontainers/testcontainers-rs/pull/730))
+- Support copying directories to container ([#735](https://github.com/testcontainers/testcontainers-rs/pull/735))
+
+#### Miscellaneous Tasks
+- Copy-to-container interface improvements ([#732](https://github.com/testcontainers/testcontainers-rs/pull/732))
+
+#### Refactor
+- Replace dirs crate with etcetera ([#736](https://github.com/testcontainers/testcontainers-rs/pull/736))
 ## [0.22.0] - 2024-08-30
 ### Details
 #### Bug Fixes
