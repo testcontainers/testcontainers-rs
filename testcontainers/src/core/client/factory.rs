@@ -11,7 +11,6 @@ static DOCKER_CLIENT: OnceLock<Mutex<Weak<Client>>> = OnceLock::new();
 
 impl Client {
     /// Returns a client instance, reusing already created or initializing a new one.
-    // We don't expose this function to the public API for now. We can do it later if needed.
     pub(crate) async fn lazy_client() -> Result<Arc<Client>, ClientError> {
         let mut guard = DOCKER_CLIENT
             .get_or_init(|| Mutex::new(Weak::new()))
@@ -28,4 +27,15 @@ impl Client {
             Ok(client)
         }
     }
+}
+
+/// Returns a configured Docker client instance.
+///
+/// This function provides access to the underlying Docker client ([`bollard`]).
+/// While this method is publicly exposed, it is not intended for frequent use.
+/// It can be useful in scenarios where you need to interact with the Docker API directly using an already configured client.
+///
+/// This method returns a lazily-created client, reusing an existing one if available.
+pub async fn docker_client_instance() -> Result<bollard::Docker, ClientError> {
+    Client::lazy_client().await.map(|c| c.bollard.clone())
 }

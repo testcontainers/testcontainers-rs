@@ -9,7 +9,7 @@ pub use self::{
 mod image;
 
 pub(crate) mod async_drop;
-pub(crate) mod client;
+pub mod client;
 pub(crate) mod containers;
 pub(crate) mod copy;
 pub(crate) mod env;
