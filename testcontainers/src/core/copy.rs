@@ -74,7 +74,7 @@ async fn tar_file(
     source_file_path: &Path,
     target_path: &str,
 ) -> Result<Vec<u8>, CopyToContainerError> {
-    let target_path = make_path_relative(&target_path);
+    let target_path = make_path_relative(target_path);
     let meta = tokio::fs::metadata(source_file_path)
         .await
         .map_err(CopyToContainerError::IoError)?;
@@ -103,7 +103,7 @@ async fn tar_file(
 }
 
 async fn tar_bytes(data: &Vec<u8>, target_path: &str) -> Result<Vec<u8>, CopyToContainerError> {
-    let relative_target_path = make_path_relative(&target_path);
+    let relative_target_path = make_path_relative(target_path);
 
     let mut header = tokio_tar::Header::new_gnu();
     header.set_size(data.len() as u64);

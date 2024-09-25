@@ -44,7 +44,7 @@ impl LoggingConsumer {
 
     fn format_message<'a>(&self, message: &'a str) -> Cow<'a, str> {
         // Remove trailing newlines
-        let message = message.trim_end_matches(|c| c == '\n' || c == '\r');
+        let message = message.trim_end_matches(['\n', '\r']);
 
         if let Some(prefix) = &self.prefix {
             Cow::Owned(format!("{} {}", prefix, message))

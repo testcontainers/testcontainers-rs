@@ -9,7 +9,7 @@ fn main() -> Result<()> {
     let output = Command::new("docker")
         .arg("build")
         .arg("--file")
-        .arg(&format!("{cwd}/src/dockerfiles/no_expose_port.dockerfile"))
+        .arg(format!("{cwd}/src/dockerfiles/no_expose_port.dockerfile"))
         .arg("--force-rm")
         .arg("--tag")
         .arg("no_expose_port:latest")
@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     let output = Command::new("docker")
         .arg("build")
         .arg("--file")
-        .arg(&format!(
+        .arg(format!(
             "{cwd}/src/dockerfiles/simple_web_server.dockerfile"
         ))
         .arg("--force-rm")
