@@ -79,7 +79,7 @@ pub mod core;
 #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
 pub use crate::core::Container;
 pub use crate::core::{
-    copy::{CopyDataSource, CopyToContaienrError, CopyToContainer},
+    copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
     ContainerAsync, ContainerRequest, Image, ImageExt,
 };
