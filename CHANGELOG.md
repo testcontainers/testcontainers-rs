@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.1] - 2024-09-26
+### Details
+#### Features
+- Expose configured bollard client ([#740](https://github.com/testcontainers/testcontainers-rs/pull/740))
 ## [0.23.0] - 2024-09-25
 ### Details
 #### Bug Fixes
