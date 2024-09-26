@@ -36,6 +36,8 @@ mod bollard_client;
 mod exec;
 mod factory;
 
+pub use factory::docker_client_instance;
+
 static IN_A_CONTAINER: OnceCell<bool> = OnceCell::const_new();
 
 // See https://github.com/docker/docker/blob/a9fa38b1edf30b23cae3eade0be48b3d4b1de14b/daemon/initlayer/setup_unix.go#L25
