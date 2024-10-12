@@ -30,7 +30,7 @@ fn test_redis() {
         .with_exposed_port(6379.tcp())
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
         .start()
-        .expect("Redis started");
+        .expect("Failed to start Redis");
 }
 ```
 
@@ -46,7 +46,7 @@ async fn test_redis() {
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
         .start()
         .await
-        .expect("Redis started");
+        .expect("Failed to start Redis");
 }
 ```
 
