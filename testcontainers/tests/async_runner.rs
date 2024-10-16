@@ -81,6 +81,11 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
 
     let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
 
+    // Make sure the image is already pulled, since otherwise pulling it may cause the deadline
+    // below to be exceeded.
+    let run_pull = image.clone().start().await?;
+    drop(run_pull);
+
     let run_1 = image.clone().start();
     let run_2 = image.clone().start();
     let run_3 = image.clone().start();
