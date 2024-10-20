@@ -32,7 +32,7 @@ fn test_redis() {
         .with_network("bridge")
         .with_env_var("DEBUG", "1")
         .start()
-        .expect("Redis started");
+        .expect("Failed to start Redis");
 }
 ```
 
@@ -50,7 +50,7 @@ async fn test_redis() {
         .with_env_var("DEBUG", "1")
         .start()
         .await
-        .expect("Redis started");
+        .expect("Failed to start Redis");
 }
 ```
 
