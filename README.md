@@ -22,13 +22,15 @@ The crate provides an API for working with containers in a test environment.
 - Blocking API (under `blocking` feature)
 
 ```rust
-use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::SyncRunner, GenericImage};
+use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::SyncRunner, GenericImage, ImageExt};
 
 #[test]
 fn test_redis() {
     let container = GenericImage::new("redis", "7.2.4")
         .with_exposed_port(6379.tcp())
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
+        .with_network("bridge")
+        .with_env_var("DEBUG", "1")
         .start()
         .expect("Redis started");
 }
@@ -37,13 +39,15 @@ fn test_redis() {
 - Async API
 
 ```rust
-use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage};
+use testcontainers::{core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage, ImageExt};
 
 #[tokio::test]
 async fn test_redis() {
     let container = GenericImage::new("redis", "7.2.4")
         .with_exposed_port(6379.tcp())
         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
+        .with_network("bridge")
+        .with_env_var("DEBUG", "1")
         .start()
         .await
         .expect("Redis started");
