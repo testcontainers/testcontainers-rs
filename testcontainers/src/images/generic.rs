@@ -3,6 +3,46 @@ use crate::{
     Image,
 };
 
+/// A configurable image from which a [`Container`] or [`ContainerAsync`] can be started.
+///
+/// The various methods on this struct allow for configuring the resulting container using the
+/// builder pattern. Further configuration is available through the [`ImageExt`] extension trait.
+/// Make sure to invoke the configuration methods on [`GenericImage`] first, before those from
+/// [`ImageExt`].
+///
+/// For example:
+///
+/// ```
+/// use testcontainers::{
+///     core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage, ImageExt
+/// };
+///
+/// # /*
+/// #[tokio::test]
+/// # */
+/// async fn test_redis() {
+///     let container = GenericImage::new("redis", "7.2.4")
+///         .with_exposed_port(6379.tcp())
+///         .with_wait_for(WaitFor::message_on_stdout("Ready to accept connections"))
+///         .with_network("bridge")
+///         .with_env_var("DEBUG", "1")
+///         .start()
+///         .await
+///         .expect("Redis started");
+/// #   container.stop().await.unwrap();
+/// }
+/// # let rt = tokio::runtime::Runtime::new().unwrap();
+/// # rt.block_on(test_redis());
+/// ```
+///
+/// The extension traits [`SyncRunner`] and [`AsyncRunner`] each provide the method `start()` to
+/// start the container once it is configured.
+///
+/// [`Container`]: crate::Container
+/// [`ContainerAsync`]: crate::ContainerAsync
+/// [`ImageExt`]: crate::core::ImageExt
+/// [`SyncRunner`]: crate::runners::SyncRunner
+/// [`AsyncRunner`]: crate::runners::AsyncRunner
 #[must_use]
 #[derive(Debug, Clone)]
 pub struct GenericImage {
