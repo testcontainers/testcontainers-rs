@@ -32,6 +32,8 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) ports: Option<Vec<PortMapping>>,
     pub(crate) ulimits: Option<Vec<ResourcesUlimits>>,
     pub(crate) privileged: bool,
+    pub(crate) cap_add: Option<Vec<String>>,
+    pub(crate) cap_drop: Option<Vec<String>>,
     pub(crate) shm_size: Option<u64>,
     pub(crate) cgroupns_mode: Option<CgroupnsMode>,
     pub(crate) userns_mode: Option<String>,
@@ -111,6 +113,14 @@ impl<I: Image> ContainerRequest<I> {
         self.privileged
     }
 
+    pub fn cap_add(&self) -> Option<&Vec<String>> {
+        self.cap_add.as_ref()
+    }
+
+    pub fn cap_drop(&self) -> Option<&Vec<String>> {
+        self.cap_drop.as_ref()
+    }
+
     pub fn cgroupns_mode(&self) -> Option<CgroupnsMode> {
         self.cgroupns_mode
     }
@@ -187,6 +197,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             ports: None,
             ulimits: None,
             privileged: false,
+            cap_add: None,
+            cap_drop: None,
             shm_size: None,
             cgroupns_mode: None,
             userns_mode: None,
@@ -229,6 +241,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("ports", &self.ports)
             .field("ulimits", &self.ulimits)
             .field("privileged", &self.privileged)
+            .field("cap_add", &self.cap_add)
+            .field("cap_drop", &self.cap_drop)
             .field("shm_size", &self.shm_size)
             .field("cgroupns_mode", &self.cgroupns_mode)
             .field("userns_mode", &self.userns_mode)
