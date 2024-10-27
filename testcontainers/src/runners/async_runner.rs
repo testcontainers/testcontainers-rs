@@ -70,6 +70,8 @@ where
                 extra_hosts: Some(extra_hosts),
                 cgroupns_mode: container_req.cgroupns_mode().map(|mode| mode.into()),
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
+                cap_add: container_req.cap_add().cloned(),
+                cap_drop: container_req.cap_drop().cloned(),
                 ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
@@ -571,6 +573,60 @@ mod tests {
             .privileged
             .expect("Privileged");
         assert!(privileged, "privileged must be `true`");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_cap_add() -> anyhow::Result<()> {
+        let image = GenericImage::new("hello-world", "latest");
+        let expected_capability = "NET_ADMIN";
+        let container = image
+            .with_cap_add(expected_capability.to_string())
+            .start()
+            .await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let capabilities = container_details
+            .host_config
+            .expect("HostConfig")
+            .cap_add
+            .expect("CapAdd");
+
+        assert_eq!(
+            expected_capability,
+            capabilities.get(0).expect("No capabilities added"),
+            "cap_add must contain {expected_capability}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_cap_drop() -> anyhow::Result<()> {
+        let image = GenericImage::new("hello-world", "latest");
+        let expected_capability = "AUDIT_WRITE";
+        let container = image
+            .with_cap_drop(expected_capability.to_string())
+            .start()
+            .await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let capabilities = container_details
+            .host_config
+            .expect("HostConfig")
+            .cap_drop
+            .expect("CapAdd");
+
+        assert_eq!(
+            expected_capability,
+            capabilities.get(0).expect("No capabilities dropped"),
+            "cap_drop must contain {expected_capability}"
+        );
+
         Ok(())
     }
 
