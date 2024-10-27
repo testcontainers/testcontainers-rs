@@ -571,7 +571,7 @@ mod tests {
         let image = GenericImage::new("hello-world", "latest");
         let expected_capability = "NET_ADMIN";
         let container = image
-            .with_cap_add(vec![expected_capability.to_string()])
+            .with_cap_add(expected_capability.to_string())
             .start()
             .await?;
 
@@ -598,7 +598,7 @@ mod tests {
         let image = GenericImage::new("hello-world", "latest");
         let expected_capability = "AUDIT_WRITE";
         let container = image
-            .with_cap_drop(vec![expected_capability.to_string()])
+            .with_cap_drop(expected_capability.to_string())
             .start()
             .await?;
 

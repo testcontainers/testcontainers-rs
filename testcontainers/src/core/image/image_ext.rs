@@ -80,10 +80,10 @@ pub trait ImageExt<I: Image> {
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I>;
 
     /// Adds the capabilities to the container
-    fn with_cap_add(self, capabilities: impl IntoIterator<Item = String>) -> ContainerRequest<I>;
+    fn with_cap_add(self, capability: impl Into<String>) -> ContainerRequest<I>;
 
     /// Drops the capabilities from the container's capabilities
-    fn with_cap_drop(self, capabilities: impl IntoIterator<Item = String>) -> ContainerRequest<I>;
+    fn with_cap_drop(self, capability: impl Into<String>) -> ContainerRequest<I>;
 
     /// cgroup namespace mode for the container. Possible values are:
     /// - [`CgroupnsMode::Private`]: the container runs in its own private cgroup namespace
@@ -212,22 +212,22 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
-    fn with_cap_add(self, capabilities: impl IntoIterator<Item = String>) -> ContainerRequest<I> {
+    fn with_cap_add(self, capability: impl Into<String>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req
             .cap_add
             .get_or_insert_with(Vec::new)
-            .extend(capabilities);
+            .push(capability.into());
 
         container_req
     }
 
-    fn with_cap_drop(self, capabilities: impl IntoIterator<Item = String>) -> ContainerRequest<I> {
+    fn with_cap_drop(self, capability: impl Into<String>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req
             .cap_drop
             .get_or_insert_with(Vec::new)
-            .extend(capabilities);
+            .push(capability.into());
 
         container_req
     }
