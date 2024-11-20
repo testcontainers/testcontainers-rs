@@ -548,7 +548,7 @@ mod tests {
         }
 
         // containers have been dropped, should clean up networks
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
         let client = Client::lazy_client().await?;
         assert!(!client.network_exists("awesome-net-2").await?);
         Ok(())
