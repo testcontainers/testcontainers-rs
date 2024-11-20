@@ -644,7 +644,7 @@ mod tests {
 
         assert_eq!(
             expected_capability,
-            capabilities.get(0).expect("No capabilities added"),
+            capabilities.first().expect("No capabilities added"),
             "cap_add must contain {expected_capability}"
         );
 
@@ -671,7 +671,7 @@ mod tests {
 
         assert_eq!(
             expected_capability,
-            capabilities.get(0).expect("No capabilities dropped"),
+            capabilities.first().expect("No capabilities dropped"),
             "cap_drop must contain {expected_capability}"
         );
 
