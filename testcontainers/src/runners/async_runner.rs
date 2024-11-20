@@ -63,8 +63,17 @@ where
             .map(|(key, value)| format!("{key}:{value}"))
             .collect();
 
+        let labels = HashMap::<String, String>::from_iter(
+            container_req
+                .labels()
+                .iter()
+                .map(|(key, value)| (key.into(), value.into()))
+                .chain([("managed-by".to_string(), "testcontainers".to_string())]),
+        );
+
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
+            labels: Some(labels),
             host_config: Some(HostConfig {
                 privileged: Some(container_req.privileged()),
                 extra_hosts: Some(extra_hosts),
@@ -296,6 +305,45 @@ mod tests {
         images::generic::GenericImage,
         ImageExt,
     };
+
+    /// Test that all user-supplied labels are added to containers started by `AsyncRunner::start`
+    #[tokio::test]
+    async fn async_start_should_apply_expected_labels() -> anyhow::Result<()> {
+        let mut labels = HashMap::from([
+            ("foo".to_string(), "bar".to_string()),
+            ("baz".to_string(), "qux".to_string()),
+            ("managed-by".to_string(), "the-time-wizard".to_string()),
+        ]);
+
+        let container = GenericImage::new("hello-world", "latest")
+            .with_labels(&labels)
+            .start()
+            .await?;
+
+        let client = Client::lazy_client().await?;
+
+        let container_labels = client
+            .inspect(container.id())
+            .await?
+            .config
+            .unwrap_or_default()
+            .labels
+            .unwrap_or_default();
+
+        // the created labels and container labels shouldn't actually be identical,
+        // as the `managed-by: testcontainers` label is always unconditionally applied
+        // to all containers by `AsyncRunner::start`, with the value `testcontainers`
+        // being applied *last* explicitly so that even user-supplied values of
+        // the `managed-by` key will be overwritten
+        assert_ne!(&labels, &container_labels);
+
+        // If we add the expected `managed-by` value though, they should then match
+        labels.insert("managed-by".to_string(), "testcontainers".to_string());
+
+        assert_eq!(labels, container_labels);
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
