@@ -45,9 +45,11 @@ url = { version = "2", features = ["serde"] }
 [features]
 default = []
 blocking = []
+experimental = []
 watchdog = ["signal-hook", "conquer-once"]
 http_wait = ["reqwest"]
 properties-config = ["serde-java-properties"]
+reusable-containers = []
 
 [dev-dependencies]
 anyhow = "1.0.86"
