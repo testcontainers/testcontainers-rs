@@ -40,6 +40,7 @@ tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
 tokio-stream = "0.1.15"
 tokio-tar = "0.3.1"
 tokio-util = { version = "0.7.10", features = ["io"] }
+ulid = { version = "1.1.3", optional = true }
 url = { version = "2", features = ["serde"] }
 
 [features]
@@ -49,7 +50,7 @@ experimental = []
 watchdog = ["signal-hook", "conquer-once"]
 http_wait = ["reqwest"]
 properties-config = ["serde-java-properties"]
-reusable-containers = []
+reusable-containers = ["dep:ulid"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
