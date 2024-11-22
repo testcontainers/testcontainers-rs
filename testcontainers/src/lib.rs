@@ -93,3 +93,8 @@ mod images;
 pub use images::generic::GenericImage;
 
 pub mod runners;
+
+#[cfg(all(feature = "reusable-containers", not(feature = "experimental")))]
+compile_error!(
+    "the `reusable-containers` feature cannot be enabled without also enabling `experimental`"
+);
