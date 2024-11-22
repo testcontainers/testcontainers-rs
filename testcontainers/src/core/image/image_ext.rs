@@ -131,6 +131,16 @@ pub trait ImageExt<I: Image> {
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
+
+    /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
+    /// indicating that the container should be kept running, and that executions with the same configuration
+    /// reuse it instead of starting a "fresh" container instance.
+    ///
+    /// **NOTE:** Reusable Containers is an experimental feature, and its behavior is therefore subject
+    /// to change. Containers marked as `reuse` **_will not_** be stopped or cleaned up when their associated
+    /// `Container` or `ContainerAsync` is dropped.
+    #[cfg(feature = "reusable-containers")]
+    fn with_reuse(self, reuse: bool) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -328,5 +338,13 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.log_consumers.push(Box::new(log_consumer));
         container_req
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    fn with_reuse(self, reuse: bool) -> ContainerRequest<I> {
+        ContainerRequest {
+            reuse,
+            ..self.into()
+        }
     }
 }

@@ -42,6 +42,8 @@ pub struct ContainerAsync<I: Image> {
     #[allow(dead_code)]
     network: Option<Arc<Network>>,
     dropped: bool,
+    #[cfg(feature = "reusable-containers")]
+    reuse: bool,
 }
 
 impl<I> ContainerAsync<I>
@@ -53,9 +55,24 @@ where
     pub(crate) async fn new(
         id: String,
         docker_client: Arc<Client>,
-        mut container_req: ContainerRequest<I>,
+        container_req: ContainerRequest<I>,
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
+        let container = Self::construct(id, docker_client, container_req, network);
+        let ready_conditions = container.image().ready_conditions();
+        container.block_until_ready(ready_conditions).await?;
+        Ok(container)
+    }
+
+    pub(crate) fn construct(
+        id: String,
+        docker_client: Arc<Client>,
+        mut container_req: ContainerRequest<I>,
+        network: Option<Arc<Network>>,
+    ) -> ContainerAsync<I> {
+        #[cfg(feature = "reusable-containers")]
+        let reuse = container_req.reuse();
+
         let log_consumers = std::mem::take(&mut container_req.log_consumers);
         let container = ContainerAsync {
             id,
@@ -63,6 +80,8 @@ where
             docker_client,
             network,
             dropped: false,
+            #[cfg(feature = "reusable-containers")]
+            reuse,
         };
 
         if !log_consumers.is_empty() {
@@ -87,9 +106,7 @@ where
             });
         }
 
-        let ready_conditions = container.image().ready_conditions();
-        container.block_until_ready(ready_conditions).await?;
-        Ok(container)
+        container
     }
 
     /// Returns the id of this container.
@@ -352,6 +369,15 @@ where
     I: Image,
 {
     fn drop(&mut self) {
+        #[cfg(feature = "reusable-containers")]
+        {
+            if self.reuse && !self.dropped {
+                log::debug!("Declining to reap container marked for reuse: {}", &self.id);
+
+                return;
+            }
+        }
+
         if !self.dropped {
             let id = self.id.clone();
             let client = self.docker_client.clone();
@@ -381,7 +407,6 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use tokio::io::AsyncBufReadExt;
 
     use crate::{images::generic::GenericImage, runners::AsyncRunner};
@@ -467,5 +492,175 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    #[tokio::test]
+    async fn async_containers_are_reused() -> anyhow::Result<()> {
+        use crate::ImageExt;
+
+        let labels = [
+            ("foo", "bar"),
+            ("baz", "qux"),
+            ("test-name", "async_containers_are_reused"),
+        ];
+
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.1.0")
+            .with_reuse(true)
+            .with_labels(labels);
+
+        let reused_image = initial_image
+            .image
+            .clone()
+            .with_reuse(true)
+            .with_labels(labels);
+
+        let initial_container = initial_image.start().await?;
+        let reused_container = reused_image.start().await?;
+
+        assert_eq!(initial_container.id(), reused_container.id());
+
+        let client = crate::core::client::docker_client_instance().await?;
+
+        let options = bollard::container::ListContainersOptions {
+            all: false,
+            limit: Some(2),
+            size: false,
+            filters: std::collections::HashMap::from_iter([(
+                "label".to_string(),
+                labels
+                    .iter()
+                    .map(|(key, value)| format!("{key}={value}"))
+                    .chain([
+                        "managed-by=testcontainers".to_string(),
+                        "com.testcontainers.reuse=true".to_string(),
+                        format!(
+                            "com.testcontainers.session-id={}",
+                            crate::runners::async_runner::session_id()
+                        ),
+                    ])
+                    .collect(),
+            )]),
+        };
+
+        let containers = client.list_containers(Some(options)).await?;
+
+        assert_eq!(containers.len(), 1);
+
+        assert_eq!(
+            Some(initial_container.id()),
+            containers.first().unwrap().id.as_deref()
+        );
+
+        reused_container.rm().await.map_err(anyhow::Error::from)
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    #[tokio::test]
+    async fn async_reused_containers_are_not_confused() -> anyhow::Result<()> {
+        use crate::ImageExt;
+        use std::collections::HashSet;
+
+        let labels = [
+            ("foo", "bar"),
+            ("baz", "qux"),
+            ("test-name", "async_reused_containers_are_not_confused"),
+        ];
+
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.1.0")
+            .with_reuse(true)
+            .with_labels(labels);
+
+        let similar_image = initial_image
+            .image
+            .clone()
+            .with_reuse(false)
+            .with_labels(&initial_image.labels);
+
+        let initial_container = initial_image.start().await?;
+        let similar_container = similar_image.start().await?;
+
+        assert_ne!(initial_container.id(), similar_container.id());
+
+        let client = crate::core::client::docker_client_instance().await?;
+
+        let options = bollard::container::ListContainersOptions {
+            all: false,
+            limit: Some(2),
+            size: false,
+            filters: std::collections::HashMap::from_iter([(
+                "label".to_string(),
+                labels
+                    .iter()
+                    .map(|(key, value)| format!("{key}={value}"))
+                    .chain([
+                        "managed-by=testcontainers".to_string(),
+                        format!(
+                            "com.testcontainers.session-id={}",
+                            crate::runners::async_runner::session_id()
+                        ),
+                    ])
+                    .collect(),
+            )]),
+        };
+
+        let containers = client.list_containers(Some(options)).await?;
+
+        assert_eq!(containers.len(), 2);
+
+        let container_ids = containers
+            .iter()
+            .filter_map(|container| container.id.as_deref())
+            .collect::<std::collections::HashSet<_>>();
+
+        assert_eq!(
+            container_ids,
+            HashSet::from_iter([initial_container.id(), similar_container.id()])
+        );
+
+        initial_container.rm().await?;
+        similar_container.rm().await.map_err(anyhow::Error::from)
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    #[tokio::test]
+    async fn async_reusable_containers_are_not_dropped() -> anyhow::Result<()> {
+        use crate::ImageExt;
+
+        let client = crate::core::client::docker_client_instance().await?;
+
+        let image = GenericImage::new("testcontainers/helloworld", "1.1.0")
+            .with_reuse(true)
+            .with_labels([
+                ("foo", "bar"),
+                ("baz", "qux"),
+                ("test-name", "async_reusable_containers_are_not_dropped"),
+            ]);
+
+        let container_id = {
+            let container = image.start().await?;
+
+            assert!(!container.dropped && container.reuse);
+
+            container.id().to_string()
+        };
+
+        assert!(client
+            .inspect_container(&container_id, None)
+            .await?
+            .state
+            .and_then(|state| state.running)
+            .unwrap_or(false));
+
+        client
+            .remove_container(
+                &container_id,
+                Some(bollard::container::RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await
+            .map_err(anyhow::Error::from)
     }
 }

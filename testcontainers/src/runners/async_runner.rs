@@ -20,6 +20,25 @@ use crate::{
 };
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+#[cfg(feature = "reusable-containers")]
+static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ulid::Ulid> = std::sync::OnceLock::new();
+
+#[doc(hidden)]
+/// A unique identifier for the currently "active" `testcontainers` "session".
+///
+/// This identifier is used to ensure that the current "session" does not confuse
+/// containers it creates with those created by previous runs of a test suite.
+///
+/// For reference: without a unique-per-session identifier, containers created by
+/// previous test sessions that were marked `reuse`, (or where the test suite was
+/// run with the `TESTCONTAINERS_COMMAND` environment variable set to `keep`), that
+/// *haven't* been manually cleaned up could be incorrectly returned from methods
+/// like [`Client::get_running_container_id`](Client::get_running_container_id),
+/// as the container name, labels, and network would all still match.
+#[cfg(feature = "reusable-containers")]
+pub(crate) fn session_id() -> &'static ulid::Ulid {
+    TESTCONTAINERS_SESSION_ID.get_or_init(ulid::Ulid::new)
+}
 
 #[async_trait]
 /// Helper trait to start containers asynchronously.
@@ -68,8 +87,47 @@ where
                 .labels()
                 .iter()
                 .map(|(key, value)| (key.into(), value.into()))
-                .chain([("managed-by".to_string(), "testcontainers".to_string())]),
+                .chain([
+                    ("managed-by".to_string(), "testcontainers".to_string()),
+                    #[cfg(feature = "reusable-containers")]
+                    (
+                        "com.testcontainers.reuse".to_string(),
+                        container_req.reuse().to_string(),
+                    ),
+                    #[cfg(feature = "reusable-containers")]
+                    (
+                        "com.testcontainers.session-id".to_string(),
+                        session_id().to_string(),
+                    ),
+                ]),
         );
+
+        #[cfg(feature = "reusable-containers")]
+        {
+            if container_req.reuse() {
+                if let Some(container_id) = client
+                    .get_running_container_id(
+                        container_req.container_name().as_deref(),
+                        container_req.network().as_deref(),
+                        &labels,
+                    )
+                    .await?
+                {
+                    let network = if let Some(network) = container_req.network() {
+                        Network::new(network, client.clone()).await?
+                    } else {
+                        None
+                    };
+
+                    return Ok(ContainerAsync::construct(
+                        container_id,
+                        client,
+                        container_req,
+                        network,
+                    ));
+                }
+            }
+        }
 
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
@@ -342,6 +400,15 @@ mod tests {
 
         // If we add the expected `managed-by` value though, they should then match
         labels.insert("managed-by".to_string(), "testcontainers".to_string());
+
+        #[cfg(feature = "reusable-containers")]
+        labels.extend([
+            ("com.testcontainers.reuse".to_string(), false.to_string()),
+            (
+                "com.testcontainers.session-id".to_string(),
+                session_id().to_string(),
+            ),
+        ]);
 
         assert_eq!(labels, container_labels);
 
