@@ -312,6 +312,9 @@ mod tests {
         let mut labels = HashMap::from([
             ("foo".to_string(), "bar".to_string()),
             ("baz".to_string(), "qux".to_string()),
+            // include a `managed-by` value to guard against future changes
+            // inadvertently allowing users to override keys we rely on to
+            // internally ensure sane and correct behavior
             ("managed-by".to_string(), "the-time-wizard".to_string()),
         ]);
 
