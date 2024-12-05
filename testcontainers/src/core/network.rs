@@ -21,7 +21,7 @@ fn created_networks() -> &'static Mutex<HashMap<String, Weak<Network>>> {
 
 pub(crate) struct Network {
     name: String,
-    id: Option<String>,
+    id: String,
     client: Arc<Client>,
 }
 
