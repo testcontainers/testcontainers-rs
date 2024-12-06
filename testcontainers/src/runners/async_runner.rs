@@ -105,6 +105,33 @@ where
                 ]),
         );
 
+        #[cfg(feature = "reusable-containers")]
+        {
+            if container_req.reuse() {
+                if let Some(container_id) = client
+                    .get_running_container_id(
+                        container_req.container_name().as_deref(),
+                        container_req.network().as_deref(),
+                        &labels,
+                    )
+                    .await?
+                {
+                    let network = if let Some(network) = container_req.network() {
+                        Network::new(network, client.clone()).await?
+                    } else {
+                        None
+                    };
+
+                    return Ok(ContainerAsync::construct(
+                        container_id,
+                        client,
+                        container_req,
+                        network,
+                    ));
+                }
+            }
+        }
+
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
