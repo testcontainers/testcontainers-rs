@@ -88,7 +88,10 @@ where
                 .iter()
                 .map(|(key, value)| (key.into(), value.into()))
                 .chain([
-                    ("managed-by".to_string(), "testcontainers".to_string()),
+                    (
+                        "org.testcontainers.managed-by".into(),
+                        "testcontainers".into(),
+                    ),
                     #[cfg(feature = "reusable-containers")]
                     (
                         "com.testcontainers.reuse".to_string(),
@@ -101,33 +104,6 @@ where
                     ),
                 ]),
         );
-
-        #[cfg(feature = "reusable-containers")]
-        {
-            if container_req.reuse() {
-                if let Some(container_id) = client
-                    .get_running_container_id(
-                        container_req.container_name().as_deref(),
-                        container_req.network().as_deref(),
-                        &labels,
-                    )
-                    .await?
-                {
-                    let network = if let Some(network) = container_req.network() {
-                        Network::new(network, client.clone()).await?
-                    } else {
-                        None
-                    };
-
-                    return Ok(ContainerAsync::construct(
-                        container_id,
-                        client,
-                        container_req,
-                        network,
-                    ));
-                }
-            }
-        }
 
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
@@ -373,7 +349,10 @@ mod tests {
             // include a `managed-by` value to guard against future changes
             // inadvertently allowing users to override keys we rely on to
             // internally ensure sane and correct behavior
-            ("managed-by".to_string(), "the-time-wizard".to_string()),
+            (
+                "org.testcontainers.managed-by".to_string(),
+                "the-time-wizard".to_string(),
+            ),
         ]);
 
         let container = GenericImage::new("hello-world", "latest")
@@ -391,15 +370,18 @@ mod tests {
             .labels
             .unwrap_or_default();
 
-        // the created labels and container labels shouldn't actually be identical,
-        // as the `managed-by: testcontainers` label is always unconditionally applied
-        // to all containers by `AsyncRunner::start`, with the value `testcontainers`
-        // being applied *last* explicitly so that even user-supplied values of
-        // the `managed-by` key will be overwritten
+        // the created labels and container labels shouldn't actually be identical, as the
+        // `org.testcontainers.managed-by: testcontainers` label is always unconditionally
+        // applied to all containers by `AsyncRunner::start`, with the value `testcontainers`
+        // being applied *last* explicitly so that even user-supplied values of the
+        // `org.testcontainers.managed-by` key will be overwritten
         assert_ne!(&labels, &container_labels);
 
         // If we add the expected `managed-by` value though, they should then match
-        labels.insert("managed-by".to_string(), "testcontainers".to_string());
+        labels.insert(
+            "org.testcontainers.managed-by".to_string(),
+            "testcontainers".to_string(),
+        );
 
         #[cfg(feature = "reusable-containers")]
         labels.extend([
