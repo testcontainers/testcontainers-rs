@@ -68,7 +68,10 @@ where
                 .labels()
                 .iter()
                 .map(|(key, value)| (key.into(), value.into()))
-                .chain([("managed-by".to_string(), "testcontainers".to_string())]),
+                .chain([(
+                    "org.testcontainers.managed-by".into(),
+                    "testcontainers".into(),
+                )]),
         );
 
         let mut config: Config<String> = Config {
@@ -312,7 +315,10 @@ mod tests {
         let mut labels = HashMap::from([
             ("foo".to_string(), "bar".to_string()),
             ("baz".to_string(), "qux".to_string()),
-            ("managed-by".to_string(), "the-time-wizard".to_string()),
+            (
+                "org.testcontainers.managed-by".to_string(),
+                "the-time-wizard".to_string(),
+            ),
         ]);
 
         let container = GenericImage::new("hello-world", "latest")
@@ -330,15 +336,18 @@ mod tests {
             .labels
             .unwrap_or_default();
 
-        // the created labels and container labels shouldn't actually be identical,
-        // as the `managed-by: testcontainers` label is always unconditionally applied
-        // to all containers by `AsyncRunner::start`, with the value `testcontainers`
-        // being applied *last* explicitly so that even user-supplied values of
-        // the `managed-by` key will be overwritten
+        // the created labels and container labels shouldn't actually be identical, as the
+        // `org.testcontainers.managed-by: testcontainers` label is always unconditionally
+        // applied to all containers by `AsyncRunner::start`, with the value `testcontainers`
+        // being applied *last* explicitly so that even user-supplied values of the
+        // `org.testcontainers.managed-by` key will be overwritten
         assert_ne!(&labels, &container_labels);
 
         // If we add the expected `managed-by` value though, they should then match
-        labels.insert("managed-by".to_string(), "testcontainers".to_string());
+        labels.insert(
+            "org.testcontainers.managed-by".to_string(),
+            "testcontainers".to_string(),
+        );
 
         assert_eq!(labels, container_labels);
 
