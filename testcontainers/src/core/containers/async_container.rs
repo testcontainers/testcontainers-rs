@@ -532,10 +532,10 @@ mod tests {
                     .iter()
                     .map(|(key, value)| format!("{key}={value}"))
                     .chain([
-                        "managed-by=testcontainers".to_string(),
-                        "com.testcontainers.reuse=true".to_string(),
+                        "org.testcontainers.reuse=true".to_string(),
+                        "org.testcontainers.managed-by=testcontainers".to_string(),
                         format!(
-                            "com.testcontainers.session-id={}",
+                            "org.testcontainers.session-id={}",
                             crate::runners::async_runner::session_id()
                         ),
                     ])
@@ -594,9 +594,9 @@ mod tests {
                     .iter()
                     .map(|(key, value)| format!("{key}={value}"))
                     .chain([
-                        "managed-by=testcontainers".to_string(),
+                        "org.testcontainers.managed-by=testcontainers".to_string(),
                         format!(
-                            "com.testcontainers.session-id={}",
+                            "org.testcontainers.session-id={}",
                             crate::runners::async_runner::session_id()
                         ),
                     ])

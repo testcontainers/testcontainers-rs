@@ -94,12 +94,12 @@ where
                     ),
                     #[cfg(feature = "reusable-containers")]
                     (
-                        "com.testcontainers.reuse".to_string(),
+                        "org.testcontainers.reuse".to_string(),
                         container_req.reuse().to_string(),
                     ),
                     #[cfg(feature = "reusable-containers")]
                     (
-                        "com.testcontainers.session-id".to_string(),
+                        "org.testcontainers.session-id".to_string(),
                         session_id().to_string(),
                     ),
                 ]),
@@ -385,9 +385,9 @@ mod tests {
 
         #[cfg(feature = "reusable-containers")]
         labels.extend([
-            ("com.testcontainers.reuse".to_string(), false.to_string()),
+            ("org.testcontainers.reuse".to_string(), false.to_string()),
             (
-                "com.testcontainers.session-id".to_string(),
+                "org.testcontainers.session-id".to_string(),
                 session_id().to_string(),
             ),
         ]);
