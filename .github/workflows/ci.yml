@@ -1,3 +1,4 @@
+---
 name: Continuous Integration
 
 on:
@@ -62,7 +63,11 @@ jobs:
         with:
           tool: cargo-hack
       - name: Tests
-        run: cargo hack test --each-feature --clean-per-run
+        run: |
+          cargo hack test \
+            --clean-per-run \
+            --feature-powerset \
+            --group-features experimental,reusable-containers
 
   fmt:
     name: Rustfmt check
@@ -119,5 +124,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # For PRs we gonna use squash-strategy, so commits names not so matter
+          # For PRs, we use squash-strategy, so commits names not so matter
           ignoreCommits: "true"
