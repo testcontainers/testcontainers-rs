@@ -48,6 +48,23 @@ pub trait ImageExt<I: Image> {
     /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I>;
 
+    /// Adds the specified label to the container.
+    ///
+    /// **Note**: all keys in the `org.testcontainers.*` namespace should be regarded
+    /// as reserved by `testcontainers` internally, and should not be expected or relied
+    /// upon to be applied correctly if supplied as a value for `key`.
+    fn with_label(self, key: impl Into<String>, value: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Adds the specified labels to the container.
+    ///
+    /// **Note**: all keys in the `org.testcontainers.*` namespace should be regarded
+    /// as reserved by `testcontainers` internally, and should not be expected or relied
+    /// upon to be applied correctly if they are included in `labels`.
+    fn with_labels(
+        self,
+        labels: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> ContainerRequest<I>;
+
     /// Adds an environment variable to the container.
     fn with_env_var(self, name: impl Into<String>, value: impl Into<String>)
         -> ContainerRequest<I>;
@@ -162,6 +179,29 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             network: Some(network.into()),
             ..container_req
         }
+    }
+
+    fn with_label(self, key: impl Into<String>, value: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+
+        container_req.labels.insert(key.into(), value.into());
+
+        container_req
+    }
+
+    fn with_labels(
+        self,
+        labels: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+
+        container_req.labels.extend(
+            labels
+                .into_iter()
+                .map(|(key, value)| (key.into(), value.into())),
+        );
+
+        container_req
     }
 
     fn with_env_var(

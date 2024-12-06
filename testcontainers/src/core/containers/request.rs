@@ -25,6 +25,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) image_tag: Option<String>,
     pub(crate) container_name: Option<String>,
     pub(crate) network: Option<String>,
+    pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
     pub(crate) mounts: Vec<Mount>,
@@ -72,6 +73,10 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn network(&self) -> &Option<String> {
         &self.network
+    }
+
+    pub fn labels(&self) -> &BTreeMap<String, String> {
+        &self.labels
     }
 
     pub fn container_name(&self) -> &Option<String> {
@@ -190,6 +195,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             image_tag: None,
             container_name: None,
             network: None,
+            labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
             mounts: Vec::new(),
@@ -235,6 +241,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("image_tag", &self.image_tag)
             .field("container_name", &self.container_name)
             .field("network", &self.network)
+            .field("labels", &self.labels)
             .field("env_vars", &self.env_vars)
             .field("hosts", &self.hosts)
             .field("mounts", &self.mounts)
