@@ -558,8 +558,9 @@ mod tests {
     #[cfg(feature = "reusable-containers")]
     #[tokio::test]
     async fn async_reused_containers_are_not_confused() -> anyhow::Result<()> {
-        use crate::ImageExt;
         use std::collections::HashSet;
+
+        use crate::ImageExt;
 
         let labels = [
             ("foo", "bar"),
