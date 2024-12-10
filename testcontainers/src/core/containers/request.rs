@@ -41,6 +41,8 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
+    #[cfg(feature = "reusable-containers")]
+    pub(crate) reuse: bool,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -184,6 +186,12 @@ impl<I: Image> ContainerRequest<I> {
     pub fn working_dir(&self) -> Option<&str> {
         self.working_dir.as_deref()
     }
+
+    /// Indicates that the container will not be stopped when it is dropped
+    #[cfg(feature = "reusable-containers")]
+    pub fn reuse(&self) -> bool {
+        self.reuse
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -211,6 +219,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             startup_timeout: None,
             working_dir: None,
             log_consumers: vec![],
+            #[cfg(feature = "reusable-containers")]
+            reuse: false,
         }
     }
 }
@@ -234,27 +244,41 @@ impl PortMapping {
 
 impl<I: Image + Debug> Debug for ContainerRequest<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ContainerRequest")
-            .field("image", &self.image)
-            .field("overridden_cmd", &self.overridden_cmd)
-            .field("image_name", &self.image_name)
-            .field("image_tag", &self.image_tag)
-            .field("container_name", &self.container_name)
-            .field("network", &self.network)
-            .field("labels", &self.labels)
-            .field("env_vars", &self.env_vars)
-            .field("hosts", &self.hosts)
-            .field("mounts", &self.mounts)
-            .field("ports", &self.ports)
-            .field("ulimits", &self.ulimits)
-            .field("privileged", &self.privileged)
-            .field("cap_add", &self.cap_add)
-            .field("cap_drop", &self.cap_drop)
-            .field("shm_size", &self.shm_size)
-            .field("cgroupns_mode", &self.cgroupns_mode)
-            .field("userns_mode", &self.userns_mode)
-            .field("startup_timeout", &self.startup_timeout)
-            .field("working_dir", &self.working_dir)
-            .finish()
+        let with_feature_flag_fields = {
+            #[cfg(not(feature = "reusable-containers"))]
+            {
+                std::fmt::DebugStruct::finish
+            }
+            #[cfg(feature = "reusable-containers")]
+            {
+                |repr: &mut std::fmt::DebugStruct<'_, '_>| -> std::fmt::Result {
+                    repr.field("reusable", &self.reuse).finish()
+                }
+            }
+        };
+
+        with_feature_flag_fields(
+            f.debug_struct("ContainerRequest")
+                .field("image", &self.image)
+                .field("overridden_cmd", &self.overridden_cmd)
+                .field("image_name", &self.image_name)
+                .field("image_tag", &self.image_tag)
+                .field("container_name", &self.container_name)
+                .field("network", &self.network)
+                .field("labels", &self.labels)
+                .field("env_vars", &self.env_vars)
+                .field("hosts", &self.hosts)
+                .field("mounts", &self.mounts)
+                .field("ports", &self.ports)
+                .field("ulimits", &self.ulimits)
+                .field("privileged", &self.privileged)
+                .field("cap_add", &self.cap_add)
+                .field("cap_drop", &self.cap_drop)
+                .field("shm_size", &self.shm_size)
+                .field("cgroupns_mode", &self.cgroupns_mode)
+                .field("userns_mode", &self.userns_mode)
+                .field("startup_timeout", &self.startup_timeout)
+                .field("working_dir", &self.working_dir),
+        )
     }
 }
