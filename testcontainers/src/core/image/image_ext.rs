@@ -11,6 +11,47 @@ use crate::{
     ContainerRequest, Image,
 };
 
+#[cfg(feature = "reusable-containers")]
+#[derive(Eq, Copy, Clone, Debug, Default, PartialEq)]
+pub enum ReuseDirective {
+    #[default]
+    Never,
+    Always,
+    CurrentSession,
+}
+
+#[cfg(feature = "reusable-containers")]
+impl std::fmt::Display for ReuseDirective {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Never => "never",
+            Self::Always => "always",
+            Self::CurrentSession => "current-session",
+        })
+    }
+}
+
+#[cfg(feature = "reusable-containers")]
+impl From<bool> for ReuseDirective {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::Always,
+            false => Self::Never,
+        }
+    }
+}
+
+#[cfg(feature = "reusable-containers")]
+impl From<&str> for ReuseDirective {
+    fn from(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "true" | "always" => Self::Always,
+            value if value.ends_with("session") => Self::CurrentSession,
+            _ => Self::Never,
+        }
+    }
+}
+
 /// Represents an extension for the [`Image`] trait.
 /// Allows to override image defaults and container configuration.
 pub trait ImageExt<I: Image> {
@@ -145,7 +186,7 @@ pub trait ImageExt<I: Image> {
     /// to change. Containers marked as `reuse` **_will not_** be stopped or cleaned up when their associated
     /// `Container` or `ContainerAsync` is dropped.
     #[cfg(feature = "reusable-containers")]
-    fn with_reuse(self, reuse: bool) -> ContainerRequest<I>;
+    fn with_reuse(self, reuse: impl Into<ReuseDirective>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -354,9 +395,9 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     }
 
     #[cfg(feature = "reusable-containers")]
-    fn with_reuse(self, reuse: bool) -> ContainerRequest<I> {
+    fn with_reuse(self, reuse: impl Into<ReuseDirective>) -> ContainerRequest<I> {
         ContainerRequest {
-            reuse,
+            reuse: reuse.into(),
             ..self.into()
         }
     }

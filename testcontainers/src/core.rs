@@ -1,3 +1,5 @@
+#[cfg(feature = "reusable-containers")]
+pub use self::image::ReuseDirective;
 pub use self::{
     containers::*,
     image::{ContainerState, ExecCommand, Image, ImageExt},

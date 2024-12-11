@@ -42,7 +42,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
     #[cfg(feature = "reusable-containers")]
-    pub(crate) reuse: bool,
+    pub(crate) reuse: crate::ReuseDirective,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -189,7 +189,7 @@ impl<I: Image> ContainerRequest<I> {
 
     /// Indicates that the container will not be stopped when it is dropped
     #[cfg(feature = "reusable-containers")]
-    pub fn reuse(&self) -> bool {
+    pub fn reuse(&self) -> crate::ReuseDirective {
         self.reuse
     }
 }
@@ -220,7 +220,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             working_dir: None,
             log_consumers: vec![],
             #[cfg(feature = "reusable-containers")]
-            reuse: false,
+            reuse: false.into(),
         }
     }
 }

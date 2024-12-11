@@ -2,6 +2,8 @@ use std::{borrow::Cow, fmt::Debug};
 
 pub use exec::ExecCommand;
 pub use image_ext::ImageExt;
+#[cfg(feature = "reusable-containers")]
+pub use image_ext::ReuseDirective;
 
 use crate::{
     core::{

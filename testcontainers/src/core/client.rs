@@ -447,19 +447,31 @@ impl Client {
         .collect::<HashMap<_, _>>();
 
         let options = Some(ListContainersOptions {
-            filters,
             all: false,
             size: false,
-            limit: Some(1),
+            limit: None,
+            filters: filters.clone(),
         });
 
-        Ok(self
+        let containers = self
             .bollard
             .list_containers(options)
             .await
-            .map_err(ClientError::ListContainers)?
+            .map_err(ClientError::ListContainers)?;
+
+        if containers.len() > 1 {
+            log::warn!(
+                "Found {} containers matching filters: {:?}",
+                containers.len(),
+                filters
+            );
+        }
+
+        Ok(containers
             .into_iter()
-            .next()
+            // Use `max_by_key()` instead of `next()` to ensure we're
+            // returning the id of most recently created container.
+            .max_by_key(|container| container.created.unwrap_or(i64::MIN))
             .and_then(|container| container.id))
     }
 }

@@ -43,7 +43,7 @@ pub struct ContainerAsync<I: Image> {
     network: Option<Arc<Network>>,
     dropped: bool,
     #[cfg(feature = "reusable-containers")]
-    reuse: bool,
+    reuse: crate::ReuseDirective,
 }
 
 impl<I> ContainerAsync<I>
@@ -356,11 +356,27 @@ where
     I: fmt::Debug + Image,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ContainerAsync")
-            .field("id", &self.id)
-            .field("image", &self.image)
-            .field("command", &self.docker_client.config.command())
-            .finish()
+        let with_feature_flag_fields = {
+            #[cfg(not(feature = "reusable-containers"))]
+            {
+                std::fmt::DebugStruct::finish
+            }
+            #[cfg(feature = "reusable-containers")]
+            {
+                |repr: &mut std::fmt::DebugStruct<'_, '_>| -> std::fmt::Result {
+                    repr.field("reuse", &self.reuse).finish()
+                }
+            }
+        };
+
+        with_feature_flag_fields(
+            f.debug_struct("ContainerAsync")
+                .field("id", &self.id)
+                .field("image", &self.image)
+                .field("command", &self.docker_client.config.command())
+                .field("network", &self.network)
+                .field("dropped", &self.dropped),
+        )
     }
 }
 
@@ -371,7 +387,9 @@ where
     fn drop(&mut self) {
         #[cfg(feature = "reusable-containers")]
         {
-            if self.reuse && !self.dropped {
+            use crate::ReuseDirective::{Always, CurrentSession};
+
+            if !self.dropped && matches!(self.reuse, Always | CurrentSession) {
                 log::debug!("Declining to reap container marked for reuse: {}", &self.id);
 
                 return;
@@ -506,13 +524,13 @@ mod tests {
         ];
 
         let initial_image = GenericImage::new("testcontainers/helloworld", "1.1.0")
-            .with_reuse(true)
+            .with_reuse(crate::ReuseDirective::CurrentSession)
             .with_labels(labels);
 
         let reused_image = initial_image
             .image
             .clone()
-            .with_reuse(true)
+            .with_reuse(crate::ReuseDirective::CurrentSession)
             .with_labels(labels);
 
         let initial_container = initial_image.start().await?;
@@ -532,7 +550,6 @@ mod tests {
                     .iter()
                     .map(|(key, value)| format!("{key}={value}"))
                     .chain([
-                        "org.testcontainers.reuse=true".to_string(),
                         "org.testcontainers.managed-by=testcontainers".to_string(),
                         format!(
                             "org.testcontainers.session-id={}",
@@ -594,13 +611,7 @@ mod tests {
                 labels
                     .iter()
                     .map(|(key, value)| format!("{key}={value}"))
-                    .chain([
-                        "org.testcontainers.managed-by=testcontainers".to_string(),
-                        format!(
-                            "org.testcontainers.session-id={}",
-                            crate::runners::async_runner::session_id()
-                        ),
-                    ])
+                    .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
                     .collect(),
             )]),
         };
@@ -626,7 +637,7 @@ mod tests {
     #[cfg(feature = "reusable-containers")]
     #[tokio::test]
     async fn async_reusable_containers_are_not_dropped() -> anyhow::Result<()> {
-        use crate::ImageExt;
+        use crate::{ImageExt, ReuseDirective};
 
         let client = crate::core::client::docker_client_instance().await?;
 
@@ -641,7 +652,8 @@ mod tests {
         let container_id = {
             let container = image.start().await?;
 
-            assert!(!container.dropped && container.reuse);
+            assert!(!container.dropped);
+            assert_eq!(container.reuse, ReuseDirective::Always);
 
             container.id().to_string()
         };

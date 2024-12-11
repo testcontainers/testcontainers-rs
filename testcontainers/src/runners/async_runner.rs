@@ -93,21 +93,25 @@ where
                         "testcontainers".into(),
                     ),
                     #[cfg(feature = "reusable-containers")]
-                    (
-                        "org.testcontainers.reuse".to_string(),
-                        container_req.reuse().to_string(),
-                    ),
-                    #[cfg(feature = "reusable-containers")]
-                    (
-                        "org.testcontainers.session-id".to_string(),
-                        session_id().to_string(),
-                    ),
-                ]),
+                    {
+                        if container_req.reuse() != crate::ReuseDirective::CurrentSession {
+                            Default::default()
+                        } else {
+                            (
+                                "org.testcontainers.session-id".to_string(),
+                                session_id().to_string(),
+                            )
+                        }
+                    },
+                ])
+                .filter(|(_, value): &(_, String)| !value.is_empty()),
         );
 
         #[cfg(feature = "reusable-containers")]
         {
-            if container_req.reuse() {
+            use crate::ReuseDirective::{Always, CurrentSession};
+
+            if matches!(container_req.reuse(), Always | CurrentSession) {
                 if let Some(container_id) = client
                     .get_running_container_id(
                         container_req.container_name().as_deref(),
@@ -382,10 +386,20 @@ mod tests {
             ),
         ]);
 
-        let container = GenericImage::new("hello-world", "latest")
-            .with_labels(&labels)
-            .start()
-            .await?;
+        let image = GenericImage::new("hello-world", "latest").with_labels(&labels);
+
+        let container = {
+            #[cfg(not(feature = "reusable-containers"))]
+            {
+                image
+            }
+            #[cfg(feature = "reusable-containers")]
+            {
+                image.with_reuse(crate::ReuseDirective::CurrentSession)
+            }
+        }
+        .start()
+        .await?;
 
         let client = Client::lazy_client().await?;
 
@@ -411,17 +425,14 @@ mod tests {
         );
 
         #[cfg(feature = "reusable-containers")]
-        labels.extend([
-            ("org.testcontainers.reuse".to_string(), false.to_string()),
-            (
-                "org.testcontainers.session-id".to_string(),
-                session_id().to_string(),
-            ),
-        ]);
+        labels.extend([(
+            "org.testcontainers.session-id".to_string(),
+            session_id().to_string(),
+        )]);
 
         assert_eq!(labels, container_labels);
 
-        Ok(())
+        container.rm().await.map_err(anyhow::Error::from)
     }
 
     #[tokio::test]
