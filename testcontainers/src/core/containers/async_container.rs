@@ -356,27 +356,18 @@ where
     I: fmt::Debug + Image,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let with_feature_flag_fields = {
-            #[cfg(not(feature = "reusable-containers"))]
-            {
-                std::fmt::DebugStruct::finish
-            }
-            #[cfg(feature = "reusable-containers")]
-            {
-                |repr: &mut std::fmt::DebugStruct<'_, '_>| -> std::fmt::Result {
-                    repr.field("reuse", &self.reuse).finish()
-                }
-            }
-        };
+        let mut repr = f.debug_struct("ContainerAsync");
 
-        with_feature_flag_fields(
-            f.debug_struct("ContainerAsync")
-                .field("id", &self.id)
-                .field("image", &self.image)
-                .field("command", &self.docker_client.config.command())
-                .field("network", &self.network)
-                .field("dropped", &self.dropped),
-        )
+        repr.field("id", &self.id)
+            .field("image", &self.image)
+            .field("command", &self.docker_client.config.command())
+            .field("network", &self.network)
+            .field("dropped", &self.dropped);
+
+        #[cfg(feature = "reusable-containers")]
+        repr.field("reuse", &self.reuse);
+
+        repr.finish()
     }
 }
 
