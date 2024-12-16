@@ -220,7 +220,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             working_dir: None,
             log_consumers: vec![],
             #[cfg(feature = "reusable-containers")]
-            reuse: false.into(),
+            reuse: crate::ReuseDirective::Never,
         }
     }
 }

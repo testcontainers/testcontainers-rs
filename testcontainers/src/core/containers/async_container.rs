@@ -577,7 +577,7 @@ mod tests {
     async fn async_reused_containers_are_not_confused() -> anyhow::Result<()> {
         use std::collections::HashSet;
 
-        use crate::ImageExt;
+        use crate::{ImageExt, ReuseDirective};
 
         let labels = [
             ("foo", "bar"),
@@ -586,13 +586,13 @@ mod tests {
         ];
 
         let initial_image = GenericImage::new("testcontainers/helloworld", "1.1.0")
-            .with_reuse(true)
+            .with_reuse(ReuseDirective::Always)
             .with_labels(labels);
 
         let similar_image = initial_image
             .image
             .clone()
-            .with_reuse(false)
+            .with_reuse(ReuseDirective::Never)
             .with_labels(&initial_image.labels);
 
         let initial_container = initial_image.start().await?;
@@ -642,7 +642,7 @@ mod tests {
         let client = crate::core::client::docker_client_instance().await?;
 
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0")
-            .with_reuse(true)
+            .with_reuse(ReuseDirective::Always)
             .with_labels([
                 ("foo", "bar"),
                 ("baz", "qux"),
