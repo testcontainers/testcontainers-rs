@@ -20,6 +20,25 @@ use crate::{
 };
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+#[cfg(feature = "reusable-containers")]
+static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ulid::Ulid> = std::sync::OnceLock::new();
+
+#[doc(hidden)]
+/// A unique identifier for the currently "active" `testcontainers` "session".
+///
+/// This identifier is used to ensure that the current "session" does not confuse
+/// containers it creates with those created by previous runs of a test suite.
+///
+/// For reference: without a unique-per-session identifier, containers created by
+/// previous test sessions that were marked `reuse`, (or where the test suite was
+/// run with the `TESTCONTAINERS_COMMAND` environment variable set to `keep`), that
+/// *haven't* been manually cleaned up could be incorrectly returned from methods
+/// like [`Client::get_running_container_id`](Client::get_running_container_id),
+/// as the container name, labels, and network would all still match.
+#[cfg(feature = "reusable-containers")]
+pub(crate) fn session_id() -> &'static ulid::Ulid {
+    TESTCONTAINERS_SESSION_ID.get_or_init(ulid::Ulid::new)
+}
 
 #[async_trait]
 /// Helper trait to start containers asynchronously.
@@ -68,11 +87,54 @@ where
                 .labels()
                 .iter()
                 .map(|(key, value)| (key.into(), value.into()))
-                .chain([(
-                    "org.testcontainers.managed-by".into(),
-                    "testcontainers".into(),
-                )]),
+                .chain([
+                    (
+                        "org.testcontainers.managed-by".into(),
+                        "testcontainers".into(),
+                    ),
+                    #[cfg(feature = "reusable-containers")]
+                    {
+                        if container_req.reuse() != crate::ReuseDirective::CurrentSession {
+                            Default::default()
+                        } else {
+                            (
+                                "org.testcontainers.session-id".to_string(),
+                                session_id().to_string(),
+                            )
+                        }
+                    },
+                ])
+                .filter(|(_, value): &(_, String)| !value.is_empty()),
         );
+
+        #[cfg(feature = "reusable-containers")]
+        {
+            use crate::ReuseDirective::{Always, CurrentSession};
+
+            if matches!(container_req.reuse(), Always | CurrentSession) {
+                if let Some(container_id) = client
+                    .get_running_container_id(
+                        container_req.container_name().as_deref(),
+                        container_req.network().as_deref(),
+                        &labels,
+                    )
+                    .await?
+                {
+                    let network = if let Some(network) = container_req.network() {
+                        Network::new(network, client.clone()).await?
+                    } else {
+                        None
+                    };
+
+                    return Ok(ContainerAsync::construct(
+                        container_id,
+                        client,
+                        container_req,
+                        network,
+                    ));
+                }
+            }
+        }
 
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
@@ -315,16 +377,29 @@ mod tests {
         let mut labels = HashMap::from([
             ("foo".to_string(), "bar".to_string()),
             ("baz".to_string(), "qux".to_string()),
+            // include a `managed-by` value to guard against future changes
+            // inadvertently allowing users to override keys we rely on to
+            // internally ensure sane and correct behavior
             (
                 "org.testcontainers.managed-by".to_string(),
                 "the-time-wizard".to_string(),
             ),
         ]);
 
-        let container = GenericImage::new("hello-world", "latest")
-            .with_labels(&labels)
-            .start()
-            .await?;
+        let image = GenericImage::new("hello-world", "latest").with_labels(&labels);
+
+        let container = {
+            #[cfg(not(feature = "reusable-containers"))]
+            {
+                image
+            }
+            #[cfg(feature = "reusable-containers")]
+            {
+                image.with_reuse(crate::ReuseDirective::CurrentSession)
+            }
+        }
+        .start()
+        .await?;
 
         let client = Client::lazy_client().await?;
 
@@ -349,9 +424,15 @@ mod tests {
             "testcontainers".to_string(),
         );
 
+        #[cfg(feature = "reusable-containers")]
+        labels.extend([(
+            "org.testcontainers.session-id".to_string(),
+            session_id().to_string(),
+        )]);
+
         assert_eq!(labels, container_labels);
 
-        Ok(())
+        container.rm().await.map_err(anyhow::Error::from)
     }
 
     #[tokio::test]

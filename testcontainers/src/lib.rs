@@ -78,6 +78,8 @@ pub mod core;
 #[cfg(feature = "blocking")]
 #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
 pub use crate::core::Container;
+#[cfg(feature = "reusable-containers")]
+pub use crate::core::ReuseDirective;
 pub use crate::core::{
     copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,

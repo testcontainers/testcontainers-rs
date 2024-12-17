@@ -41,6 +41,8 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
+    #[cfg(feature = "reusable-containers")]
+    pub(crate) reuse: crate::ReuseDirective,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -184,6 +186,12 @@ impl<I: Image> ContainerRequest<I> {
     pub fn working_dir(&self) -> Option<&str> {
         self.working_dir.as_deref()
     }
+
+    /// Indicates that the container will not be stopped when it is dropped
+    #[cfg(feature = "reusable-containers")]
+    pub fn reuse(&self) -> crate::ReuseDirective {
+        self.reuse
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -211,6 +219,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             startup_timeout: None,
             working_dir: None,
             log_consumers: vec![],
+            #[cfg(feature = "reusable-containers")]
+            reuse: crate::ReuseDirective::Never,
         }
     }
 }
@@ -234,8 +244,9 @@ impl PortMapping {
 
 impl<I: Image + Debug> Debug for ContainerRequest<I> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ContainerRequest")
-            .field("image", &self.image)
+        let mut repr = f.debug_struct("ContainerRequest");
+
+        repr.field("image", &self.image)
             .field("overridden_cmd", &self.overridden_cmd)
             .field("image_name", &self.image_name)
             .field("image_tag", &self.image_tag)
@@ -254,7 +265,11 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("cgroupns_mode", &self.cgroupns_mode)
             .field("userns_mode", &self.userns_mode)
             .field("startup_timeout", &self.startup_timeout)
-            .field("working_dir", &self.working_dir)
-            .finish()
+            .field("working_dir", &self.working_dir);
+
+        #[cfg(feature = "reusable-containers")]
+        repr.field("reusable", &self.reuse);
+
+        repr.finish()
     }
 }

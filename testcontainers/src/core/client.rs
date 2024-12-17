@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::{self},
     str::FromStr,
 };
@@ -6,8 +7,8 @@ use std::{
 use bollard::{
     auth::DockerCredentials,
     container::{
-        Config, CreateContainerOptions, LogOutput, LogsOptions, RemoveContainerOptions,
-        UploadToContainerOptions,
+        Config, CreateContainerOptions, ListContainersOptions, LogOutput, LogsOptions,
+        RemoveContainerOptions, UploadToContainerOptions,
     },
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
@@ -66,6 +67,8 @@ pub enum ClientError {
     #[error("failed to map ports: {0}")]
     PortMapping(#[from] PortMappingError),
 
+    #[error("failed to list containers: {0}")]
+    ListContainers(BollardError),
     #[error("failed to create a container: {0}")]
     CreateContainer(BollardError),
     #[error("failed to remove a container: {0}")]
@@ -416,6 +419,60 @@ impl Client {
         };
 
         Some(bollard_credentials)
+    }
+
+    /// Get the `id` of the first running container whose `name`, `network`,
+    /// and `labels` match the supplied values
+    #[cfg_attr(not(feature = "reusable-containers"), allow(dead_code))]
+    pub(crate) async fn get_running_container_id(
+        &self,
+        name: Option<&str>,
+        network: Option<&str>,
+        labels: &HashMap<String, String>,
+    ) -> Result<Option<String>, ClientError> {
+        let filters = [
+            Some(("status".to_string(), vec!["running".to_string()])),
+            name.map(|value| ("name".to_string(), vec![value.to_string()])),
+            network.map(|value| ("network".to_string(), vec![value.to_string()])),
+            Some((
+                "label".to_string(),
+                labels
+                    .iter()
+                    .map(|(key, value)| format!("{key}={value}"))
+                    .collect(),
+            )),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<HashMap<_, _>>();
+
+        let options = Some(ListContainersOptions {
+            all: false,
+            size: false,
+            limit: None,
+            filters: filters.clone(),
+        });
+
+        let containers = self
+            .bollard
+            .list_containers(options)
+            .await
+            .map_err(ClientError::ListContainers)?;
+
+        if containers.len() > 1 {
+            log::warn!(
+                "Found {} containers matching filters: {:?}",
+                containers.len(),
+                filters
+            );
+        }
+
+        Ok(containers
+            .into_iter()
+            // Use `max_by_key()` instead of `next()` to ensure we're
+            // returning the id of most recently created container.
+            .max_by_key(|container| container.created.unwrap_or(i64::MIN))
+            .and_then(|container| container.id))
     }
 }
 

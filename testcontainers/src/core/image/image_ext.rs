@@ -11,6 +11,26 @@ use crate::{
     ContainerRequest, Image,
 };
 
+#[cfg(feature = "reusable-containers")]
+#[derive(Eq, Copy, Clone, Debug, Default, PartialEq)]
+pub enum ReuseDirective {
+    #[default]
+    Never,
+    Always,
+    CurrentSession,
+}
+
+#[cfg(feature = "reusable-containers")]
+impl std::fmt::Display for ReuseDirective {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Never => "never",
+            Self::Always => "always",
+            Self::CurrentSession => "current-session",
+        })
+    }
+}
+
 /// Represents an extension for the [`Image`] trait.
 /// Allows to override image defaults and container configuration.
 pub trait ImageExt<I: Image> {
@@ -136,6 +156,16 @@ pub trait ImageExt<I: Image> {
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
+
+    /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
+    /// indicating that the container should be kept running, and that executions with the same configuration
+    /// reuse it instead of starting a "fresh" container instance.
+    ///
+    /// **NOTE:** Reusable Containers is an experimental feature, and its behavior is therefore subject
+    /// to change. Containers marked as `reuse` **_will not_** be stopped or cleaned up when their associated
+    /// `Container` or `ContainerAsync` is dropped.
+    #[cfg(feature = "reusable-containers")]
+    fn with_reuse(self, reuse: ReuseDirective) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -341,5 +371,13 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.log_consumers.push(Box::new(log_consumer));
         container_req
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    fn with_reuse(self, reuse: ReuseDirective) -> ContainerRequest<I> {
+        ContainerRequest {
+            reuse,
+            ..self.into()
+        }
     }
 }
