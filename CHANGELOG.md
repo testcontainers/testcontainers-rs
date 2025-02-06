@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.2] - 2025-02-06
+### Details
+#### Documentation
+- Add examples of `ImageExt` usage and cover `GenericImage` (#747)
+
+#### Features
+- Add `cap_add` and `cap_drop` support (#726)
+- Add support for user-configured labels (#756)
+- Reusable containers (#757)
+- Add image hook to run commands before ready (#766)
+
+#### Miscellaneous Tasks
+- Update thiserror requirement from 1.0.60 to 2.0.3 (#754)
+- Bump the bollard dep to latest (#759)
+
+#### Testing
+- Deflake the test `start_containers_in_parallel` (#748)
 ## [0.23.1] - 2024-09-26
 ### Details
 #### Features
