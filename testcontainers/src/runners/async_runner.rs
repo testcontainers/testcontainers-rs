@@ -313,7 +313,7 @@ where
             let container =
                 ContainerAsync::new(container_id, client.clone(), container_req, network).await?;
 
-            let state = ContainerState::new(container.id(), container.ports().await?);
+            let state = ContainerState::from_container(&container).await?;
             for cmd in container.image().exec_after_start(state)? {
                 container.exec(cmd).await?;
             }

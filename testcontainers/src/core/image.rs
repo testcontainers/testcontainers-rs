@@ -4,15 +4,17 @@ pub use exec::ExecCommand;
 pub use image_ext::ImageExt;
 #[cfg(feature = "reusable-containers")]
 pub use image_ext::ReuseDirective;
+use url::Host;
 
 use crate::{
     core::{
         copy::CopyToContainer,
+        error::Result,
         mounts::Mount,
         ports::{ContainerPort, Ports},
         WaitFor,
     },
-    TestcontainersError,
+    ContainerAsync, TestcontainersError,
 };
 
 mod exec;
@@ -92,10 +94,17 @@ where
     /// This method is useful when certain re-configuration is required after the start
     /// of container for the container to be considered ready for use in tests.
     #[allow(unused_variables)]
-    fn exec_after_start(
-        &self,
-        cs: ContainerState,
-    ) -> Result<Vec<ExecCommand>, TestcontainersError> {
+    fn exec_after_start(&self, cs: ContainerState) -> Result<Vec<ExecCommand>> {
+        Ok(Default::default())
+    }
+
+    /// Returns commands that will be executed after the container has started, but before the
+    /// [Image::ready_conditions] are awaited for.
+    ///
+    /// Use this when you, e.g., need to configure something based on the container's ports and host
+    /// (for example an application that needs to know its own address).
+    #[allow(unused_variables)]
+    fn exec_before_ready(&self, cs: ContainerState) -> Result<Vec<ExecCommand>> {
         Ok(Default::default())
     }
 }
@@ -103,21 +112,30 @@ where
 #[derive(Debug)]
 pub struct ContainerState {
     id: String,
+    host: Host,
     ports: Ports,
 }
 
 impl ContainerState {
-    pub fn new(id: impl Into<String>, ports: Ports) -> Self {
-        Self {
-            id: id.into(),
-            ports,
-        }
+    pub async fn from_container<I>(container: &ContainerAsync<I>) -> Result<Self>
+    where
+        I: Image,
+    {
+        Ok(Self {
+            id: container.id().into(),
+            host: container.get_host().await?,
+            ports: container.ports().await?,
+        })
+    }
+
+    pub fn host(&self) -> &Host {
+        &self.host
     }
 
     /// Returns the host port for the given internal container's port (`IPv4`).
     ///
     /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
-    pub fn host_port_ipv4(&self, internal_port: ContainerPort) -> Result<u16, TestcontainersError> {
+    pub fn host_port_ipv4(&self, internal_port: ContainerPort) -> Result<u16> {
         self.ports
             .map_to_host_port_ipv4(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {
@@ -129,7 +147,7 @@ impl ContainerState {
     /// Returns the host port for the given internal container's port (`IPv6`).
     ///
     /// Results in an error ([`TestcontainersError::PortNotExposed`]) if the port is not exposed.
-    pub fn host_port_ipv6(&self, internal_port: ContainerPort) -> Result<u16, TestcontainersError> {
+    pub fn host_port_ipv6(&self, internal_port: ContainerPort) -> Result<u16> {
         self.ports
             .map_to_host_port_ipv6(internal_port)
             .ok_or_else(|| TestcontainersError::PortNotExposed {

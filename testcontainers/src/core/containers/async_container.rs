@@ -59,6 +59,10 @@ where
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
         let container = Self::construct(id, docker_client, container_req, network);
+        let state = ContainerState::from_container(&container).await?;
+        for cmd in container.image().exec_before_ready(state)? {
+            container.exec(cmd).await?;
+        }
         let ready_conditions = container.image().ready_conditions();
         container.block_until_ready(ready_conditions).await?;
         Ok(container)
@@ -270,7 +274,7 @@ where
     /// Starts the container.
     pub async fn start(&self) -> Result<()> {
         self.docker_client.start(&self.id).await?;
-        let state = ContainerState::new(self.id(), self.ports().await?);
+        let state = ContainerState::from_container(self).await?;
         for cmd in self.image.exec_after_start(state)? {
             self.exec(cmd).await?;
         }
@@ -418,7 +422,12 @@ where
 mod tests {
     use tokio::io::AsyncBufReadExt;
 
-    use crate::{images::generic::GenericImage, runners::AsyncRunner};
+    use crate::{
+        core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
+        images::generic::GenericImage,
+        runners::AsyncRunner,
+        Image,
+    };
 
     #[tokio::test]
     async fn async_logs_are_accessible() -> anyhow::Result<()> {
@@ -666,5 +675,57 @@ mod tests {
             )
             .await
             .map_err(anyhow::Error::from)
+    }
+
+    #[cfg(feature = "http_wait")]
+    #[tokio::test]
+    async fn exec_before_ready_is_ran() {
+        use crate::core::wait::HttpWaitStrategy;
+
+        struct ExecBeforeReady {}
+
+        impl Image for ExecBeforeReady {
+            fn name(&self) -> &str {
+                "testcontainers/helloworld"
+            }
+
+            fn tag(&self) -> &str {
+                "1.2.0"
+            }
+
+            fn ready_conditions(&self) -> Vec<WaitFor> {
+                vec![WaitFor::http(
+                    HttpWaitStrategy::new("/ping")
+                        .with_port(ContainerPort::Tcp(8080))
+                        .with_expected_status_code(200u16),
+                )]
+            }
+
+            fn expose_ports(&self) -> &[ContainerPort] {
+                &[ContainerPort::Tcp(8080)]
+            }
+
+            #[allow(unused)]
+            fn exec_before_ready(
+                &self,
+                cs: ContainerState,
+            ) -> crate::core::error::Result<Vec<ExecCommand>> {
+                Ok(vec![ExecCommand::new(vec![
+                    "/bin/sh",
+                    "-c",
+                    "echo 'exec_before_ready ran!' > /opt/hello",
+                ])])
+            }
+        }
+
+        let container = ExecBeforeReady {};
+        let container = container.start().await.unwrap();
+        let mut exec_result = container
+            .exec(ExecCommand::new(vec!["cat", "/opt/hello"]))
+            .await
+            .unwrap();
+        let stdout = exec_result.stdout_to_vec().await.unwrap();
+        let output = String::from_utf8(stdout).unwrap();
+        assert_eq!(output, "exec_before_ready ran!\n");
     }
 }
