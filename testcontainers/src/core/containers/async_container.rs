@@ -239,17 +239,16 @@ where
                     .await
                     .map_err(ExecError::from)?;
             }
-            CmdWaitFor::ExitCode { code } => {
+            CmdWaitFor::Exit { code } => {
                 let exec_id = exec.id().to_string();
                 loop {
                     let inspect = self.docker_client.inspect_exec(&exec_id).await?;
 
                     if let Some(actual) = inspect.exit_code {
-                        if actual != code {
-                            Err(ExecError::ExitCodeMismatch {
-                                expected: code,
-                                actual,
-                            })?;
+                        if let Some(expected) = code {
+                            if actual != expected {
+                                Err(ExecError::ExitCodeMismatch { expected, actual })?;
+                            }
                         }
                         break;
                     } else {

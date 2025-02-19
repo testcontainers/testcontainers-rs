@@ -1,5 +1,7 @@
 #![cfg(feature = "blocking")]
 
+use std::time::Instant;
+
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
@@ -159,12 +161,26 @@ fn sync_run_exec() -> anyhow::Result<()> {
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start()?;
 
+    // exit regardless of the code
+    let before = Instant::now();
+    let res = container
+        .exec(ExecCommand::new(["sleep", "2"]).with_cmd_ready_condition(CmdWaitFor::exit()))?;
+    assert_eq!(res.exit_code()?, Some(0));
+    assert!(
+        before.elapsed().as_secs() > 1,
+        "should have waited for 2 seconds"
+    );
+
     // exit code, it waits for result
+    let before = Instant::now();
     let res = container.exec(
-        ExecCommand::new(vec!["sleep".to_string(), "3".to_string()])
-            .with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+        ExecCommand::new(["sleep", "2"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
     )?;
     assert_eq!(res.exit_code()?, Some(0));
+    assert!(
+        before.elapsed().as_secs() > 1,
+        "should have waited for 2 seconds"
+    );
 
     // stdout
     let mut res = container.exec(

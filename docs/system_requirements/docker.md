@@ -7,5 +7,7 @@ These Docker environments are automatically detected and used by Testcontainers 
 It is possible to configure Testcontainers to work for other Docker setups, such as a remote Docker host or Docker alternatives. 
 However, these are not actively tested in the main development workflow, so not all Testcontainers features might be available and additional manual configuration might be necessary.
 
+See [custom configuration](../features/configuration.md) for more information on how to configure Testcontainers for your specific Docker setup.
+
 If you have further questions about configuration details for your setup or whether it supports running Testcontainers-based tests, 
 please contact the Testcontainers team and other users from the Testcontainers community on [Slack](https://slack.testcontainers.org/).

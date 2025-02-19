@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use bollard::Docker;
 use testcontainers::{
@@ -112,11 +112,27 @@ async fn async_run_exec() -> anyhow::Result<()> {
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
 
-    // exit code, it waits for result
+    // exit regardless of the code
+    let before = Instant::now();
     let res = container
-        .exec(ExecCommand::new(["sleep", "3"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)))
+        .exec(ExecCommand::new(["sleep", "2"]).with_cmd_ready_condition(CmdWaitFor::exit()))
         .await?;
     assert_eq!(res.exit_code().await?, Some(0));
+    assert!(
+        before.elapsed().as_secs() > 1,
+        "should have waited for 2 seconds"
+    );
+
+    // exit code, it waits for result
+    let before = Instant::now();
+    let res = container
+        .exec(ExecCommand::new(["sleep", "2"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)))
+        .await?;
+    assert_eq!(res.exit_code().await?, Some(0));
+    assert!(
+        before.elapsed().as_secs() > 1,
+        "should have waited for 2 seconds"
+    );
 
     // stdout
     let mut res = container
