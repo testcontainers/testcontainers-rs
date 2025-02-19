@@ -43,6 +43,7 @@ nav:
   - Features:
       - features/configuration.md
       - features/wait_strategies.md
+      - features/exec_commands.md
   - System Requirements:
       - system_requirements/docker.md
   - Contributing:
