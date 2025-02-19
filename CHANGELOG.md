@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.3] - 2025-02-19
+### Details
+#### Bug Fixes
+- Proper handling of possible stdin in logs stream (#769)
+
+#### Features
+- Re-export bollard
 ## [0.23.2] - 2025-02-06
 ### Details
 #### Documentation
