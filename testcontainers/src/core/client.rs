@@ -482,11 +482,13 @@ where
 {
     fn from(stream: BS) -> Self {
         let stream = stream
-            .map_ok(|chunk| match chunk {
-                LogOutput::StdErr { message } => LogFrame::StdErr(message),
-                LogOutput::StdOut { message } => LogFrame::StdOut(message),
-                LogOutput::StdIn { .. } | LogOutput::Console { .. } => {
-                    unreachable!("only stdout and stderr are supported")
+            .try_filter_map(|chunk| async {
+                match chunk {
+                    LogOutput::StdErr { message } => Ok(Some(LogFrame::StdErr(message))),
+                    LogOutput::StdOut { message } => Ok(Some(LogFrame::StdOut(message))),
+                    // We only interested in stdout and stderr. Docker may return stdin in some
+                    // cases, but we don't need it as we have only one-way communication.
+                    LogOutput::StdIn { .. } | LogOutput::Console { .. } => Ok(None),
                 }
             })
             .map_err(|err| match err {
