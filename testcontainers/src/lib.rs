@@ -95,3 +95,8 @@ mod images;
 pub use images::generic::GenericImage;
 
 pub mod runners;
+
+/// Re-export of the `bollard` crate to allow direct interaction with the Docker API.
+/// This also solves potential version conflicts between `testcontainers` and `bollard` deps.
+pub use bollard;
+pub use bollard_stubs;
