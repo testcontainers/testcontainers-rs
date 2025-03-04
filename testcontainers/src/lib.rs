@@ -94,6 +94,7 @@ pub(crate) mod watchdog;
 mod images;
 pub use images::generic::GenericImage;
 
+pub mod compose;
 pub mod runners;
 
 /// Re-export of the `bollard` crate to allow direct interaction with the Docker API.

@@ -7,10 +7,7 @@ pub use health_strategy::HealthWaitStrategy;
 pub use http_strategy::HttpWaitStrategy;
 pub use log_strategy::LogWaitStrategy;
 
-use crate::{
-    core::{client::Client, logs::LogSource},
-    ContainerAsync, Image,
-};
+use crate::core::{async_container::raw::RawContainer, client::Client, logs::LogSource};
 
 pub(crate) mod cmd_wait;
 pub(crate) mod exit_strategy;
@@ -20,10 +17,10 @@ pub(crate) mod http_strategy;
 pub(crate) mod log_strategy;
 
 pub(crate) trait WaitStrategy {
-    async fn wait_until_ready<I: Image>(
+    async fn wait_until_ready(
         self,
         client: &Client,
-        container: &ContainerAsync<I>,
+        container: &RawContainer,
     ) -> crate::core::error::Result<()>;
 }
 
@@ -126,10 +123,10 @@ impl From<HttpWaitStrategy> for WaitFor {
 }
 
 impl WaitStrategy for WaitFor {
-    async fn wait_until_ready<I: Image>(
+    async fn wait_until_ready(
         self,
         client: &Client,
-        container: &ContainerAsync<I>,
+        container: &RawContainer,
     ) -> crate::core::error::Result<()> {
         match self {
             WaitFor::Log(strategy) => strategy.wait_until_ready(client, container).await?,
