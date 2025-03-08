@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    time::Duration,
-};
+use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
 use bollard::{
@@ -138,38 +135,6 @@ where
                 }
             }
         }
-
-        let container_req_host_config_json: BTreeMap<String, serde_json::Value> =
-            serde_json::to_value(container_req.host_config.clone())
-                .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?
-                .as_object()
-                .unwrap()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v.clone()))
-                .collect();
-        // Pointless but paranoia keeps us all alive
-        let host_config_default_json: BTreeMap<String, serde_json::Value> =
-            serde_json::to_value(HostConfig::default())
-                .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?
-                .as_object()
-                .unwrap()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v.clone()))
-                .collect();
-        // Merge them, prioritizing whatever container_req has specified
-        let host_config_json: BTreeMap<String, serde_json::Value> = host_config_default_json
-            .into_iter()
-            .chain(container_req_host_config_json.into_iter())
-            .collect();
-        // Convert back into a serde_json::Value which is an object
-        let host_config_json: serde_json::Value = serde_json::from_str(
-            &serde_json::to_string(&host_config_json)
-                .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?,
-        )
-        .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?;
-        // Convert back into a HostConfig
-        let overridden_host_config: HostConfig = serde_json::from_value(host_config_json)
-            .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?;
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
@@ -180,12 +145,106 @@ where
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
                 cap_add: container_req.cap_add().cloned(),
                 cap_drop: container_req.cap_drop().cloned(),
-                // ..container_req.host_config,
-                ..overridden_host_config
+                ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
             ..Default::default()
         };
+
+        // CPU period
+        if let Some(cpu_period) = container_req.cpu_period() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.cpu_period = Some(cpu_period);
+                host_config
+            });
+        }
+        // CPU quota
+        if let Some(cpu_quota) = container_req.cpu_quota() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.cpu_quota = Some(cpu_quota);
+                host_config
+            });
+        }
+
+        // cpu_realtime_period
+        if let Some(cpu_realtime_period) = container_req.cpu_realtime_period() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.cpu_realtime_period = Some(cpu_realtime_period);
+                host_config
+            });
+        }
+
+        // cpu_realtime_runtime
+        if let Some(cpu_realtime_runtime) = container_req.cpu_realtime_runtime() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.cpu_realtime_runtime = Some(cpu_realtime_runtime);
+                host_config
+            });
+        }
+
+        // cpuset_cpus
+        if let Some(cpuset_cpus) = container_req.cpuset_cpus() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.cpuset_cpus = Some(cpuset_cpus.to_owned());
+                host_config
+            });
+        }
+
+        // nano_cpus
+        if let Some(nano_cpus) = container_req.nano_cpus() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.nano_cpus = Some(nano_cpus);
+                host_config
+            });
+        }
+
+        // memory
+        if let Some(bytes) = container_req.memory() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.memory = Some(bytes);
+                host_config
+            });
+        }
+
+        // memory reservation
+        if let Some(bytes) = container_req.memory_reservation() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.memory_reservation = Some(bytes);
+                host_config
+            });
+        }
+
+        // memory swap
+        if let Some(bytes) = container_req.memory_swap() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.memory_swap = Some(bytes);
+                host_config
+            });
+        }
+
+        // memory swappiness
+        if let Some(swappiness) = container_req.memory_swappiness() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.memory_swappiness = Some(swappiness);
+                host_config
+            });
+        }
+
+        // oom_kill_disable
+        if let Some(oom_kill_disable) = container_req.oom_kill_disable() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.oom_kill_disable = Some(oom_kill_disable);
+                host_config
+            });
+        }
+
+        // pids_limit
+        if let Some(pids_limit) = container_req.pids_limit() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                host_config.pids_limit = Some(pids_limit);
+                host_config
+            });
+        }
 
         // shared memory
         if let Some(bytes) = container_req.shm_size() {

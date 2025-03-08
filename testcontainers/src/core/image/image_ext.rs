@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use bollard::models::HostConfig;
 use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
@@ -158,8 +157,65 @@ pub trait ImageExt<I: Image> {
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
 
-    /// Adds a Bollard HostConfig override to the container
-    fn with_host_config(self, host_config: impl Into<HostConfig>) -> ContainerRequest<I>;
+    /// Sets the CPU period for the container.
+    /// The default is defined by the underlying image.
+    /// The length of a CPU period in microseconds.
+    /// https://docs.docker.com/engine/reference/commandline/run/#cpu-period
+    fn with_cpu_period(self, cpu_period: impl Into<i64>) -> ContainerRequest<I>;
+
+    /// Sets the CPU quota for the container.
+    /// The default is defined by the underlying image.
+    /// Microseconds of CPU time that the container can get in a CPU period.
+    /// https://docs.docker.com/engine/reference/commandline/run/#cpu-quota
+    /// Most users will want to set CPU quota to their desired CPU count * 100000.
+    /// For example, to limit a container to 2 CPUs, set CPU quota to 200000.
+    /// This is based on the default CPU period of 100000.
+    /// If CPU quota is set to 0, the container will not be limited.
+    fn with_cpu_quota(self, cpu_quota: impl Into<i64>) -> ContainerRequest<I>;
+
+    /// Sets the CPU realtime period for the container.
+    /// The default is defined by the underlying image.
+    /// The length of a CPU real-time period in microseconds.
+    fn with_cpu_realtime_period(self, cpu_realtime_period: impl Into<i64>) -> ContainerRequest<I>;
+
+    /// Sets the CPU realtime runtime for the container.
+    fn with_cpu_realtime_runtime(self, cpu_realtime_runtime: impl Into<i64>)
+        -> ContainerRequest<I>;
+
+    /// Sets the CPUs in which to allow execution (e.g., `0-3`, `0,1`).
+    /// Core pinning should help with performance consistency and context switching in some cases.
+    /// The default is defined by the underlying image.
+    fn with_cpuset_cpus(self, cpuset_cpus: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Memory limit for the container, the _minimum_ is 6 MiB.
+    /// This is the same as `HostConfig::memory`.
+    fn with_memory(self, bytes: i64) -> ContainerRequest<I>;
+
+    /// Memory reservation, soft limit. Analogous to the JVM's `-Xms` option.
+    /// The _minimum_ is 6 MiB.
+    /// This is the same as `HostConfig::memory_reservation`.
+    fn with_memory_reservation(self, bytes: i64) -> ContainerRequest<I>;
+
+    /// Total memory limit (memory + swap). Set as `-1` to enable unlimited swap.
+    /// Same 6 MiB minimum as `memory`. I do not know why everything is i64.
+    fn with_memory_swap(self, bytes: i64) -> ContainerRequest<I>;
+
+    /// Tune a container's memory swappiness behavior. Accepts an integer between 0 and 100.
+    fn with_memory_swappiness(self, swappiness: i64) -> ContainerRequest<I>;
+
+    /// Disable OOM Killer for the container. This will not do anything unless -m (memory limit, cf. memory on this struct) is set.
+    /// You can disable OOM-killer by writing "1" to memory.oom_control file, as:
+    /// ```ignore
+    /// echo 1 > memory.oom_control
+    /// ```
+    /// This operation is only allowed to the top cgroup of sub-hierarchy.
+    /// If OOM-killer is disabled, tasks under cgroup will hang/sleep
+    /// in memory cgroup's OOM-waitqueue when they request accountable memory.
+    /// https://lwn.net/Articles/432224/
+    fn with_oom_kill_disable(self, disable: bool) -> ContainerRequest<I>;
+
+    /// Tune a container's PIDs limit. Set `0` or `-1` for unlimited, or `null` to not change.
+    fn with_pids_limit(self, limit: i64) -> ContainerRequest<I>;
 
     /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
     /// indicating that the container should be kept running, and that executions with the same configuration
@@ -377,10 +433,93 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         container_req
     }
 
-    fn with_host_config(self, host_config: impl Into<HostConfig>) -> ContainerRequest<I> {
+    fn with_cpu_period(self, cpu_period: impl Into<i64>) -> ContainerRequest<I> {
         let container_req = self.into();
         ContainerRequest {
-            host_config: Some(host_config.into()),
+            cpu_period: Some(cpu_period.into()),
+            ..container_req
+        }
+    }
+
+    fn with_cpu_quota(self, cpu_quota: impl Into<i64>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            cpu_quota: Some(cpu_quota.into()),
+            ..container_req
+        }
+    }
+
+    fn with_cpu_realtime_period(self, cpu_realtime_period: impl Into<i64>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            cpu_realtime_period: Some(cpu_realtime_period.into()),
+            ..container_req
+        }
+    }
+
+    fn with_cpu_realtime_runtime(
+        self,
+        cpu_realtime_runtime: impl Into<i64>,
+    ) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            cpu_realtime_runtime: Some(cpu_realtime_runtime.into()),
+            ..container_req
+        }
+    }
+
+    fn with_cpuset_cpus(self, cpuset_cpus: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            cpuset_cpus: Some(cpuset_cpus.into()),
+            ..container_req
+        }
+    }
+
+    fn with_memory(self, bytes: i64) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            memory: Some(bytes),
+            ..container_req
+        }
+    }
+
+    fn with_memory_reservation(self, bytes: i64) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            memory_reservation: Some(bytes),
+            ..container_req
+        }
+    }
+
+    fn with_memory_swap(self, bytes: i64) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            memory_swap: Some(bytes),
+            ..container_req
+        }
+    }
+
+    fn with_memory_swappiness(self, swappiness: i64) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            memory_swappiness: Some(swappiness),
+            ..container_req
+        }
+    }
+
+    fn with_oom_kill_disable(self, disable: bool) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            oom_kill_disable: Some(disable),
+            ..container_req
+        }
+    }
+
+    fn with_pids_limit(self, limit: i64) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            pids_limit: Some(limit),
             ..container_req
         }
     }
