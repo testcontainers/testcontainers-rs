@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use bollard::models::HostConfig;
 use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
@@ -41,6 +42,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
+    pub(crate) host_config: Option<HostConfig>,
     #[cfg(feature = "reusable-containers")]
     pub(crate) reuse: crate::ReuseDirective,
 }
@@ -187,6 +189,10 @@ impl<I: Image> ContainerRequest<I> {
         self.working_dir.as_deref()
     }
 
+    pub fn host_config(&self) -> &Option<HostConfig> {
+        &self.host_config
+    }
+
     /// Indicates that the container will not be stopped when it is dropped
     #[cfg(feature = "reusable-containers")]
     pub fn reuse(&self) -> crate::ReuseDirective {
@@ -219,6 +225,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             startup_timeout: None,
             working_dir: None,
             log_consumers: vec![],
+            host_config: None,
             #[cfg(feature = "reusable-containers")]
             reuse: crate::ReuseDirective::Never,
         }
@@ -265,7 +272,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("cgroupns_mode", &self.cgroupns_mode)
             .field("userns_mode", &self.userns_mode)
             .field("startup_timeout", &self.startup_timeout)
-            .field("working_dir", &self.working_dir);
+            .field("working_dir", &self.working_dir)
+            .field("host_config", &self.host_config);
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);

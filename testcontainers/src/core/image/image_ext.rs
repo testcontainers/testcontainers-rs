@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use bollard::models::HostConfig;
 use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
@@ -156,6 +157,9 @@ pub trait ImageExt<I: Image> {
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
+
+    /// Adds a Bollard HostConfig override to the container
+    fn with_host_config(self, host_config: impl Into<HostConfig>) -> ContainerRequest<I>;
 
     /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
     /// indicating that the container should be kept running, and that executions with the same configuration
@@ -371,6 +375,14 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.log_consumers.push(Box::new(log_consumer));
         container_req
+    }
+
+    fn with_host_config(self, host_config: impl Into<HostConfig>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            host_config: Some(host_config.into()),
+            ..container_req
+        }
     }
 
     #[cfg(feature = "reusable-containers")]

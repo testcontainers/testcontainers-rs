@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use bollard::{
@@ -136,6 +139,37 @@ where
             }
         }
 
+        let container_req_host_config_json: BTreeMap<String, serde_json::Value> =
+            serde_json::to_value(container_req.host_config.clone())
+                .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?
+                .as_object()
+                .unwrap()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect();
+        // Pointless but paranoia keeps us all alive
+        let host_config_default_json: BTreeMap<String, serde_json::Value> =
+            serde_json::to_value(HostConfig::default())
+                .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?
+                .as_object()
+                .unwrap()
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect();
+        // Merge them, prioritizing whatever container_req has specified
+        let host_config_json: BTreeMap<String, serde_json::Value> = host_config_default_json
+            .into_iter()
+            .chain(container_req_host_config_json.into_iter())
+            .collect();
+        // Convert back into a serde_json::Value which is an object
+        let host_config_json: serde_json::Value = serde_json::from_str(
+            &serde_json::to_string(&host_config_json)
+                .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?,
+        )
+        .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?;
+        // Convert back into a HostConfig
+        let overridden_host_config: HostConfig = serde_json::from_value(host_config_json)
+            .map_err(|e| crate::core::error::TestcontainersError::Other(Box::new(e)))?;
         let mut config: Config<String> = Config {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
@@ -146,7 +180,8 @@ where
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
                 cap_add: container_req.cap_add().cloned(),
                 cap_drop: container_req.cap_drop().cloned(),
-                ..Default::default()
+                // ..container_req.host_config,
+                ..overridden_host_config
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
             ..Default::default()
@@ -289,8 +324,7 @@ where
             res => res,
         }?;
 
-        let copy_to_sources: Vec<&CopyToContainer> =
-            container_req.copy_to_sources().map(Into::into).collect();
+        let copy_to_sources: Vec<&CopyToContainer> = container_req.copy_to_sources().collect();
 
         for copy_to_source in copy_to_sources {
             client

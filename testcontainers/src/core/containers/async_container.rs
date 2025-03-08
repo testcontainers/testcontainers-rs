@@ -421,12 +421,7 @@ where
 mod tests {
     use tokio::io::AsyncBufReadExt;
 
-    use crate::{
-        core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
-        images::generic::GenericImage,
-        runners::AsyncRunner,
-        Image,
-    };
+    use crate::{images::generic::GenericImage, runners::AsyncRunner};
 
     #[tokio::test]
     async fn async_logs_are_accessible() -> anyhow::Result<()> {
