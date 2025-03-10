@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: CI
 
 on:
   pull_request:
@@ -35,33 +35,44 @@ jobs:
         run: cargo hack build --each-feature --keep-going
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         toolchain:
           - stable
           - nightly
+        os:
+          - name: Ubuntu
+            version: ubuntu-latest
+          - name: Windows
+            version: windows-latest
+          - name: MacOS
+            version: macos-13
+
+    name: Test - ${{ matrix.os.name }} (${{ matrix.toolchain }})
+    runs-on: ${{ matrix.os.version }}
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+      # Install NASM on Windows (because of aws-lc-rs requirements)
+      - uses: ilammy/setup-nasm@v1
+        if: ${{ matrix.os.name == 'Windows' }}
+      - name: Setup Docker (MacOS only)
+        if: ${{ matrix.os.name == 'MacOS' }}
+        uses: crazy-max/ghaction-setup-docker@v3
+        with:
+          set-host: true
       - uses: Swatinem/rust-cache@v2
-      - name: Setup Rust
+      - name: Setup Rust - ${{ matrix.toolchain }}
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-      - name: Enable Docker Remote API on Localhost
-        shell: bash
-        run: |
-          sudo mkdir -p /etc/systemd/system/docker.service.d/
-          sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
-          sudo systemctl daemon-reload
-          sudo systemctl restart docker
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
       - name: Tests
+        timeout-minutes: 30
         run: cargo hack test --each-feature --clean-per-run
 
   fmt:
