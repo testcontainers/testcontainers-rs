@@ -17,7 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 async-trait = { version = "0.1" }
-bollard = { version = "0.18.1", features = ["ssl"] }
+bollard = { version = "0.18.1"}
 bollard-stubs = "=1.47.1-rc.27.3.1"
 bytes = "1.6.0"
 conquer-once = { version = "0.4", optional = true }
@@ -44,7 +44,10 @@ ulid = { version = "1.1.3", optional = true }
 url = { version = "2", features = ["serde"] }
 
 [features]
-default = []
+default = ["ssl"]
+ssl = ["bollard/ssl"]
+aws-lc-rs = ["bollard/aws-lc-rs"]
+ssl_providerless = ["bollard/ssl_providerless"]
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
 http_wait = ["reqwest"]
