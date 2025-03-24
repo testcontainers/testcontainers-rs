@@ -51,6 +51,19 @@ impl LogStream {
             .boxed()
     }
 
+    /// Converts the log stream into a stream of raw bytes, regardless of the source.
+    pub(crate) fn into_bytes(self) -> RawLogStream {
+        self.inner
+            .filter_map(|record| async move {
+                match record {
+                    Ok(LogFrame::StdErr(bytes)) => Some(Ok(bytes)),
+                    Ok(LogFrame::StdOut(bytes)) => Some(Ok(bytes)),
+                    Err(e) => Some(Err(e)),
+                }
+            })
+            .boxed()
+    }
+
     /// Splits the log stream into two streams, one for stdout and one for stderr.
     pub(crate) async fn split(self) -> (RawLogStream, RawLogStream) {
         let (stdout_tx, stdout_rx) = tokio::sync::mpsc::unbounded_channel();
