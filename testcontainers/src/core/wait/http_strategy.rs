@@ -3,9 +3,10 @@ use std::{fmt::Debug, future::Future, pin::Pin, sync::Arc, time::Duration};
 use bytes::Bytes;
 use url::{Host, Url};
 
+use super::RawContainer;
 use crate::{
     core::{client::Client, error::WaitContainerError, wait::WaitStrategy, ContainerPort},
-    ContainerAsync, Image, TestcontainersError,
+    TestcontainersError,
 };
 
 /// Error type for waiting for container readiness based on HTTP response.
@@ -205,18 +206,27 @@ impl HttpWaitStrategy {
 }
 
 impl WaitStrategy for HttpWaitStrategy {
-    async fn wait_until_ready<I: Image>(
+    async fn wait_until_ready(
         self,
         _client: &Client,
-        container: &ContainerAsync<I>,
+        container: &RawContainer,
     ) -> crate::core::error::Result<()> {
         let host = container.get_host().await?;
-        let container_port = self
-            .port
-            .or_else(|| container.image().expose_ports().first().copied())
-            .ok_or(WaitContainerError::from(
-                HttpWaitError::NoExposedPortsForHttpWait,
-            ))?;
+
+        let container_port = match self.port {
+            Some(port) => port,
+            None => {
+                let ports = container.ports().await?;
+                *ports
+                    .ipv4_mapping()
+                    .keys()
+                    .next()
+                    .or(ports.ipv6_mapping().keys().next())
+                    .ok_or(WaitContainerError::from(
+                        HttpWaitError::NoExposedPortsForHttpWait,
+                    ))?
+            }
+        };
 
         let host_port = match host {
             Host::Domain(ref domain) => match container.get_host_port_ipv4(container_port).await {
