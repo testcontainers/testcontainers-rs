@@ -138,7 +138,8 @@ where
     /// the runtime will issue SIGINT and then wait the specified number of seconds for the
     /// process to stop before issuing SIGKILL.
     pub fn stop_with_timeout(&self, timeout_seconds: i64) -> Result<()> {
-        self.rt().block_on(self.async_impl().stop_with_timeout(timeout_seconds))
+        self.rt()
+            .block_on(self.async_impl().stop_with_timeout(timeout_seconds))
     }
 
     /// Starts the container.
