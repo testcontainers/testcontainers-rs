@@ -127,9 +127,19 @@ where
         })
     }
 
-    /// Stops the container (not the same with `pause`).
+    /// Stops the container (not the same with `pause`) using the default 10 second timeout.
     pub fn stop(&self) -> Result<()> {
         self.rt().block_on(self.async_impl().stop())
+    }
+
+    /// Stops the container with timeout before issuing SIGKILL (not the same with `pause`).
+    ///
+    /// Set -1 to wait indefinitely and 0 to forcibly stop the container immediately otherwise
+    /// the runtime will issue SIGINT and then wait the specified number of seconds for the
+    /// process to stop before issuing SIGKILL.
+    pub fn stop_with_timeout(&self, timeout_seconds: i64) -> Result<()> {
+        self.rt()
+            .block_on(self.async_impl().stop_with_timeout(timeout_seconds))
     }
 
     /// Starts the container.
