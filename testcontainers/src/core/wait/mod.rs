@@ -1,5 +1,6 @@
 use std::{env::var, fmt::Debug, time::Duration};
 
+pub use command_strategy::CommandStrategy;
 pub use exit_strategy::ExitWaitStrategy;
 pub use health_strategy::HealthWaitStrategy;
 #[cfg(feature = "http_wait")]
@@ -12,7 +13,10 @@ use crate::{
     ContainerAsync, Image,
 };
 
+use super::{CmdWaitFor, ExecCommand};
+
 pub(crate) mod cmd_wait;
+pub(crate) mod command_strategy;
 pub(crate) mod exit_strategy;
 pub(crate) mod health_strategy;
 #[cfg(feature = "http_wait")]
@@ -44,6 +48,8 @@ pub enum WaitFor {
     Http(HttpWaitStrategy),
     /// Wait for the container to exit.
     Exit(ExitWaitStrategy),
+    /// Wait for a certain command to exit with a successful code.
+    SuccessfulCommand(CommandStrategy),
 }
 
 impl WaitFor {
@@ -144,6 +150,9 @@ impl WaitStrategy for WaitFor {
                 strategy.wait_until_ready(client, container).await?;
             }
             WaitFor::Exit(strategy) => {
+                strategy.wait_until_ready(client, container).await?;
+            }
+            WaitFor::SuccessfulCommand(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }
             WaitFor::Nothing => {}
