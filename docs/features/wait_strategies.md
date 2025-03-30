@@ -14,6 +14,7 @@ enum with the following variants:
 * `Healthcheck` - wait for the container to be healthy
 * `Http` - wait for an HTTP(S) response with predefined conditions (see [`HttpWaitStrategy`](https://docs.rs/testcontainers/latest/testcontainers/core/wait/struct.HttpWaitStrategy.html) for more details)
 * `Duration` - wait for a specific duration. Usually less preferable and better to combine with other strategies.
+* `SuccessfulCommand` - wait for a given command to exit successfully (exit code 0).
 
 [`Image`](https://docs.rs/testcontainers/latest/testcontainers/core/trait.Image.html) implementation
 is responsible for returning the appropriate `WaitFor` strategies.
