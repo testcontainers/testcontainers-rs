@@ -280,11 +280,27 @@ where
         Ok(())
     }
 
-    /// Stops the container (not the same with `pause`).
+    /// Stops the container (not the same with `pause`) using the default 10 second timeout
     pub async fn stop(&self) -> Result<()> {
-        log::debug!("Stopping docker container {}", self.id);
+        self.stop_with_timeout(None).await?;
+        Ok(())
+    }
 
-        self.docker_client.stop(&self.id).await?;
+    /// Stops the container with timeout before issuing SIGKILL (not the same with `pause`).
+    ///
+    /// Set Some(-1) to wait indefinitely, None to use system configured default and Some(0)
+    /// to forcibly stop the container immediately - otherwise the runtime will issue SIGINT
+    /// and then wait timeout_seconds seconds for the process to stop before issuing SIGKILL.
+    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i64>) -> Result<()> {
+        log::debug!(
+            "Stopping docker container {} with {} second timeout",
+            self.id,
+            timeout_seconds
+                .map(|t| t.to_string())
+                .unwrap_or("'system default'".into())
+        );
+
+        self.docker_client.stop(&self.id, timeout_seconds).await?;
         Ok(())
     }
 

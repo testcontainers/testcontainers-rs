@@ -34,7 +34,7 @@ static WATCHDOG: Lazy<Mutex<Watchdog>> = Lazy::new(|| {
                     .unwrap_or_default()
                 {
                     signal_docker
-                        .stop(&container_id)
+                        .stop(&container_id, None)
                         .await
                         .expect("failed to stop container");
                     signal_docker

@@ -162,9 +162,16 @@ impl Client {
             .map_err(ClientError::RemoveContainer)
     }
 
-    pub(crate) async fn stop(&self, id: &str) -> Result<(), ClientError> {
+    pub(crate) async fn stop(
+        &self,
+        id: &str,
+        timeout_seconds: Option<i64>,
+    ) -> Result<(), ClientError> {
         self.bollard
-            .stop_container(id, None)
+            .stop_container(
+                id,
+                timeout_seconds.map(|t| bollard::container::StopContainerOptions { t }),
+            )
             .await
             .map_err(ClientError::StopContainer)
     }
