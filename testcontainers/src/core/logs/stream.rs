@@ -79,12 +79,8 @@ impl LogStream {
                     }
                     Err(err) => {
                         let err = Arc::new(err);
-                        handle_error!(
-                            stdout_tx.send(Err(io::Error::new(io::ErrorKind::Other, err.clone())))
-                        );
-                        handle_error!(
-                            stderr_tx.send(Err(io::Error::new(io::ErrorKind::Other, err)))
-                        );
+                        handle_error!(stdout_tx.send(Err(io::Error::other(err.clone()))));
+                        handle_error!(stderr_tx.send(Err(io::Error::other(err))));
                     }
                 }
             }

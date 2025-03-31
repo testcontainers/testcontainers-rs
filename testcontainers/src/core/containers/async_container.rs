@@ -183,7 +183,7 @@ where
         let network_settings = self.docker_client.inspect_network(&network_mode).await?;
 
         network_settings.driver.ok_or_else(|| {
-            TestcontainersError::other(format!("network {} is not in bridge mode", network_mode))
+            TestcontainersError::other(format!("network {network_mode} is not in bridge mode"))
         })?;
 
         let container_network_settings = container_settings

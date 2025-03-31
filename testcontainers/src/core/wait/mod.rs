@@ -41,7 +41,7 @@ pub enum WaitFor {
     /// Wait for a certain HTTP response.
     #[cfg(feature = "http_wait")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
-    Http(HttpWaitStrategy),
+    Http(Box<HttpWaitStrategy>),
     /// Wait for the container to exit.
     Exit(ExitWaitStrategy),
 }
@@ -74,7 +74,7 @@ impl WaitFor {
     #[cfg(feature = "http_wait")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
     pub fn http(http_strategy: HttpWaitStrategy) -> WaitFor {
-        WaitFor::Http(http_strategy)
+        WaitFor::Http(Box::new(http_strategy))
     }
 
     /// Wait for the container to exit.
@@ -121,7 +121,7 @@ impl WaitFor {
 #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
 impl From<HttpWaitStrategy> for WaitFor {
     fn from(value: HttpWaitStrategy) -> Self {
-        Self::Http(value)
+        Self::Http(Box::new(value))
     }
 }
 
