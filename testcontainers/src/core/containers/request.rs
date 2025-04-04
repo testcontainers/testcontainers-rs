@@ -43,6 +43,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
     #[cfg(feature = "reusable-containers")]
     pub(crate) reuse: crate::ReuseDirective,
+    pub(crate) user: Option<String>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -192,6 +193,11 @@ impl<I: Image> ContainerRequest<I> {
     pub fn reuse(&self) -> crate::ReuseDirective {
         self.reuse
     }
+
+    /// Returns the configured user that commands are run as inside the container.
+    pub fn user(&self) -> Option<&str> {
+        self.user.as_deref()
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -221,6 +227,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             log_consumers: vec![],
             #[cfg(feature = "reusable-containers")]
             reuse: crate::ReuseDirective::Never,
+            user: None,
         }
     }
 }
@@ -265,7 +272,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("cgroupns_mode", &self.cgroupns_mode)
             .field("userns_mode", &self.userns_mode)
             .field("startup_timeout", &self.startup_timeout)
-            .field("working_dir", &self.working_dir);
+            .field("working_dir", &self.working_dir)
+            .field("user", &self.user);
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);
