@@ -166,6 +166,9 @@ pub trait ImageExt<I: Image> {
     /// `Container` or `ContainerAsync` is dropped.
     #[cfg(feature = "reusable-containers")]
     fn with_reuse(self, reuse: ReuseDirective) -> ContainerRequest<I>;
+
+    /// Sets the user that commands are run as inside the container.
+    fn with_user(self, user: impl Into<String>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -378,6 +381,14 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         ContainerRequest {
             reuse,
             ..self.into()
+        }
+    }
+
+    fn with_user(self, user: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            user: Some(user.into()),
+            ..container_req
         }
     }
 }

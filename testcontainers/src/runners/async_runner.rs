@@ -149,6 +149,7 @@ where
                 ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
+            user: container_req.user().map(|user| user.to_string()),
             ..Default::default()
         };
 
@@ -871,6 +872,24 @@ mod tests {
             expected_working_dir, &working_dir,
             "working dir must be `foo`"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_user() -> anyhow::Result<()> {
+        let image = GenericImage::new("simple_web_server", "latest");
+        let expected_user = "root";
+        let container = image.with_user(expected_user).start().await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let user = container_details
+            .config
+            .expect("ContainerConfig")
+            .user
+            .expect("User");
+        assert_eq!(expected_user, &user, "user must be `root`");
         Ok(())
     }
 }
