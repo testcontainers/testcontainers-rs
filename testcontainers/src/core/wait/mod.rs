@@ -13,7 +13,7 @@ use crate::{
     ContainerAsync, Image,
 };
 
-use super::{CmdWaitFor, ExecCommand};
+use super::{error::WaitContainerError, CmdWaitFor, ExecCommand};
 
 pub(crate) mod cmd_wait;
 pub(crate) mod command_strategy;
@@ -49,7 +49,7 @@ pub enum WaitFor {
     /// Wait for the container to exit.
     Exit(ExitWaitStrategy),
     /// Wait for a certain command to exit with a successful code.
-    SuccessfulCommand(CommandStrategy),
+    Command(CommandStrategy),
 }
 
 impl WaitFor {
@@ -66,6 +66,14 @@ impl WaitFor {
     /// Wait for the message to appear on the container's stdout.
     pub fn log(log_strategy: LogWaitStrategy) -> WaitFor {
         WaitFor::Log(log_strategy)
+    }
+
+    /// Wait for the command to execute successfully.
+    pub fn command(command: ExecCommand) -> WaitFor {
+        let cmd_strategy =
+            CommandStrategy::command(command.with_cmd_ready_condition(CmdWaitFor::exit_code(0)));
+
+        WaitFor::Command(cmd_strategy)
     }
 
     /// Wait for the container to become healthy.
@@ -152,7 +160,7 @@ impl WaitStrategy for WaitFor {
             WaitFor::Exit(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }
-            WaitFor::SuccessfulCommand(strategy) => {
+            WaitFor::Command(strategy) => {
                 strategy.wait_until_ready(client, container).await?;
             }
             WaitFor::Nothing => {}
