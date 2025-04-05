@@ -14,7 +14,17 @@ enum with the following variants:
 * `Healthcheck` - wait for the container to be healthy
 * `Http` - wait for an HTTP(S) response with predefined conditions (see [`HttpWaitStrategy`](https://docs.rs/testcontainers/latest/testcontainers/core/wait/struct.HttpWaitStrategy.html) for more details)
 * `Duration` - wait for a specific duration. Usually less preferable and better to combine with other strategies.
-* `SuccessfulCommand` - wait for a given command to exit successfully (exit code 0).
+* `Command` - wait for a given command to exit successfully (exit code 0).
+
+## Waiting for a command
+
+You can wait for a specific command on an image with a specific error code if you wish. For example, let's wait for a Testcontainer with a Postgres image to be ready by checking for the successful exit code `0` of `pg_isready`:
+
+```rust
+let container = GenericImage::new("postgres", "latest").with_wait_for(WaitFor::command(
+    ExecCommand::new(["pg_isready"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+));
+```
 
 [`Image`](https://docs.rs/testcontainers/latest/testcontainers/core/trait.Image.html) implementation
 is responsible for returning the appropriate `WaitFor` strategies.
