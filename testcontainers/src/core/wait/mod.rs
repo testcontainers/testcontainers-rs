@@ -48,7 +48,7 @@ pub enum WaitFor {
     Http(HttpWaitStrategy),
     /// Wait for the container to exit.
     Exit(ExitWaitStrategy),
-    /// Wait for a certain command to exit with a successful code.
+    /// Wait for a certain command to exit with a specific code.
     Command(CommandStrategy),
 }
 
@@ -68,10 +68,9 @@ impl WaitFor {
         WaitFor::Log(log_strategy)
     }
 
-    /// Wait for the command to execute successfully.
+    /// Wait for the command to execute.
     pub fn command(command: ExecCommand) -> WaitFor {
-        let cmd_strategy =
-            CommandStrategy::command(command.with_cmd_ready_condition(CmdWaitFor::exit_code(0)));
+        let cmd_strategy = CommandStrategy::command(command);
 
         WaitFor::Command(cmd_strategy)
     }

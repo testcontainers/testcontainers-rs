@@ -104,8 +104,9 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
 async fn async_wait_for_successful_command_strategy() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("postgres", "latest")
-        .with_wait_for(WaitFor::command(ExecCommand::new(["pg_isready"])));
+    let image = GenericImage::new("postgres", "latest").with_wait_for(WaitFor::command(
+        ExecCommand::new(["pg_isready"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+    ));
     let container = image
         .with_env_var("POSTGRES_USER", "postgres")
         .with_env_var("POSTGRES_PASSWORD", "postgres")
