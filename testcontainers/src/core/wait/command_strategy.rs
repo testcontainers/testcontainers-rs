@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 use crate::{
-    core::{client::Client, error::WaitContainerError, wait::WaitStrategy, ExecCommand},
+    core::{
+        client::Client, error::WaitContainerError, wait::WaitStrategy, CmdWaitFor, ExecCommand,
+    },
     ContainerAsync, Image,
 };
 
 #[derive(Debug, Clone)]
 pub struct CommandStrategy {
-    expected_code: i64,
     poll_interval: Duration,
     command: ExecCommand,
     fail_fast: bool,
@@ -18,7 +19,6 @@ impl CommandStrategy {
     pub fn new() -> Self {
         Self {
             command: ExecCommand::default(),
-            expected_code: 0,
             poll_interval: Duration::from_millis(100),
             fail_fast: false,
         }
@@ -56,6 +56,11 @@ impl WaitStrategy for CommandStrategy {
         client: &Client,
         container: &ContainerAsync<I>,
     ) -> crate::core::error::Result<()> {
+        let expected_code = match self.command.clone().cmd_ready_condition {
+            CmdWaitFor::Exit { code } => code,
+            _ => Some(0),
+        };
+
         loop {
             let container_state = client
                 .inspect(container.id())
@@ -82,15 +87,17 @@ impl WaitStrategy for CommandStrategy {
                     let exit_code = inspect_result.exit_code;
                     running = inspect_result.running.unwrap_or(false);
 
-                    if self.fail_fast && exit_code != Some(self.expected_code) {
-                        return Err(WaitContainerError::UnexpectedExitCode {
-                            expected: self.expected_code,
-                            actual: exit_code,
+                    if let Some(code) = expected_code {
+                        if self.fail_fast && exit_code != expected_code {
+                            return Err(WaitContainerError::UnexpectedExitCode {
+                                expected: code,
+                                actual: exit_code,
+                            }
+                            .into());
                         }
-                        .into());
                     }
 
-                    if exit_code == Some(self.expected_code) {
+                    if exit_code == expected_code {
                         return Ok(());
                     }
 
