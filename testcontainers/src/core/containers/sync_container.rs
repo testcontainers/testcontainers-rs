@@ -137,16 +137,16 @@ where
         self.rt().block_on(self.async_impl().start())
     }
 
-     /// Pause the container.
+    /// Pause the container.
     /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerPause)
     pub async fn pause(&self) -> Result<()> {
         self.rt().block_on(self.async_impl().pause())
     }
-    
+
     /// Resume/Unpause the container.
     /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerUnpause)
     pub async fn unpause(&self) -> Result<()> {
-         self.rt().block_on(self.async_impl().unpause())
+        self.rt().block_on(self.async_impl().unpause())
     }
 
     /// Removes the container.
