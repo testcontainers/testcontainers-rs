@@ -137,6 +137,18 @@ where
         self.rt().block_on(self.async_impl().start())
     }
 
+     /// Pause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerPause)
+    pub async fn pause(&self) -> Result<()> {
+        self.rt().block_on(self.async_impl().pause())
+    }
+    
+    /// Resume/Unpause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerUnpause)
+    pub async fn unpause(&self) -> Result<()> {
+         self.rt().block_on(self.async_impl().unpause())
+    }
+
     /// Removes the container.
     pub fn rm(mut self) -> Result<()> {
         if let Some(active) = self.inner.take() {

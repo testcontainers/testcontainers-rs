@@ -77,6 +77,10 @@ pub enum ClientError {
     StartContainer(BollardError),
     #[error("failed to stop a container: {0}")]
     StopContainer(BollardError),
+    #[error("failed to pause a container: {0}")]
+    PauseContainer(BollardError),
+    #[error("failed to unpause/resume a container: {0}")]
+    UnpauseContainer(BollardError),
     #[error("failed to inspect a container: {0}")]
     InspectContainer(BollardError),
 
@@ -174,6 +178,20 @@ impl Client {
             .start_container::<String>(id, None)
             .await
             .map_err(ClientError::Init)
+    }
+
+    pub(crate) async fn pause(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .pause_container(id)
+            .await
+            .map_err(ClientError::PauseContainer)
+    }
+
+    pub(crate) async fn unpause(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .unpause_container(id)
+            .await
+            .map_err(ClientError::UnpauseContainer)
     }
 
     pub(crate) async fn exec(
