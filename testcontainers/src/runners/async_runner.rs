@@ -290,8 +290,7 @@ where
             res => res,
         }?;
 
-        let copy_to_sources: Vec<&CopyToContainer> =
-            container_req.copy_to_sources().map(Into::into).collect();
+        let copy_to_sources: Vec<&CopyToContainer> = container_req.copy_to_sources().collect();
 
         for copy_to_source in copy_to_sources {
             client
