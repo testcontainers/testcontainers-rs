@@ -35,6 +35,8 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) privileged: bool,
     pub(crate) cap_add: Option<Vec<String>>,
     pub(crate) cap_drop: Option<Vec<String>>,
+    pub(crate) readonly_rootfs: bool,
+    pub(crate) security_opts: Option<Vec<String>>,
     pub(crate) shm_size: Option<u64>,
     pub(crate) cgroupns_mode: Option<CgroupnsMode>,
     pub(crate) userns_mode: Option<String>,
@@ -198,6 +200,14 @@ impl<I: Image> ContainerRequest<I> {
     pub fn user(&self) -> Option<&str> {
         self.user.as_deref()
     }
+
+    pub fn security_opts(&self) -> Option<&Vec<String>> {
+        self.security_opts.as_ref()
+    }
+
+    pub fn readonly_rootfs(&self) -> bool {
+        self.readonly_rootfs
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -219,6 +229,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             privileged: false,
             cap_add: None,
             cap_drop: None,
+            security_opts: None,
+            readonly_rootfs: false,
             shm_size: None,
             cgroupns_mode: None,
             userns_mode: None,
