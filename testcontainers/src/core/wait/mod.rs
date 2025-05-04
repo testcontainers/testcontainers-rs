@@ -49,12 +49,12 @@ pub enum WaitFor {
 impl WaitFor {
     /// Wait for the message to appear on the container's stdout.
     pub fn message_on_stdout(message: impl AsRef<[u8]>) -> WaitFor {
-        Self::log(LogWaitStrategy::new(LogSource::StdOut, message))
+        Self::log(LogWaitStrategy::stdout(message))
     }
 
     /// Wait for the message to appear on the container's stderr.
     pub fn message_on_stderr(message: impl AsRef<[u8]>) -> WaitFor {
-        Self::log(LogWaitStrategy::new(LogSource::StdErr, message))
+        Self::log(LogWaitStrategy::stderr(message))
     }
 
     /// Wait for the message to appear on the container's stdout.
