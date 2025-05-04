@@ -146,6 +146,8 @@ where
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
                 cap_add: container_req.cap_add().cloned(),
                 cap_drop: container_req.cap_drop().cloned(),
+                readonly_rootfs: container_req.readonly_rootfs(),
+                security_opt: container_req.security_opt().cloned(),
                 ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),

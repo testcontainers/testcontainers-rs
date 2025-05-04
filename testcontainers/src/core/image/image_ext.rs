@@ -169,6 +169,12 @@ pub trait ImageExt<I: Image> {
 
     /// Sets the user that commands are run as inside the container.
     fn with_user(self, user: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Sets the container's root filesystem to be mounted as read-only
+    fn with_readonly_rootfs(self, readonly_rootfs: Option<bool>) -> ContainerRequest<I>;
+
+    /// Sets security options for the container
+    fn with_security_opt(self, security_opt: Option<Vec<String>>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -388,6 +394,22 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let container_req = self.into();
         ContainerRequest {
             user: Some(user.into()),
+            ..container_req
+        }
+    }
+
+    fn with_readonly_rootfs(self, readonly_rootfs: Option<bool>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            readonly_rootfs,
+            ..container_req
+        }
+    }
+
+    fn with_security_opt(self, security_opt: Option<Vec<String>>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            security_opt,
             ..container_req
         }
     }
