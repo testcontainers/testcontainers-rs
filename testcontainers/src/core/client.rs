@@ -162,9 +162,16 @@ impl Client {
             .map_err(ClientError::RemoveContainer)
     }
 
-    pub(crate) async fn stop(&self, id: &str) -> Result<(), ClientError> {
+    pub(crate) async fn stop(
+        &self,
+        id: &str,
+        timeout_seconds: Option<i64>,
+    ) -> Result<(), ClientError> {
         self.bollard
-            .stop_container(id, None)
+            .stop_container(
+                id,
+                timeout_seconds.map(|t| bollard::container::StopContainerOptions { t }),
+            )
             .await
             .map_err(ClientError::StopContainer)
     }
@@ -497,10 +504,10 @@ where
                     message,
                 } => io::Error::new(
                     io::ErrorKind::UnexpectedEof,
-                    format!("Docker container has been dropped: {}", message),
+                    format!("Docker container has been dropped: {message}"),
                 ),
                 bollard::errors::Error::IOError { err } => err,
-                err => io::Error::new(io::ErrorKind::Other, err),
+                err => io::Error::other(err),
             })
             .boxed();
         LogStream::new(stream)
