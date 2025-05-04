@@ -77,6 +77,10 @@ pub enum ClientError {
     StartContainer(BollardError),
     #[error("failed to stop a container: {0}")]
     StopContainer(BollardError),
+    #[error("failed to pause a container: {0}")]
+    PauseContainer(BollardError),
+    #[error("failed to unpause/resume a container: {0}")]
+    UnpauseContainer(BollardError),
     #[error("failed to inspect a container: {0}")]
     InspectContainer(BollardError),
 
@@ -162,9 +166,16 @@ impl Client {
             .map_err(ClientError::RemoveContainer)
     }
 
-    pub(crate) async fn stop(&self, id: &str) -> Result<(), ClientError> {
+    pub(crate) async fn stop(
+        &self,
+        id: &str,
+        timeout_seconds: Option<i64>,
+    ) -> Result<(), ClientError> {
         self.bollard
-            .stop_container(id, None)
+            .stop_container(
+                id,
+                timeout_seconds.map(|t| bollard::container::StopContainerOptions { t }),
+            )
             .await
             .map_err(ClientError::StopContainer)
     }
@@ -174,6 +185,20 @@ impl Client {
             .start_container::<String>(id, None)
             .await
             .map_err(ClientError::Init)
+    }
+
+    pub(crate) async fn pause(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .pause_container(id)
+            .await
+            .map_err(ClientError::PauseContainer)
+    }
+
+    pub(crate) async fn unpause(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .unpause_container(id)
+            .await
+            .map_err(ClientError::UnpauseContainer)
     }
 
     pub(crate) async fn exec(
@@ -497,10 +522,10 @@ where
                     message,
                 } => io::Error::new(
                     io::ErrorKind::UnexpectedEof,
-                    format!("Docker container has been dropped: {}", message),
+                    format!("Docker container has been dropped: {message}"),
                 ),
                 bollard::errors::Error::IOError { err } => err,
-                err => io::Error::new(io::ErrorKind::Other, err),
+                err => io::Error::other(err),
             })
             .boxed();
         LogStream::new(stream)

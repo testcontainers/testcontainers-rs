@@ -47,7 +47,7 @@ impl LoggingConsumer {
         let message = message.trim_end_matches(['\n', '\r']);
 
         if let Some(prefix) = &self.prefix {
-            Cow::Owned(format!("{} {}", prefix, message))
+            Cow::Owned(format!("{prefix} {message}"))
         } else {
             Cow::Borrowed(message)
         }

@@ -183,7 +183,7 @@ where
         let network_settings = self.docker_client.inspect_network(&network_mode).await?;
 
         network_settings.driver.ok_or_else(|| {
-            TestcontainersError::other(format!("network {} is not in bridge mode", network_mode))
+            TestcontainersError::other(format!("network {network_mode} is not in bridge mode"))
         })?;
 
         let container_network_settings = container_settings
@@ -280,11 +280,41 @@ where
         Ok(())
     }
 
-    /// Stops the container (not the same with `pause`).
+    /// Stops the container (not the same with `pause`) using the default 10 second timeout
     pub async fn stop(&self) -> Result<()> {
-        log::debug!("Stopping docker container {}", self.id);
+        self.stop_with_timeout(None).await?;
+        Ok(())
+    }
 
-        self.docker_client.stop(&self.id).await?;
+    /// Stops the container with timeout before issuing SIGKILL (not the same with `pause`).
+    ///
+    /// Set Some(-1) to wait indefinitely, None to use system configured default and Some(0)
+    /// to forcibly stop the container immediately - otherwise the runtime will issue SIGINT
+    /// and then wait timeout_seconds seconds for the process to stop before issuing SIGKILL.
+    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i64>) -> Result<()> {
+        log::debug!(
+            "Stopping docker container {} with {} second timeout",
+            self.id,
+            timeout_seconds
+                .map(|t| t.to_string())
+                .unwrap_or("'system default'".into())
+        );
+
+        self.docker_client.stop(&self.id, timeout_seconds).await?;
+        Ok(())
+    }
+
+    /// Pause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerPause)
+    pub async fn pause(&self) -> Result<()> {
+        self.docker_client.pause(&self.id).await?;
+        Ok(())
+    }
+
+    /// Resume/Unpause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerUnpause)
+    pub async fn unpause(&self) -> Result<()> {
+        self.docker_client.unpause(&self.id).await?;
         Ok(())
     }
 
