@@ -407,12 +407,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     }
 
     fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I> {
-        let container_req = self.into();
-        let mut security_opts = container_req.security_opts;
-        security_opts.push(security_opt.into());
-        ContainerRequest {
-            security_opts,
-            ..container_req
-        }
+        let mut container_req = self.into();
+        container_req
+            .security_opts
+            .get_or_insert_with(Vec::new)
+            .push(security_opt.into());
+
+        container_req
     }
 }

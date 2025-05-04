@@ -147,7 +147,7 @@ where
                 cap_add: container_req.cap_add().cloned(),
                 cap_drop: container_req.cap_drop().cloned(),
                 readonly_rootfs: Some(container_req.readonly_rootfs()),
-                security_opt: Some(container_req.security_opts().clone()),
+                security_opt: container_req.security_opts().cloned(),
                 ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
