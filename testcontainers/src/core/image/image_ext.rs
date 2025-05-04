@@ -174,10 +174,7 @@ pub trait ImageExt<I: Image> {
     fn with_readonly_rootfs(self, readonly_rootfs: bool) -> ContainerRequest<I>;
 
     /// Sets security options for the container
-    fn with_security_opt(
-        self,
-        security_opt: impl IntoIterator<Item = impl Into<String>>,
-    ) -> ContainerRequest<I>;
+    fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -404,18 +401,17 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_readonly_rootfs(self, readonly_rootfs: bool) -> ContainerRequest<I> {
         let container_req = self.into();
         ContainerRequest {
-            readonly_rootfs: Some(readonly_rootfs),
+            readonly_rootfs,
             ..container_req
         }
     }
 
-    fn with_security_opt(
-        self,
-        security_opt: impl IntoIterator<Item = impl Into<String>>,
-    ) -> ContainerRequest<I> {
+    fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I> {
         let container_req = self.into();
+        let mut security_opts = container_req.security_opts;
+        security_opts.push(security_opt.into());
         ContainerRequest {
-            security_opt: Some(security_opt.into_iter().map(Into::into).collect()),
+            security_opts,
             ..container_req
         }
     }
