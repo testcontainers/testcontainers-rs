@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0] - 2025-05-04
+### Details
+#### Features
+- Support waiting for commands exit regardless of exit code (#771)
+- Add user configuration for container commands (#784)
+- Add option to stop containers with a timeout (#779)
+- Support `pause` and `unpause` container (#785)
+- Allow `security_opt` and `readonly_rootfs` to be configured (#787)
+
+#### Miscellaneous Tasks
+- Update etcetera requirement from 0.8.0 to 0.9.0 (#773)
+- Update etcetera requirement from 0.9.0 to 0.10.0 (#775)
 ## [0.23.3] - 2025-02-19
 ### Details
 #### Bug Fixes
