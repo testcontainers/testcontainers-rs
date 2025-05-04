@@ -304,6 +304,20 @@ where
         Ok(())
     }
 
+    /// Pause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerPause)
+    pub async fn pause(&self) -> Result<()> {
+        self.docker_client.pause(&self.id).await?;
+        Ok(())
+    }
+
+    /// Resume/Unpause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerUnpause)
+    pub async fn unpause(&self) -> Result<()> {
+        self.docker_client.unpause(&self.id).await?;
+        Ok(())
+    }
+
     /// Removes the container.
     pub async fn rm(mut self) -> Result<()> {
         log::debug!("Deleting docker container {}", self.id);
