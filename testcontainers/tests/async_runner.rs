@@ -267,3 +267,22 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn async_container_is_running() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run for 1 second
+    let container = GenericImage::new("alpine", "latest")
+        .with_cmd(vec!["sleep", "1"])
+        .start()
+        .await?;
+
+    assert!(container.is_running().await?);
+
+    // After waiting for two seconds it shouldn't be running anymore
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    assert!(!container.is_running().await?);
+
+    Ok(())
+}
