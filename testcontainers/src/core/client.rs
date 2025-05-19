@@ -7,8 +7,8 @@ use std::{
 use bollard::{
     auth::DockerCredentials,
     container::{
-        Config, CreateContainerOptions, ListContainersOptions, LogOutput, LogsOptions,
-        RemoveContainerOptions, UploadToContainerOptions,
+        Config, CreateContainerOptions, InspectContainerOptions, ListContainersOptions, LogOutput,
+        LogsOptions, RemoveContainerOptions, UploadToContainerOptions,
     },
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
@@ -338,6 +338,24 @@ impl Client {
             .upload_to_container::<String>(&container_id, Some(options), tar)
             .await
             .map_err(ClientError::UploadToContainerError)
+    }
+
+    pub(crate) async fn container_exit_code(
+        &self,
+        container_id: &str,
+    ) -> Result<Option<i64>, ClientError> {
+        let container_info = self
+            .bollard
+            .inspect_container(container_id, Some(InspectContainerOptions { size: false }))
+            .await
+            .map_err(ClientError::InspectContainer)?;
+        let Some(state) = container_info.state else {
+            return Ok(None);
+        };
+        if state.running == Some(true) {
+            return Ok(None);
+        }
+        Ok(state.exit_code)
     }
 
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {

@@ -1,6 +1,6 @@
 #![cfg(feature = "blocking")]
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use testcontainers::{
     core::{
@@ -284,6 +284,24 @@ fn sync_copy_files_to_container() -> anyhow::Result<()> {
     println!("{}", out);
     assert!(out.contains("foofoofoo"));
     assert!(out.contains("barbarbar"));
+
+    Ok(())
+}
+
+#[test]
+fn sync_container_exit_code() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run for 1 second and exit with a specific doe
+    let container = GenericImage::new("alpine", "latest")
+        .with_cmd(vec!["/bin/sh", "-c", "sleep 1 && exit 4"])
+        .start()?;
+
+    assert_eq!(container.exit_code()?, None);
+
+    // After waiting for two seconds it shouldn't be running anymore
+    std::thread::sleep(Duration::from_secs(2));
+    assert_eq!(container.exit_code()?, Some(4));
 
     Ok(())
 }
