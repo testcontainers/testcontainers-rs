@@ -209,6 +209,11 @@ where
         Ok(stderr)
     }
 
+    /// Returns whether the container is still running.
+    pub async fn is_running(&self) -> Result<bool> {
+        self.rt().block_on(self.async_impl().is_running())
+    }
+
     /// Returns reference to inner `Runtime`. It's safe to unwrap because it's `Some` until `Container` is dropped.
     fn rt(&self) -> &Arc<tokio::runtime::Runtime> {
         &self.inner.as_ref().unwrap().runtime
