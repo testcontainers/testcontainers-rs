@@ -127,6 +127,11 @@ impl Client {
             .into_stderr()
     }
 
+    pub(crate) fn both_std_logs(&self, id: &str, follow: bool) -> RawLogStream {
+        self.logs_stream(id, Some(LogSource::BothStd), follow)
+            .into_both_std()
+    }
+
     pub(crate) fn logs(&self, id: &str, follow: bool) -> LogStream {
         self.logs_stream(id, None, follow)
     }

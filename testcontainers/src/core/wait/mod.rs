@@ -57,6 +57,11 @@ impl WaitFor {
         Self::log(LogWaitStrategy::new(LogSource::StdErr, message))
     }
 
+    /// Wait for the message to appear on either container's stdout or stderr.
+    pub fn message_on_either_std(message: impl AsRef<[u8]>) -> WaitFor {
+        Self::log(LogWaitStrategy::new(LogSource::BothStd, message))
+    }
+
     /// Wait for the message to appear on the container's stdout.
     pub fn log(log_strategy: LogWaitStrategy) -> WaitFor {
         WaitFor::Log(log_strategy)
