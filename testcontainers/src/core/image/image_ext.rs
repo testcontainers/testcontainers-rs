@@ -6,7 +6,7 @@ use crate::{
     core::{
         copy::{CopyDataSource, CopyToContainer},
         logs::consumer::LogConsumer,
-        CgroupnsMode, ContainerPort, Host, Mount, PortMapping,
+        CgroupnsMode, ContainerPort, Host, Mount, PortMapping, WaitFor,
     },
     ContainerRequest, Image,
 };
@@ -175,6 +175,12 @@ pub trait ImageExt<I: Image> {
 
     /// Sets security options for the container
     fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Overrides ready conditions.
+    ///
+    /// There is no guarantee that the specified ready conditions for an image would result
+    /// in a running container. Users of this API are advised to use this at their own risk.
+    fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -413,6 +419,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             .get_or_insert_with(Vec::new)
             .push(security_opt.into());
 
+        container_req
+    }
+
+    fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.ready_conditions = Some(ready_conditions);
         container_req
     }
 }
