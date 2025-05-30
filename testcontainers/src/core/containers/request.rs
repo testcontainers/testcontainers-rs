@@ -46,6 +46,7 @@ pub struct ContainerRequest<I: Image> {
     #[cfg(feature = "reusable-containers")]
     pub(crate) reuse: crate::ReuseDirective,
     pub(crate) user: Option<String>,
+    pub(crate) ready_conditions: Option<Vec<WaitFor>>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -167,7 +168,9 @@ impl<I: Image> ContainerRequest<I> {
     }
 
     pub fn ready_conditions(&self) -> Vec<WaitFor> {
-        self.image.ready_conditions()
+        self.ready_conditions
+            .clone()
+            .unwrap_or_else(|| self.image.ready_conditions())
     }
 
     pub fn expose_ports(&self) -> &[ContainerPort] {
@@ -240,6 +243,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             #[cfg(feature = "reusable-containers")]
             reuse: crate::ReuseDirective::Never,
             user: None,
+            ready_conditions: None,
         }
     }
 }
@@ -285,7 +289,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("userns_mode", &self.userns_mode)
             .field("startup_timeout", &self.startup_timeout)
             .field("working_dir", &self.working_dir)
-            .field("user", &self.user);
+            .field("user", &self.user)
+            .field("ready_conditions", &self.ready_conditions);
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);
