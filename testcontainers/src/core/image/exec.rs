@@ -1,6 +1,6 @@
 use crate::core::{CmdWaitFor, WaitFor};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExecCommand {
     pub(crate) cmd: Vec<String>,
     pub(crate) cmd_ready_condition: CmdWaitFor,
