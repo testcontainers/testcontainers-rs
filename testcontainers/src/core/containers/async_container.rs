@@ -58,12 +58,12 @@ where
         container_req: ContainerRequest<I>,
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
+        let ready_conditions = container_req.ready_conditions();
         let container = Self::construct(id, docker_client, container_req, network);
         let state = ContainerState::from_container(&container).await?;
         for cmd in container.image().exec_before_ready(state)? {
             container.exec(cmd).await?;
         }
-        let ready_conditions = container.image().ready_conditions();
         container.block_until_ready(ready_conditions).await?;
         Ok(container)
     }
@@ -461,7 +461,7 @@ mod tests {
         core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
         images::generic::GenericImage,
         runners::AsyncRunner,
-        Image,
+        Image, ImageExt,
     };
 
     #[tokio::test]
@@ -762,5 +762,29 @@ mod tests {
         let stdout = exec_result.stdout_to_vec().await.unwrap();
         let output = String::from_utf8(stdout).unwrap();
         assert_eq!(output, "exec_before_ready ran!\n");
+    }
+
+    #[tokio::test]
+    async fn async_containers_custom_ready_conditions_are_used() {
+        #[derive(Debug, Default)]
+        pub struct HelloWorld;
+
+        impl Image for HelloWorld {
+            fn name(&self) -> &str {
+                "hello-world"
+            }
+
+            fn tag(&self) -> &str {
+                "latest"
+            }
+
+            fn ready_conditions(&self) -> Vec<WaitFor> {
+                vec![WaitFor::message_on_stderr("This won't happen")]
+            }
+        }
+
+        let container = HelloWorld {}
+            .with_ready_conditions(vec![WaitFor::message_on_stdout("Hello from Docker!")]);
+        let _ = container.start().await.unwrap();
     }
 }
