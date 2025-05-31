@@ -271,8 +271,8 @@ impl Client {
     ) -> LogStream {
         let options = LogsOptions {
             follow,
-            stdout: source_filter.map(LogSource::is_stdout).unwrap_or(true),
-            stderr: source_filter.map(LogSource::is_stderr).unwrap_or(true),
+            stdout: source_filter.map(LogSource::includes_stdout).unwrap_or(true),
+            stderr: source_filter.map(LogSource::includes_stderr).unwrap_or(true),
             tail: "all".to_owned(),
             ..Default::default()
         };

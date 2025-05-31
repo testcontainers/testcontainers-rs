@@ -33,7 +33,7 @@ impl LogWaitStrategy {
     /// Create a new [`LogWaitStrategy`] that waits for the given message to appear in either
     /// standard output logs or standard error logs.
     /// Shortcut for `LogWaitStrategy::new(LogSource::BothStd, message)`.
-    pub fn both_std(message: impl AsRef<[u8]>) -> Self {
+    pub fn stdout_or_stderr(message: impl AsRef<[u8]>) -> Self {
         Self::new(LogSource::BothStd, message)
     }
 
