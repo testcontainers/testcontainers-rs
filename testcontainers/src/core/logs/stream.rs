@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{stream::BoxStream, Stream, StreamExt};
+use futures::{stream::BoxStream, Stream, StreamExt, TryStreamExt};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::core::logs::LogFrame;
@@ -47,6 +47,16 @@ impl LogStream {
                     Ok(LogFrame::StdOut(_)) => None,
                     Err(e) => Some(Err(e)),
                 }
+            })
+            .boxed()
+    }
+
+    /// Log stream with messages from bith stdout and stderr.
+    pub(crate) fn into_both_std(self) -> RawLogStream {
+        self.inner
+            .map_ok(|frame| match frame {
+                LogFrame::StdErr(bytes) => bytes,
+                LogFrame::StdOut(bytes) => bytes,
             })
             .boxed()
     }
