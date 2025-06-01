@@ -1,6 +1,6 @@
 #![cfg(feature = "blocking")]
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use testcontainers::{
     core::{
@@ -284,6 +284,24 @@ fn sync_copy_files_to_container() -> anyhow::Result<()> {
     println!("{}", out);
     assert!(out.contains("foofoofoo"));
     assert!(out.contains("barbarbar"));
+
+    Ok(())
+}
+
+#[test]
+fn sync_container_exit_code() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run until manually quit
+    let container = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .start()?;
+
+    assert_eq!(container.exit_code()?, None);
+
+    container.stop()?;
+
+    assert_eq!(container.exit_code()?, Some(0));
 
     Ok(())
 }

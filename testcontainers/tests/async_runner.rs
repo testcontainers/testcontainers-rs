@@ -267,3 +267,22 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn async_container_exit_code() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run until manually quit
+    let container = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .start()
+        .await?;
+
+    assert_eq!(container.exit_code().await?, None);
+
+    container.stop().await?;
+
+    assert_eq!(container.exit_code().await?, Some(0));
+
+    Ok(())
+}
