@@ -369,6 +369,12 @@ where
         Ok(stderr)
     }
 
+    /// Returns whether the container is still running.
+    pub async fn is_running(&self) -> Result<bool> {
+        let status = self.docker_client.container_is_running(&self.id).await?;
+        Ok(status)
+    }
+
     pub(crate) async fn block_until_ready(&self, ready_conditions: Vec<WaitFor>) -> Result<()> {
         log::debug!("Waiting for container {} to be ready", self.id);
         let id = self.id();
