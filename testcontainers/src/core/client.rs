@@ -27,9 +27,8 @@ use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
-    copy::{CopyToContainer, CopyToContainerError},
-    env,
-    env::ConfigurationError,
+    copy::{CopyToContainer, CopyToContainerCollection, CopyToContainerError},
+    env::{self, ConfigurationError},
     logs::{
         stream::{LogStream, RawLogStream},
         LogFrame, LogSource, WaitingStreamWrapper,
@@ -65,6 +64,11 @@ pub enum ClientError {
     InvalidDockerHost(String),
     #[error("failed to pull the image '{descriptor}', error: {err}")]
     PullImage {
+        descriptor: String,
+        err: BollardError,
+    },
+    #[error("failed to build the image '{descriptor}', error: {err}")]
+    BuildImage {
         descriptor: String,
         err: BollardError,
     },
@@ -392,6 +396,37 @@ impl Client {
             return Ok(None);
         }
         Ok(state.exit_code)
+    }
+
+    pub(crate) async fn build_image(
+        &self,
+        descriptor: &str,
+        build_context: &CopyToContainerCollection,
+    ) -> Result<(), ClientError> {
+        let tar = build_context
+            .tar()
+            .await
+            .map_err(ClientError::CopyToContainerError)?;
+
+        let options = bollard::image::BuildImageOptions {
+            dockerfile: "Dockerfile",
+            t: descriptor,
+            rm: true,
+            ..Default::default()
+        };
+
+        let credentials = None; // todo
+
+        let mut building = self.bollard.build_image(options, credentials, Some(tar));
+
+        while let Some(result) = building.next().await {
+            result.map_err(|err| ClientError::BuildImage {
+                descriptor: descriptor.into(),
+                err,
+            })?;
+        }
+
+        Ok(())
     }
 
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
