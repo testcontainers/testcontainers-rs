@@ -59,5 +59,6 @@ anyhow = "1.0.86"
 pretty_env_logger = "0.5"
 reqwest = { version = "0.12.4", features = ["blocking"], default-features = false }
 temp-dir = "0.1.13"
+tempfile = "3.20"
 testimages.workspace = true
 tokio = { version = "1", features = ["macros"] }
