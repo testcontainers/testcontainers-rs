@@ -4,6 +4,9 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
+pub struct CopyToContainerCollection(Vec<CopyToContainer>);
+
+#[derive(Debug, Clone)]
 pub struct CopyToContainer {
     target: String,
     source: CopyDataSource,
@@ -23,6 +26,27 @@ pub enum CopyToContainerError {
     PathNameError(String),
 }
 
+impl CopyToContainerCollection {
+    pub fn new(collection: Vec<CopyToContainer>) -> Self {
+        Self(collection)
+    }
+
+    pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
+        let mut ar = tokio_tar::Builder::new(Vec::new());
+
+        for copy_to_container in &self.0 {
+            copy_to_container.append_tar(&mut ar).await?
+        }
+
+        let bytes = ar
+            .into_inner()
+            .await
+            .map_err(CopyToContainerError::IoError)?;
+
+        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+    }
+}
+
 impl CopyToContainer {
     pub fn new(source: impl Into<CopyDataSource>, target: impl Into<String>) -> Self {
         Self {
@@ -34,7 +58,7 @@ impl CopyToContainer {
     pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
         let mut ar = tokio_tar::Builder::new(Vec::new());
 
-        self.source.append_tar(&mut ar, &self.target).await?;
+        self.append_tar(&mut ar).await?;
 
         let bytes = ar
             .into_inner()
@@ -42,6 +66,13 @@ impl CopyToContainer {
             .map_err(CopyToContainerError::IoError)?;
 
         Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+    }
+
+    pub(crate) async fn append_tar(
+        &self,
+        ar: &mut tokio_tar::Builder<Vec<u8>>,
+    ) -> Result<(), CopyToContainerError> {
+        self.source.append_tar(ar, &self.target).await
     }
 }
 
@@ -182,5 +213,24 @@ mod tests {
         } else {
             panic!("Expected IoError");
         }
+    }
+
+    #[tokio::test]
+    async fn copytocontainercollection_tar_file_and_data() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "TEST").unwrap();
+
+        let copy_to_container_collection = CopyToContainerCollection::new(vec![
+            CopyToContainer::new(file_path, "file.txt"),
+            CopyToContainer::new(vec![1, 2, 3, 4, 5], "data.bin"),
+        ]);
+
+        let result = copy_to_container_collection.tar().await;
+
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
     }
 }
