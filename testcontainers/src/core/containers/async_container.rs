@@ -458,10 +458,7 @@ mod tests {
     use tokio::io::AsyncBufReadExt;
 
     use crate::{
-        core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
-        images::generic::GenericImage,
-        runners::AsyncRunner,
-        Image, ImageExt,
+        core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
     };
 
     #[tokio::test]

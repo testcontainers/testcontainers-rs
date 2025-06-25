@@ -1,6 +1,7 @@
 #[cfg(feature = "reusable-containers")]
 pub use self::image::ReuseDirective;
 pub use self::{
+    buildable::BuildableImage,
     containers::*,
     image::{ContainerState, ExecCommand, Image, ImageExt},
     mounts::{AccessMode, Mount, MountType},
@@ -8,6 +9,7 @@ pub use self::{
     wait::{cmd_wait::CmdWaitFor, WaitFor},
 };
 
+mod buildable;
 mod image;
 
 pub(crate) mod async_drop;

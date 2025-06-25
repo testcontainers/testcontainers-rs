@@ -83,12 +83,15 @@ pub use crate::core::ReuseDirective;
 pub use crate::core::{
     copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
-    ContainerAsync, ContainerRequest, Image, ImageExt,
+    BuildableImage, ContainerAsync, ContainerRequest, Image, ImageExt,
 };
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]
 pub(crate) mod watchdog;
+
+mod buildables;
+pub use buildables::generic::GenericBuildableImage;
 
 /// All available Docker images.
 mod images;
