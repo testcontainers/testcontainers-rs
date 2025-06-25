@@ -31,6 +31,10 @@ impl CopyToContainerCollection {
         Self(collection)
     }
 
+    pub fn add(&mut self, entry: CopyToContainer) {
+        self.0.push(entry);
+    }
+
     pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
         let mut ar = tokio_tar::Builder::new(Vec::new());
 

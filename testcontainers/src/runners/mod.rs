@@ -1,6 +1,10 @@
+pub(crate) mod async_builder;
+
 pub(crate) mod async_runner;
 #[cfg(feature = "blocking")]
 pub(crate) mod sync_runner;
+
+pub use self::async_builder::AsyncBuilder;
 
 pub use self::async_runner::AsyncRunner;
 #[cfg(feature = "blocking")]
