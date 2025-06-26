@@ -39,17 +39,19 @@ mod tests {
 
     #[tokio::test]
     async fn build_image_and_run() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
         let image = GenericBuildableImage::new("hello-tc", "latest")
             .with_dockerfile_string(
                 r#"FROM alpine:latest
-                COPY --chmod=0755 hello.sh /sbin/hello
-                ENTRYPOINT ["/sbin/hello"]
-                "#,
+COPY --chmod=0755 hello.sh /sbin/hello
+ENTRYPOINT ["/sbin/hello"]
+"#,
             )
             .with_data(
-                "./hello.sh",
                 r#"#!/bin/sh
-                echo "hello from hello-tc""#,
+echo "hello from hello-tc""#,
+                "./hello.sh",
             )
             .build_image()
             .await?;
