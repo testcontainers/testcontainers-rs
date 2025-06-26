@@ -12,7 +12,7 @@ use bollard::{
     },
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    image::CreateImageOptions,
+    image::{BuilderVersion, CreateImageOptions},
     network::{CreateNetworkOptions, InspectNetworkOptions},
     Docker,
 };
@@ -385,18 +385,30 @@ impl Client {
             dockerfile: "Dockerfile",
             t: descriptor,
             rm: true,
+            nocache: false,
+            version: BuilderVersion::BuilderBuildKit,
+            session: Some(ulid::Ulid::new().to_string()),
             ..Default::default()
         };
 
-        let credentials = None; // todo
+        let credentials = None;
 
         let mut building = self.bollard.build_image(options, credentials, Some(tar));
 
         while let Some(result) = building.next().await {
-            result.map_err(|err| ClientError::BuildImage {
-                descriptor: descriptor.into(),
-                err,
-            })?;
+            match result {
+                Ok(r) => {
+                    if let Some(s) = r.stream {
+                        log::info!("{}", s);
+                    }
+                }
+                Err(err) => {
+                    return Err(ClientError::BuildImage {
+                        descriptor: descriptor.into(),
+                        err,
+                    })
+                }
+            };
         }
 
         Ok(())
