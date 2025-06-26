@@ -172,10 +172,11 @@ fn make_path_relative(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::fs::File;
-    use std::io::Write;
+    use std::{fs::File, io::Write};
+
     use tempfile::tempdir;
+
+    use super::*;
 
     #[tokio::test]
     async fn copytocontainer_tar_file_success() {
