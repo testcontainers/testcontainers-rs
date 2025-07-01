@@ -29,15 +29,16 @@ pub enum WaitLogError {
 pub enum LogSource {
     StdOut,
     StdErr,
+    BothStd,
 }
 
 impl LogSource {
-    pub(super) fn is_stdout(self) -> bool {
-        matches!(self, Self::StdOut)
+    pub(super) fn includes_stdout(self) -> bool {
+        matches!(self, Self::StdOut | Self::BothStd)
     }
 
-    pub(super) fn is_stderr(self) -> bool {
-        matches!(self, Self::StdErr)
+    pub(super) fn includes_stderr(self) -> bool {
+        matches!(self, Self::StdErr | Self::BothStd)
     }
 }
 
