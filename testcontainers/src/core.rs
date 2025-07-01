@@ -1,6 +1,7 @@
 #[cfg(feature = "reusable-containers")]
 pub use self::image::ReuseDirective;
 pub use self::{
+    build_context::BuildContextBuilder,
     buildable::BuildableImage,
     containers::*,
     copy::{CopyDataSource, CopyToContainer, CopyToContainerCollection, CopyToContainerError},
@@ -14,6 +15,7 @@ mod buildable;
 mod image;
 
 pub(crate) mod async_drop;
+pub(crate) mod build_context;
 pub mod client;
 pub(crate) mod containers;
 pub(crate) mod copy;

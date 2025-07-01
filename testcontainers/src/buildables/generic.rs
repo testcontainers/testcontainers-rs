@@ -1,12 +1,15 @@
 use std::path::PathBuf;
 
-use crate::{core::copy::CopyToContainerCollection, BuildableImage, CopyToContainer, GenericImage};
+use crate::{
+    core::{copy::CopyToContainerCollection, BuildContextBuilder},
+    BuildableImage, GenericImage,
+};
 
 #[derive(Debug)]
 pub struct GenericBuildableImage {
     name: String,
     tag: String,
-    build_context: CopyToContainerCollection,
+    build_context_builder: BuildContextBuilder,
 }
 
 impl GenericBuildableImage {
@@ -14,27 +17,27 @@ impl GenericBuildableImage {
         Self {
             name: name.into(),
             tag: tag.into(),
-            build_context: CopyToContainerCollection::new(vec![]),
+            build_context_builder: BuildContextBuilder::default(),
         }
     }
 
-    pub fn with_dockerfile(self, source: impl Into<PathBuf>) -> Self {
-        self.with_file(source.into(), "Dockerfile")
+    pub fn with_dockerfile(mut self, source: impl Into<PathBuf>) -> Self {
+        self.build_context_builder = self.build_context_builder.with_dockerfile(source);
+        self
     }
 
-    pub fn with_dockerfile_string(self, content: impl Into<String>) -> Self {
-        self.with_data(content.into(), "Dockerfile")
+    pub fn with_dockerfile_string(mut self, content: impl Into<String>) -> Self {
+        self.build_context_builder = self.build_context_builder.with_dockerfile_string(content);
+        self
     }
 
     pub fn with_file(mut self, source: impl Into<PathBuf>, target: impl Into<String>) -> Self {
-        self.build_context
-            .add(CopyToContainer::new(source.into(), target));
+        self.build_context_builder = self.build_context_builder.with_file(source, target);
         self
     }
 
     pub fn with_data(mut self, data: impl Into<Vec<u8>>, target: impl Into<String>) -> Self {
-        self.build_context
-            .add(CopyToContainer::new(data.into(), target));
+        self.build_context_builder = self.build_context_builder.with_data(data, target);
         self
     }
 }
@@ -43,7 +46,7 @@ impl BuildableImage for GenericBuildableImage {
     type Built = GenericImage;
 
     fn build_context(&self) -> CopyToContainerCollection {
-        self.build_context.clone()
+        self.build_context_builder.as_copy_to_container_collection()
     }
 
     fn descriptor(&self) -> String {
