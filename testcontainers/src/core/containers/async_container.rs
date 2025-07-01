@@ -375,6 +375,12 @@ where
         Ok(status)
     }
 
+    /// Returns `Some(exit_code)` when the container is finished and `None` when the container is still running.
+    pub async fn exit_code(&self) -> Result<Option<i64>> {
+        let exit_code = self.docker_client.container_exit_code(&self.id).await?;
+        Ok(exit_code)
+    }
+
     pub(crate) async fn block_until_ready(&self, ready_conditions: Vec<WaitFor>) -> Result<()> {
         log::debug!("Waiting for container {} to be ready", self.id);
         let id = self.id();

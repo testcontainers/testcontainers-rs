@@ -214,6 +214,11 @@ where
         self.rt().block_on(self.async_impl().is_running())
     }
 
+    /// Returns `Some(exit_code)` when the container is finished and `None` when the container is still running.
+    pub fn exit_code(&self) -> Result<Option<i64>> {
+        self.rt().block_on(self.async_impl().exit_code())
+    }
+
     /// Returns reference to inner `Runtime`. It's safe to unwrap because it's `Some` until `Container` is dropped.
     fn rt(&self) -> &Arc<tokio::runtime::Runtime> {
         &self.inner.as_ref().unwrap().runtime
