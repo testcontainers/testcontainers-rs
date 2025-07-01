@@ -3,6 +3,7 @@ pub use self::image::ReuseDirective;
 pub use self::{
     buildable::BuildableImage,
     containers::*,
+    copy::{CopyDataSource, CopyToContainer, CopyToContainerCollection, CopyToContainerError},
     image::{ContainerState, ExecCommand, Image, ImageExt},
     mounts::{AccessMode, Mount, MountType},
     ports::{ContainerPort, IntoContainerPort},
