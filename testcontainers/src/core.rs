@@ -4,6 +4,7 @@ pub use self::{
     buildable::BuildableImage,
     containers::*,
     healthcheck::Healthcheck,
+    copy::{CopyDataSource, CopyToContainer, CopyToContainerCollection, CopyToContainerError},
     image::{ContainerState, ExecCommand, Image, ImageExt},
     mounts::{AccessMode, Mount, MountType},
     ports::{ContainerPort, IntoContainerPort},
