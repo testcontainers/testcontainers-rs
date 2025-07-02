@@ -106,9 +106,19 @@ impl CopyDataSource {
 
         match self {
             CopyDataSource::File(source_file_path) => {
-                append_tar_file(ar, source_file_path, &target_path).await?
+                if let Err(e) = append_tar_file(ar, source_file_path, &target_path).await {
+                    log::error!(
+                        "Could not append file/dir to tar: {source_file_path:?}:{target_path}"
+                    );
+                    return Err(e);
+                }
             }
-            CopyDataSource::Data(data) => append_tar_bytes(ar, data, &target_path).await?,
+            CopyDataSource::Data(data) => {
+                if let Err(e) = append_tar_bytes(ar, data, &target_path).await {
+                    log::error!("Could not append data to tar: {target_path}");
+                    return Err(e);
+                }
+            }
         };
 
         Ok(())
