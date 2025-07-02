@@ -1,6 +1,0 @@
-.dockerignore
-build.rs
-README.md
-src/dockerfiles/
-target/
-tests/
