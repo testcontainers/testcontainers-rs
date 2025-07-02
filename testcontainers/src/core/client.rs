@@ -433,10 +433,11 @@ impl Client {
                     }
                 }
                 Err(err) => {
+                    log::error!("{:?}", err);
                     return Err(ClientError::BuildImage {
                         descriptor: descriptor.into(),
                         err,
-                    })
+                    });
                 }
             };
         }
