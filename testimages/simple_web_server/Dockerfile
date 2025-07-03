@@ -1,6 +1,6 @@
 FROM lukemathwalker/cargo-chef:latest-rust-latest as chef
 WORKDIR /app
-RUN apt-get update -y && apt-get install -y lld clang
+# RUN apt-get update -y && apt-get install -y lld clang
 
 FROM chef as planner
 COPY . .
@@ -17,13 +17,6 @@ RUN cargo build -v --release --bin simple_web_server
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl \
-    # Clean up
-    && apt-get autoremove -y \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/simple_web_server foo
-COPY --from=builder /app/target/release/simple_web_server bar
+COPY --from=builder /app/target/release/simple_web_server simple_web_server
 EXPOSE 80
-ENTRYPOINT ["./foo"]
+ENTRYPOINT ["./simple_web_server"]
