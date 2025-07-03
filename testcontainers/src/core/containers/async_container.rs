@@ -369,6 +369,12 @@ where
         Ok(stderr)
     }
 
+    /// Returns whether the container is still running.
+    pub async fn is_running(&self) -> Result<bool> {
+        let status = self.docker_client.container_is_running(&self.id).await?;
+        Ok(status)
+    }
+
     /// Returns `Some(exit_code)` when the container is finished and `None` when the container is still running.
     pub async fn exit_code(&self) -> Result<Option<i64>> {
         let exit_code = self.docker_client.container_exit_code(&self.id).await?;

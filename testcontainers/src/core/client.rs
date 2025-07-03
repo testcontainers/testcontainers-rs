@@ -349,6 +349,23 @@ impl Client {
             .map_err(ClientError::UploadToContainerError)
     }
 
+    pub(crate) async fn container_is_running(
+        &self,
+        container_id: &str,
+    ) -> Result<bool, ClientError> {
+        let container_info = self
+            .bollard
+            .inspect_container(container_id, Some(InspectContainerOptions { size: false }))
+            .await
+            .map_err(ClientError::InspectContainer)?;
+
+        if let Some(state) = container_info.state {
+            Ok(state.running.unwrap_or_default())
+        } else {
+            Ok(false)
+        }
+    }
+
     pub(crate) async fn container_exit_code(
         &self,
         container_id: &str,
@@ -358,6 +375,7 @@ impl Client {
             .inspect_container(container_id, Some(InspectContainerOptions { size: false }))
             .await
             .map_err(ClientError::InspectContainer)?;
+
         let Some(state) = container_info.state else {
             return Ok(None);
         };

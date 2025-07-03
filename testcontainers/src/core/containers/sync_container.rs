@@ -209,6 +209,11 @@ where
         Ok(stderr)
     }
 
+    /// Returns whether the container is still running.
+    pub fn is_running(&self) -> Result<bool> {
+        self.rt().block_on(self.async_impl().is_running())
+    }
+
     /// Returns `Some(exit_code)` when the container is finished and `None` when the container is still running.
     pub fn exit_code(&self) -> Result<Option<i64>> {
         self.rt().block_on(self.async_impl().exit_code())

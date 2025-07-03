@@ -289,6 +289,23 @@ fn sync_copy_files_to_container() -> anyhow::Result<()> {
 }
 
 #[test]
+fn sync_container_is_running() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run until manually quit
+    let container = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .start()?;
+
+    assert!(container.is_running()?);
+
+    container.stop()?;
+
+    assert!(!container.is_running()?);
+    Ok(())
+}
+
+#[test]
 fn sync_container_exit_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
@@ -302,6 +319,5 @@ fn sync_container_exit_code() -> anyhow::Result<()> {
     container.stop()?;
 
     assert_eq!(container.exit_code()?, Some(0));
-
     Ok(())
 }
