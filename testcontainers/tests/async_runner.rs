@@ -295,7 +295,7 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
         .with_wait_for(WaitFor::message_on_stdout("server is ready"))
         .start()
         .await?;
-  
+
     assert_eq!(container.exit_code().await?, None);
 
     container.stop().await?;
