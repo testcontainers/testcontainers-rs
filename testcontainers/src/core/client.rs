@@ -349,7 +349,6 @@ impl Client {
             .map_err(ClientError::UploadToContainerError)
     }
 
-
     pub(crate) async fn container_is_running(
         &self,
         container_id: &str,
