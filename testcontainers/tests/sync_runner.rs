@@ -141,9 +141,12 @@ fn generic_image_port_not_exposed() -> anyhow::Result<()> {
     let target_port = 8080;
 
     // This image binds to 0.0.0.0:8080, does not EXPOSE ports in its dockerfile.
-    let generic_server = GenericImage::new("no_expose_port", "latest")
-        .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"));
-    let node = generic_server.start()?;
+    let node = GenericBuildableImage::new("no_expose_port", "latest")
+        // "Dockerfile" is included already, so adding the build context directory is all what is needed
+        .with_file(std::fs::canonicalize("../testimages/no_expose_port")?, ".")
+        .build_image()?
+        .with_wait_for(WaitFor::message_on_stdout("listening on 0.0.0.0:8080"))
+        .start()?;
 
     // Without exposing the port with `with_exposed_port()`, we cannot get a mapping to it.
     let res = node.get_host_port_ipv4(target_port.tcp());
