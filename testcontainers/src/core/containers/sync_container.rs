@@ -210,7 +210,7 @@ where
     }
 
     /// Returns whether the container is still running.
-    pub async fn is_running(&self) -> Result<bool> {
+    pub fn is_running(&self) -> Result<bool> {
         self.rt().block_on(self.async_impl().is_running())
     }
 
