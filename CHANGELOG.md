@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0] - 2025-07-03
+### Details
+#### Bug Fixes
+- Make tls features optional (#806)
+
+#### Features
+- Allow ready conditions customization via ImageExt (#794)
+- Allow to wait for log line on either stdout or stderr (#795)
+- Add `Container*::exit_code` (#791)
+- Add `Container*::is_running` (#790)
 ## [0.24.0] - 2025-05-04
 ### Details
 #### Features
