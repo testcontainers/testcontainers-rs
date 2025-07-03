@@ -12,13 +12,14 @@ pub(super) fn init(config: &env::Config) -> Result<Docker, bollard::errors::Erro
     let host_url = Url::from_str(host)?;
 
     match host_url.scheme() {
+        #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
         "https" => connect_with_ssl(config),
         "http" | "tcp" => {
+            #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
             if config.tls_verify() {
-                connect_with_ssl(config)
-            } else {
-                Docker::connect_with_http(host, DEFAULT_TIMEOUT.as_secs(), API_DEFAULT_VERSION)
+                return connect_with_ssl(config);
             }
+            Docker::connect_with_http(host, DEFAULT_TIMEOUT.as_secs(), API_DEFAULT_VERSION)
         }
         #[cfg(unix)]
         "unix" => Docker::connect_with_unix(host, DEFAULT_TIMEOUT.as_secs(), API_DEFAULT_VERSION),
@@ -32,6 +33,7 @@ pub(super) fn init(config: &env::Config) -> Result<Docker, bollard::errors::Erro
     }
 }
 
+#[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
 fn connect_with_ssl(config: &env::Config) -> Result<Docker, bollard::errors::Error> {
     let cert_path = config.cert_path().expect("cert path not found");
 
