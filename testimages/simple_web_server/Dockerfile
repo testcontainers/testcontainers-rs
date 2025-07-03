@@ -17,6 +17,7 @@ RUN cargo build -v --release --bin simple_web_server
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-COPY --from=builder /app/target/release/simple_web_server simple_web_server
+COPY --from=builder /app/target/release/simple_web_server foo
+COPY --from=builder /app/target/release/simple_web_server bar
 EXPOSE 80
-ENTRYPOINT ["./simple_web_server"]
+ENTRYPOINT ["./foo"]
