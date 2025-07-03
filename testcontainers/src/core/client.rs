@@ -366,7 +366,6 @@ impl Client {
             Ok(false)
         }
     }
-  
 
     pub(crate) async fn container_exit_code(
         &self,
