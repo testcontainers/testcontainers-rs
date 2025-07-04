@@ -321,3 +321,34 @@ fn sync_container_exit_code() -> anyhow::Result<()> {
     assert_eq!(container.exit_code()?, Some(0));
     Ok(())
 }
+
+#[test]
+fn sync_connection_between_containers() -> anyhow::Result<()> {
+    let server_container = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .with_wait_for(WaitFor::Duration {
+            length: Duration::from_secs(1),
+        })
+        .with_env_var("TESTCONTAINERS_COMMAND", "keep")
+        .with_network("bridge")
+        .start()?;
+
+    let bridge_ip_address = server_container.get_bridge_ip_address()?.to_string();
+    let servers_external_port = "80";
+
+    let client_container = GenericImage::new("simple_web_client", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("Client connected."))
+        .with_wait_for(WaitFor::Duration {
+            length: Duration::from_secs(1),
+        })
+        .with_env_var("SERVER_IP", &bridge_ip_address)
+        .with_env_var("SERVER_PORT", servers_external_port)
+        .with_env_var("TESTCONTAINERS_COMMAND", "keep")
+        .with_network("bridge")
+        .start()?;
+
+    server_container.rm()?;
+    client_container.rm()?;
+
+    Ok(())
+}
