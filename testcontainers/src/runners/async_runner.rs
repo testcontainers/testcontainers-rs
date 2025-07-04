@@ -178,7 +178,7 @@ where
         if let Some(name) = container_req.container_name() {
             create_options = Some(CreateContainerOptions {
                 name: name.to_owned(),
-                platform: None,
+                platform: client.config.platform().map(|s| s.to_string()),
             })
         }
 
