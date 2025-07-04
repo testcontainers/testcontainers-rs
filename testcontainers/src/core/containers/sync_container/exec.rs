@@ -19,7 +19,7 @@ impl SyncExecResult {
     }
 
     /// Returns an asynchronous reader for stdout.
-    pub fn stdout<'b>(&'b mut self) -> Box<dyn BufRead + 'b> {
+    pub fn stdout<'b>(&'b mut self) -> Box<dyn BufRead + Send + 'b> {
         Box::new(sync_reader::SyncReadBridge::new(
             self.inner.stdout(),
             self.runtime.clone(),
@@ -27,7 +27,7 @@ impl SyncExecResult {
     }
 
     /// Returns an asynchronous reader for stderr.
-    pub fn stderr<'b>(&'b mut self) -> Box<dyn BufRead + 'b> {
+    pub fn stderr<'b>(&'b mut self) -> Box<dyn BufRead + Send + 'b> {
         Box::new(sync_reader::SyncReadBridge::new(
             self.inner.stderr(),
             self.runtime.clone(),
