@@ -4,8 +4,8 @@ use std::net::{Ipv6Addr, TcpListener};
 
 use testcontainers::{
     core::{IntoContainerPort, WaitFor},
-    runners::SyncRunner,
-    GenericImage,
+    runners::{SyncBuilder, SyncRunner},
+    GenericBuildableImage,
 };
 
 /// Test the functionality of exposing container ports over both IPv4 and IPv6.
@@ -13,7 +13,14 @@ use testcontainers::{
 fn test_ipv4_ipv6_host_ports() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
+    let image = GenericBuildableImage::new("simple_web_server", "latest")
+        // "Dockerfile" is included already, so adding the build context directory is all what is needed
+        .with_file(
+            std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
+            ".",
+        )
+        .build_image()
+        .unwrap()
         .with_wait_for(WaitFor::message_on_stdout("server is ready"))
         .with_wait_for(WaitFor::seconds(1));
 

@@ -1,13 +1,9 @@
 [package]
-name = "testimages"
+name = "simple_web_server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 publish = false
 
 [dependencies]
-anyhow = "1.0.56"
 axum = { version = "0.8.1", features = ["http2"] }
 tokio = { version = "1.17.0", features = ["full"] }
-
-[build-dependencies]
-anyhow = "1.0.56"
