@@ -4,8 +4,8 @@ use bollard::Docker;
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::{ExitWaitStrategy, LogWaitStrategy},
-        CmdWaitFor, ExecCommand, WaitFor,
+        wait::{CommandStrategy, ExitWaitStrategy, LogWaitStrategy},
+        CmdWaitFor, ContainerState, ExecCommand, WaitFor,
     },
     runners::AsyncRunner,
     GenericImage, Image, ImageExt,
@@ -97,6 +97,35 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
     // a sequential start would mean 8 seconds, hence 5 seconds proves some form of parallelism
     let timeout = Duration::from_secs(5);
     let _containers = tokio::time::timeout(timeout, run_all).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_wait_for_successful_command_strategy() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    let image = GenericImage::new("postgres", "latest").with_wait_for(WaitFor::command(
+        ExecCommand::new(["pg_isready"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)),
+    ));
+    let container = image
+        .with_env_var("POSTGRES_USER", "postgres")
+        .with_env_var("POSTGRES_PASSWORD", "postgres")
+        .with_env_var("POSTGRES_DB", "db")
+        .start()
+        .await?;
+
+    let mut out = String::new();
+    container.stdout(false).read_to_string(&mut out).await?;
+
+    assert!(
+        out.contains("server started"),
+        "stdout must contain 'server started'"
+    );
+
+    // if the container.exec exits with 0, then it means the wait_for successful command strategy
+    // worked
+    //assert_eq!(res.exit_code().await?, Some(0));
+
     Ok(())
 }
 
