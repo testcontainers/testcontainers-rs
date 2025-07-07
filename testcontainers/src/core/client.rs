@@ -4,19 +4,12 @@ use std::{
     str::FromStr,
 };
 
-use bollard::{
-    auth::DockerCredentials,
-    container::{
-        Config, CreateContainerOptions, InspectContainerOptions, ListContainersOptions, LogOutput,
-        LogsOptions, RemoveContainerOptions, UploadToContainerOptions,
-    },
-    errors::Error as BollardError,
-    exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    image::CreateImageOptions,
-    network::{CreateNetworkOptions, InspectNetworkOptions},
-    Docker,
-};
+use bollard::{auth::DockerCredentials, body_full, container::{
+    Config, CreateContainerOptions, ListContainersOptions, LogOutput,
+    LogsOptions, RemoveContainerOptions,
+}, errors::Error as BollardError, exec::{CreateExecOptions, StartExecOptions, StartExecResults}, image::CreateImageOptions, network::{CreateNetworkOptions}, Docker};
 use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
+use bollard_stubs::query_parameters::{CreateImageOptionsBuilder, InspectContainerOptions, InspectNetworkOptions, ListNetworksOptions, RemoveContainerOptionsBuilder, StartContainerOptions, UploadToContainerOptionsBuilder};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
 use url::Url;
@@ -152,7 +145,7 @@ impl Client {
 
     pub(crate) async fn inspect(&self, id: &str) -> Result<ContainerInspectResponse, ClientError> {
         self.bollard
-            .inspect_container(id, None)
+            .inspect_container(id, None::<InspectContainerOptions>)
             .await
             .map_err(ClientError::InspectContainer)
     }
@@ -161,11 +154,7 @@ impl Client {
         self.bollard
             .remove_container(
                 id,
-                Some(RemoveContainerOptions {
-                    force: true,
-                    v: true,
-                    ..Default::default()
-                }),
+                Some(RemoveContainerOptionsBuilder::new().force(true).v(true).build()),
             )
             .await
             .map_err(ClientError::RemoveContainer)
@@ -187,7 +176,7 @@ impl Client {
 
     pub(crate) async fn start(&self, id: &str) -> Result<(), ClientError> {
         self.bollard
-            .start_container::<String>(id, None)
+            .start_container(id, None::<StartContainerOptions>)
             .await
             .map_err(ClientError::Init)
     }
@@ -302,7 +291,7 @@ impl Client {
     /// Inspects a network
     pub(crate) async fn inspect_network(&self, name: &str) -> Result<Network, ClientError> {
         self.bollard
-            .inspect_network(name, Some(InspectNetworkOptions::<String>::default()))
+            .inspect_network(name, Some(InspectNetworkOptions::default()))
             .await
             .map_err(ClientError::InspectNetwork)
     }
@@ -321,7 +310,7 @@ impl Client {
 
     pub(crate) async fn start_container(&self, container_id: &str) -> Result<(), ClientError> {
         self.bollard
-            .start_container::<String>(container_id, None)
+            .start_container(container_id, None::<StartContainerOptions>)
             .await
             .map_err(ClientError::StartContainer)
     }
@@ -333,10 +322,10 @@ impl Client {
     ) -> Result<(), ClientError> {
         let container_id: String = container_id.into();
 
-        let options = UploadToContainerOptions {
-            path: "/".to_string(),
-            no_overwrite_dir_non_dir: "false".into(),
-        };
+        let options = UploadToContainerOptionsBuilder::new()
+            .path("/")
+            .no_overwrite_dir_non_dir("false")
+            .build();
 
         let tar = copy_to_container
             .tar()
@@ -344,7 +333,7 @@ impl Client {
             .map_err(ClientError::CopyToContainerError)?;
 
         self.bollard
-            .upload_to_container::<String>(&container_id, Some(options), tar)
+            .upload_to_container(&container_id, Some(options), body_full(tar))
             .await
             .map_err(ClientError::UploadToContainerError)
     }
@@ -386,12 +375,11 @@ impl Client {
     }
 
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
-        let pull_options = Some(CreateImageOptions {
-            from_image: descriptor,
-            ..Default::default()
-        });
+        let pull_options = CreateImageOptionsBuilder::new()
+            .from_image(descriptor)
+            .build();
         let credentials = self.credentials_for_image(descriptor).await;
-        let mut pulling = self.bollard.create_image(pull_options, None, credentials);
+        let mut pulling = self.bollard.create_image(Some(pull_options), None, credentials);
         while let Some(result) = pulling.next().await {
             result.map_err(|err| ClientError::PullImage {
                 descriptor: descriptor.to_string(),
@@ -404,7 +392,7 @@ impl Client {
     pub(crate) async fn network_exists(&self, network: &str) -> Result<bool, ClientError> {
         let networks = self
             .bollard
-            .list_networks::<String>(None)
+            .list_networks(None::<ListNetworksOptions>)
             .await
             .map_err(ClientError::ListNetworks)?;
 
@@ -436,7 +424,7 @@ impl Client {
                 if is_in_container().await {
                     let host = self
                         .bollard
-                        .inspect_network::<String>("bridge", None)
+                        .inspect_network("bridge",None::<InspectNetworkOptions>)
                         .await
                         .ok()
                         .and_then(|net| net.ipam)
