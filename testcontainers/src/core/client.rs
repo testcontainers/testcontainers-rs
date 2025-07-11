@@ -421,6 +421,13 @@ impl Client {
     }
 
     pub(crate) async fn docker_hostname(&self) -> Result<url::Host, ClientError> {
+        // allow TESTCONTAINERS_HOST_OVERRIDE to override the docker host
+        if let Some(host_override) =
+            <env::Os as env::GetEnvValue>::get_env_value("TESTCONTAINERS_HOST_OVERRIDE")
+        {
+            return url::Host::parse(&host_override)
+                .map_err(|_| ConfigurationError::InvalidDockerHost(host_override).into());
+        }
         let docker_host = &self.config.docker_host();
         let docker_host_url = Url::from_str(docker_host)
             .map_err(|e| ConfigurationError::InvalidDockerHost(e.to_string()))?;
