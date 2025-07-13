@@ -6,7 +6,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures::{stream::BoxStream, Stream, StreamExt};
+use futures::{stream::BoxStream, Stream, StreamExt, TryStreamExt};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::core::logs::LogFrame;
@@ -51,6 +51,16 @@ impl LogStream {
             .boxed()
     }
 
+    /// Log stream with messages from bith stdout and stderr.
+    pub(crate) fn into_both_std(self) -> RawLogStream {
+        self.inner
+            .map_ok(|frame| match frame {
+                LogFrame::StdErr(bytes) => bytes,
+                LogFrame::StdOut(bytes) => bytes,
+            })
+            .boxed()
+    }
+
     /// Splits the log stream into two streams, one for stdout and one for stderr.
     pub(crate) async fn split(self) -> (RawLogStream, RawLogStream) {
         let (stdout_tx, stdout_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -79,12 +89,8 @@ impl LogStream {
                     }
                     Err(err) => {
                         let err = Arc::new(err);
-                        handle_error!(
-                            stdout_tx.send(Err(io::Error::new(io::ErrorKind::Other, err.clone())))
-                        );
-                        handle_error!(
-                            stderr_tx.send(Err(io::Error::new(io::ErrorKind::Other, err)))
-                        );
+                        handle_error!(stdout_tx.send(Err(io::Error::other(err.clone()))));
+                        handle_error!(stderr_tx.send(Err(io::Error::other(err))));
                     }
                 }
             }

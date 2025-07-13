@@ -6,7 +6,7 @@ use crate::{
     core::{
         copy::{CopyDataSource, CopyToContainer},
         logs::consumer::LogConsumer,
-        CgroupnsMode, ContainerPort, Host, Mount, PortMapping,
+        CgroupnsMode, ContainerPort, Host, Mount, PortMapping, WaitFor,
     },
     ContainerRequest, Image,
 };
@@ -166,6 +166,21 @@ pub trait ImageExt<I: Image> {
     /// `Container` or `ContainerAsync` is dropped.
     #[cfg(feature = "reusable-containers")]
     fn with_reuse(self, reuse: ReuseDirective) -> ContainerRequest<I>;
+
+    /// Sets the user that commands are run as inside the container.
+    fn with_user(self, user: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Sets the container's root filesystem to be mounted as read-only
+    fn with_readonly_rootfs(self, readonly_rootfs: bool) -> ContainerRequest<I>;
+
+    /// Sets security options for the container
+    fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Overrides ready conditions.
+    ///
+    /// There is no guarantee that the specified ready conditions for an image would result
+    /// in a running container. Users of this API are advised to use this at their own risk.
+    fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -379,5 +394,37 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             reuse,
             ..self.into()
         }
+    }
+
+    fn with_user(self, user: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            user: Some(user.into()),
+            ..container_req
+        }
+    }
+
+    fn with_readonly_rootfs(self, readonly_rootfs: bool) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            readonly_rootfs,
+            ..container_req
+        }
+    }
+
+    fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req
+            .security_opts
+            .get_or_insert_with(Vec::new)
+            .push(security_opt.into());
+
+        container_req
+    }
+
+    fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.ready_conditions = Some(ready_conditions);
+        container_req
     }
 }

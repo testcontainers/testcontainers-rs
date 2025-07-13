@@ -7,8 +7,8 @@ use std::{
 use bollard::{
     auth::DockerCredentials,
     container::{
-        Config, CreateContainerOptions, ListContainersOptions, LogOutput, LogsOptions,
-        RemoveContainerOptions, UploadToContainerOptions,
+        Config, CreateContainerOptions, InspectContainerOptions, ListContainersOptions, LogOutput,
+        LogsOptions, RemoveContainerOptions, UploadToContainerOptions,
     },
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
@@ -77,6 +77,10 @@ pub enum ClientError {
     StartContainer(BollardError),
     #[error("failed to stop a container: {0}")]
     StopContainer(BollardError),
+    #[error("failed to pause a container: {0}")]
+    PauseContainer(BollardError),
+    #[error("failed to unpause/resume a container: {0}")]
+    UnpauseContainer(BollardError),
     #[error("failed to inspect a container: {0}")]
     InspectContainer(BollardError),
 
@@ -123,6 +127,11 @@ impl Client {
             .into_stderr()
     }
 
+    pub(crate) fn both_std_logs(&self, id: &str, follow: bool) -> RawLogStream {
+        self.logs_stream(id, Some(LogSource::BothStd), follow)
+            .into_both_std()
+    }
+
     pub(crate) fn logs(&self, id: &str, follow: bool) -> LogStream {
         self.logs_stream(id, None, follow)
     }
@@ -162,9 +171,16 @@ impl Client {
             .map_err(ClientError::RemoveContainer)
     }
 
-    pub(crate) async fn stop(&self, id: &str) -> Result<(), ClientError> {
+    pub(crate) async fn stop(
+        &self,
+        id: &str,
+        timeout_seconds: Option<i64>,
+    ) -> Result<(), ClientError> {
         self.bollard
-            .stop_container(id, None)
+            .stop_container(
+                id,
+                timeout_seconds.map(|t| bollard::container::StopContainerOptions { t }),
+            )
             .await
             .map_err(ClientError::StopContainer)
     }
@@ -174,6 +190,20 @@ impl Client {
             .start_container::<String>(id, None)
             .await
             .map_err(ClientError::Init)
+    }
+
+    pub(crate) async fn pause(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .pause_container(id)
+            .await
+            .map_err(ClientError::PauseContainer)
+    }
+
+    pub(crate) async fn unpause(&self, id: &str) -> Result<(), ClientError> {
+        self.bollard
+            .unpause_container(id)
+            .await
+            .map_err(ClientError::UnpauseContainer)
     }
 
     pub(crate) async fn exec(
@@ -241,8 +271,12 @@ impl Client {
     ) -> LogStream {
         let options = LogsOptions {
             follow,
-            stdout: source_filter.map(LogSource::is_stdout).unwrap_or(true),
-            stderr: source_filter.map(LogSource::is_stderr).unwrap_or(true),
+            stdout: source_filter
+                .map(LogSource::includes_stdout)
+                .unwrap_or(true),
+            stderr: source_filter
+                .map(LogSource::includes_stderr)
+                .unwrap_or(true),
             tail: "all".to_owned(),
             ..Default::default()
         };
@@ -313,6 +347,42 @@ impl Client {
             .upload_to_container::<String>(&container_id, Some(options), tar)
             .await
             .map_err(ClientError::UploadToContainerError)
+    }
+
+    pub(crate) async fn container_is_running(
+        &self,
+        container_id: &str,
+    ) -> Result<bool, ClientError> {
+        let container_info = self
+            .bollard
+            .inspect_container(container_id, Some(InspectContainerOptions { size: false }))
+            .await
+            .map_err(ClientError::InspectContainer)?;
+
+        if let Some(state) = container_info.state {
+            Ok(state.running.unwrap_or_default())
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub(crate) async fn container_exit_code(
+        &self,
+        container_id: &str,
+    ) -> Result<Option<i64>, ClientError> {
+        let container_info = self
+            .bollard
+            .inspect_container(container_id, Some(InspectContainerOptions { size: false }))
+            .await
+            .map_err(ClientError::InspectContainer)?;
+
+        let Some(state) = container_info.state else {
+            return Ok(None);
+        };
+        if state.running == Some(true) {
+            return Ok(None);
+        }
+        Ok(state.exit_code)
     }
 
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
@@ -497,10 +567,10 @@ where
                     message,
                 } => io::Error::new(
                     io::ErrorKind::UnexpectedEof,
-                    format!("Docker container has been dropped: {}", message),
+                    format!("Docker container has been dropped: {message}"),
                 ),
                 bollard::errors::Error::IOError { err } => err,
-                err => io::Error::new(io::ErrorKind::Other, err),
+                err => io::Error::other(err),
             })
             .boxed();
         LogStream::new(stream)

@@ -45,7 +45,7 @@ pub enum WaitFor {
     /// Wait for a certain HTTP response.
     #[cfg(feature = "http_wait")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
-    Http(HttpWaitStrategy),
+    Http(Box<HttpWaitStrategy>),
     /// Wait for the container to exit.
     Exit(ExitWaitStrategy),
     /// Wait for a certain command to exit with a specific code.
@@ -61,6 +61,11 @@ impl WaitFor {
     /// Wait for the message to appear on the container's stderr.
     pub fn message_on_stderr(message: impl AsRef<[u8]>) -> WaitFor {
         Self::log(LogWaitStrategy::new(LogSource::StdErr, message))
+    }
+
+    /// Wait for the message to appear on either container's stdout or stderr.
+    pub fn message_on_either_std(message: impl AsRef<[u8]>) -> WaitFor {
+        Self::log(LogWaitStrategy::new(LogSource::BothStd, message))
     }
 
     /// Wait for the message to appear on the container's stdout.
@@ -87,7 +92,7 @@ impl WaitFor {
     #[cfg(feature = "http_wait")]
     #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
     pub fn http(http_strategy: HttpWaitStrategy) -> WaitFor {
-        WaitFor::Http(http_strategy)
+        WaitFor::Http(Box::new(http_strategy))
     }
 
     /// Wait for the container to exit.
@@ -134,7 +139,7 @@ impl WaitFor {
 #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
 impl From<HttpWaitStrategy> for WaitFor {
     fn from(value: HttpWaitStrategy) -> Self {
-        Self::Http(value)
+        Self::Http(Box::new(value))
     }
 }
 

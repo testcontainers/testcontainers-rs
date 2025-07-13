@@ -10,6 +10,7 @@ changelog_path = "CHANGELOG.md"
 [[package]]
 name = "testimages"
 release = false
+publish = false
 changelog_update = false
 
 [changelog]

@@ -32,7 +32,7 @@ jobs:
         with:
           tool: cargo-hack
       - name: Build
-        run: cargo hack build --at-least-one-of ring,aws-lc-rs,ssl --feature-powerset --depth 2 --keep-going
+        run: cargo hack build --feature-powerset --depth 2 --keep-going
 
   test:
     name: Test
@@ -62,7 +62,7 @@ jobs:
         with:
           tool: cargo-hack
       - name: Tests
-        run: cargo hack test --at-least-one-of ring,aws-lc-rs,ssl --feature-powerset --depth 2 --clean-per-run
+        run: cargo hack test --feature-powerset --depth 2 --clean-per-run
 
   fmt:
     name: Rustfmt check

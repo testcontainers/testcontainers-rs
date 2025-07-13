@@ -146,9 +146,12 @@ where
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
                 cap_add: container_req.cap_add().cloned(),
                 cap_drop: container_req.cap_drop().cloned(),
+                readonly_rootfs: Some(container_req.readonly_rootfs()),
+                security_opt: container_req.security_opts().cloned(),
                 ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
+            user: container_req.user().map(|user| user.to_string()),
             ..Default::default()
         };
 
@@ -289,8 +292,7 @@ where
             res => res,
         }?;
 
-        let copy_to_sources: Vec<&CopyToContainer> =
-            container_req.copy_to_sources().map(Into::into).collect();
+        let copy_to_sources: Vec<&CopyToContainer> = container_req.copy_to_sources().collect();
 
         for copy_to_source in copy_to_sources {
             client
@@ -871,6 +873,24 @@ mod tests {
             expected_working_dir, &working_dir,
             "working dir must be `foo`"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_user() -> anyhow::Result<()> {
+        let image = GenericImage::new("simple_web_server", "latest");
+        let expected_user = "root";
+        let container = image.with_user(expected_user).start().await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let user = container_details
+            .config
+            .expect("ContainerConfig")
+            .user
+            .expect("User");
+        assert_eq!(expected_user, &user, "user must be `root`");
         Ok(())
     }
 }

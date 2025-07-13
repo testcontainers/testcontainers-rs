@@ -58,12 +58,12 @@ where
         container_req: ContainerRequest<I>,
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
+        let ready_conditions = container_req.ready_conditions();
         let container = Self::construct(id, docker_client, container_req, network);
         let state = ContainerState::from_container(&container).await?;
         for cmd in container.image().exec_before_ready(state)? {
             container.exec(cmd).await?;
         }
-        let ready_conditions = container.image().ready_conditions();
         container.block_until_ready(ready_conditions).await?;
         Ok(container)
     }
@@ -183,7 +183,7 @@ where
         let network_settings = self.docker_client.inspect_network(&network_mode).await?;
 
         network_settings.driver.ok_or_else(|| {
-            TestcontainersError::other(format!("network {} is not in bridge mode", network_mode))
+            TestcontainersError::other(format!("network {network_mode} is not in bridge mode"))
         })?;
 
         let container_network_settings = container_settings
@@ -280,11 +280,41 @@ where
         Ok(())
     }
 
-    /// Stops the container (not the same with `pause`).
+    /// Stops the container (not the same with `pause`) using the default 10 second timeout
     pub async fn stop(&self) -> Result<()> {
-        log::debug!("Stopping docker container {}", self.id);
+        self.stop_with_timeout(None).await?;
+        Ok(())
+    }
 
-        self.docker_client.stop(&self.id).await?;
+    /// Stops the container with timeout before issuing SIGKILL (not the same with `pause`).
+    ///
+    /// Set Some(-1) to wait indefinitely, None to use system configured default and Some(0)
+    /// to forcibly stop the container immediately - otherwise the runtime will issue SIGINT
+    /// and then wait timeout_seconds seconds for the process to stop before issuing SIGKILL.
+    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i64>) -> Result<()> {
+        log::debug!(
+            "Stopping docker container {} with {} second timeout",
+            self.id,
+            timeout_seconds
+                .map(|t| t.to_string())
+                .unwrap_or("'system default'".into())
+        );
+
+        self.docker_client.stop(&self.id, timeout_seconds).await?;
+        Ok(())
+    }
+
+    /// Pause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerPause)
+    pub async fn pause(&self) -> Result<()> {
+        self.docker_client.pause(&self.id).await?;
+        Ok(())
+    }
+
+    /// Resume/Unpause the container.
+    /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerUnpause)
+    pub async fn unpause(&self) -> Result<()> {
+        self.docker_client.unpause(&self.id).await?;
         Ok(())
     }
 
@@ -337,6 +367,18 @@ where
         let mut stderr = Vec::new();
         self.stderr(false).read_to_end(&mut stderr).await?;
         Ok(stderr)
+    }
+
+    /// Returns whether the container is still running.
+    pub async fn is_running(&self) -> Result<bool> {
+        let status = self.docker_client.container_is_running(&self.id).await?;
+        Ok(status)
+    }
+
+    /// Returns `Some(exit_code)` when the container is finished and `None` when the container is still running.
+    pub async fn exit_code(&self) -> Result<Option<i64>> {
+        let exit_code = self.docker_client.container_exit_code(&self.id).await?;
+        Ok(exit_code)
     }
 
     pub(crate) async fn block_until_ready(&self, ready_conditions: Vec<WaitFor>) -> Result<()> {
@@ -425,7 +467,7 @@ mod tests {
         core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
         images::generic::GenericImage,
         runners::AsyncRunner,
-        Image,
+        Image, ImageExt,
     };
 
     #[tokio::test]
@@ -726,5 +768,29 @@ mod tests {
         let stdout = exec_result.stdout_to_vec().await.unwrap();
         let output = String::from_utf8(stdout).unwrap();
         assert_eq!(output, "exec_before_ready ran!\n");
+    }
+
+    #[tokio::test]
+    async fn async_containers_custom_ready_conditions_are_used() {
+        #[derive(Debug, Default)]
+        pub struct HelloWorld;
+
+        impl Image for HelloWorld {
+            fn name(&self) -> &str {
+                "hello-world"
+            }
+
+            fn tag(&self) -> &str {
+                "latest"
+            }
+
+            fn ready_conditions(&self) -> Vec<WaitFor> {
+                vec![WaitFor::message_on_stderr("This won't happen")]
+            }
+        }
+
+        let container = HelloWorld {}
+            .with_ready_conditions(vec![WaitFor::message_on_stdout("Hello from Docker!")]);
+        let _ = container.start().await.unwrap();
     }
 }
