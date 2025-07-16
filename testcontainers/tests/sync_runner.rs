@@ -321,3 +321,54 @@ fn sync_container_exit_code() -> anyhow::Result<()> {
     assert_eq!(container.exit_code()?, Some(0));
     Ok(())
 }
+
+#[test]
+fn sync_custom_healthcheck_basic() -> anyhow::Result<()> {
+    use std::time::Duration;
+
+    use testcontainers::core::Healthcheck;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Use a basic health check that should pass
+    let healthcheck = Healthcheck::cmd_shell("test -f /etc/passwd")
+        .with_interval(Duration::from_secs(1))
+        .with_timeout(Duration::from_secs(1))
+        .with_retries(2);
+
+    let container = GenericImage::new("alpine", "latest")
+        .with_cmd(["sleep", "30"])
+        .with_health_check(healthcheck)
+        .with_ready_conditions(vec![WaitFor::healthcheck()])
+        .start()?;
+
+    assert!(container.is_running()?);
+    Ok(())
+}
+
+#[test]
+fn sync_custom_healthcheck_with_web_server() -> anyhow::Result<()> {
+    use std::time::Duration;
+
+    use testcontainers::core::Healthcheck;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a custom health check for a web server
+    // Note: This might fail if curl is not available in the nginx image
+    let healthcheck = Healthcheck::cmd_shell("wget --spider -q http://localhost:80")
+        .with_interval(Duration::from_secs(2))
+        .with_timeout(Duration::from_secs(3))
+        .with_retries(3)
+        .with_start_period(Duration::from_secs(10));
+
+    let container = GenericImage::new("nginx", "alpine")
+        .with_health_check(healthcheck)
+        .with_ready_conditions(vec![WaitFor::healthcheck()])
+        .start()?;
+
+    // If we get here, the container started successfully and the health check passed
+    assert!(container.is_running()?);
+
+    Ok(())
+}

@@ -277,6 +277,48 @@ mod test {
     fn assert_send_and_sync<T: Send + Sync>() {}
 
     #[test]
+    fn sync_custom_healthcheck_is_applied() -> anyhow::Result<()> {
+        use std::time::Duration;
+
+        use crate::core::Healthcheck;
+
+        let healthcheck = Healthcheck::cmd_shell("test -f /etc/passwd")
+            .with_interval(Duration::from_secs(1))
+            .with_timeout(Duration::from_secs(1))
+            .with_retries(2);
+
+        let container = GenericImage::new("alpine", "latest")
+            .with_cmd(["sleep", "30"])
+            .with_health_check(healthcheck)
+            .with_ready_conditions(vec![WaitFor::healthcheck()])
+            .start()?;
+
+        let inspect_info = container
+            .rt()
+            .block_on(container.async_impl().docker_client.inspect(container.id()))?;
+
+        assert!(inspect_info.config.is_some());
+        let config = inspect_info.config.unwrap();
+        assert!(config.healthcheck.is_some());
+
+        let healthcheck_config = config.healthcheck.unwrap();
+        assert_eq!(
+            healthcheck_config.test,
+            Some(vec![
+                "CMD-SHELL".to_string(),
+                "test -f /etc/passwd".to_string()
+            ])
+        );
+        assert_eq!(healthcheck_config.interval, Some(1_000_000_000));
+        assert_eq!(healthcheck_config.timeout, Some(1_000_000_000));
+        assert_eq!(healthcheck_config.retries, Some(2));
+        assert_eq!(healthcheck_config.start_period, None);
+
+        assert!(container.is_running()?);
+        Ok(())
+    }
+
+    #[test]
     fn sync_logs_are_accessible() -> anyhow::Result<()> {
         let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
         let container = image.start()?;

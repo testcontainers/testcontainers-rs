@@ -464,11 +464,49 @@ mod tests {
     use tokio::io::AsyncBufReadExt;
 
     use crate::{
-        core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
-        images::generic::GenericImage,
-        runners::AsyncRunner,
-        Image, ImageExt,
+        core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
     };
+
+    #[tokio::test]
+    async fn async_custom_healthcheck_is_applied() -> anyhow::Result<()> {
+        use std::time::Duration;
+
+        use crate::core::Healthcheck;
+
+        let healthcheck = Healthcheck::cmd_shell("test -f /etc/passwd")
+            .with_interval(Duration::from_secs(1))
+            .with_timeout(Duration::from_secs(1))
+            .with_retries(2);
+
+        let container = GenericImage::new("alpine", "latest")
+            .with_cmd(["sleep", "30"])
+            .with_health_check(healthcheck)
+            .with_ready_conditions(vec![WaitFor::healthcheck()])
+            .start()
+            .await?;
+
+        let inspect_info = container.docker_client.inspect(container.id()).await?;
+        assert!(inspect_info.config.is_some());
+
+        let config = inspect_info.config.unwrap();
+        assert!(config.healthcheck.is_some());
+
+        let healthcheck_config = config.healthcheck.unwrap();
+        assert_eq!(
+            healthcheck_config.test,
+            Some(vec![
+                "CMD-SHELL".to_string(),
+                "test -f /etc/passwd".to_string()
+            ])
+        );
+        assert_eq!(healthcheck_config.interval, Some(1_000_000_000));
+        assert_eq!(healthcheck_config.timeout, Some(1_000_000_000));
+        assert_eq!(healthcheck_config.retries, Some(2));
+        assert_eq!(healthcheck_config.start_period, None);
+
+        assert!(container.is_running().await?);
+        Ok(())
+    }
 
     #[tokio::test]
     async fn async_logs_are_accessible() -> anyhow::Result<()> {

@@ -306,6 +306,8 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn async_custom_healthcheck_basic() -> anyhow::Result<()> {
+    use std::time::Duration;
+
     use testcontainers::core::Healthcheck;
 
     let _ = pretty_env_logger::try_init();
@@ -354,7 +356,7 @@ async fn async_custom_healthcheck_with_web_server() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn async_custom_healthcheck_mysql_example() -> anyhow::Result<()> {
+async fn async_custom_healthcheck_cmd_example() -> anyhow::Result<()> {
     use testcontainers::core::Healthcheck;
 
     let _ = pretty_env_logger::try_init();
