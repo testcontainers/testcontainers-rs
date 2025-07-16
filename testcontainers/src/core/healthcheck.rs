@@ -85,12 +85,12 @@ impl Healthcheck {
         }
     }
 
-    /// Inherits the health check from the image's configuration.
+    /// Creates an empty healthcheck configuration to customize an image's existing healthcheck.
     ///
-    /// This allows for overriding parts of the health check configuration
-    /// (e.g., interval, retries) while keeping the test command from the image.
-    /// This is represented by an empty `Test` field in the Docker API.
-    pub fn inherit() -> Self {
+    /// This keeps the original healthcheck command from the image, but allows overriding
+    /// other parameters like `interval` or `retries`. In the Docker API, this is achieved
+    /// by sending an empty `test` field along with the other desired values.
+    pub fn empty() -> Self {
         Self {
             test: vec![],
             interval: None,
