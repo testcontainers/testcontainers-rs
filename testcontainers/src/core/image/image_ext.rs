@@ -191,11 +191,11 @@ pub trait ImageExt<I: Image> {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use testcontainers::{core::{Healthcheck, WaitFor}, images::GenericImage};
+    /// use testcontainers::{core::{Healthcheck, WaitFor}, GenericImage, ImageExt};
     /// use std::time::Duration;
     ///
     /// let image = GenericImage::new("mysql", "8.0")
-    ///     .with_wait_for(WaitFor::Healthcheck)
+    ///     .with_wait_for(WaitFor::healthcheck())
     ///     .with_health_check(
     ///         Healthcheck::cmd(["mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"])
     ///             .with_interval(Duration::from_secs(2))
