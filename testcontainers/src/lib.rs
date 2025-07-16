@@ -83,7 +83,7 @@ pub use crate::core::ReuseDirective;
 pub use crate::core::{
     copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
-    ContainerAsync, ContainerRequest, Image, ImageExt,
+    ContainerAsync, ContainerRequest, Healthcheck, Image, ImageExt,
 };
 
 #[cfg(feature = "watchdog")]

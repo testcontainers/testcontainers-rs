@@ -10,8 +10,8 @@ use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
     core::{
-        copy::CopyToContainer, logs::consumer::LogConsumer, mounts::Mount, ports::ContainerPort,
-        ContainerState, ExecCommand, WaitFor,
+        copy::CopyToContainer, healthcheck::Healthcheck, logs::consumer::LogConsumer,
+        mounts::Mount, ports::ContainerPort, ContainerState, ExecCommand, WaitFor,
     },
     Image, TestcontainersError,
 };
@@ -47,6 +47,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) reuse: crate::ReuseDirective,
     pub(crate) user: Option<String>,
     pub(crate) ready_conditions: Option<Vec<WaitFor>>,
+    pub(crate) health_check: Option<Healthcheck>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -211,6 +212,11 @@ impl<I: Image> ContainerRequest<I> {
     pub fn readonly_rootfs(&self) -> bool {
         self.readonly_rootfs
     }
+
+    /// Returns the custom health check configuration for the container.
+    pub fn health_check(&self) -> Option<&Healthcheck> {
+        self.health_check.as_ref()
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -244,6 +250,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             reuse: crate::ReuseDirective::Never,
             user: None,
             ready_conditions: None,
+            health_check: None,
         }
     }
 }
@@ -290,7 +297,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("startup_timeout", &self.startup_timeout)
             .field("working_dir", &self.working_dir)
             .field("user", &self.user)
-            .field("ready_conditions", &self.ready_conditions);
+            .field("ready_conditions", &self.ready_conditions)
+            .field("health_check", &self.health_check);
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);
