@@ -464,8 +464,13 @@ mod tests {
     use tokio::io::AsyncBufReadExt;
 
     use crate::{
-        core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
+        core::WaitFor,
+        images::generic::GenericImage,
+        runners::AsyncRunner,
+        Image, ImageExt,
     };
+    #[cfg(feature = "http_wait")]
+    use crate::core::{wait::HttpWaitStrategy, ContainerPort, ContainerState, ExecCommand};
 
     #[tokio::test]
     async fn async_custom_healthcheck_is_applied() -> anyhow::Result<()> {
@@ -763,7 +768,6 @@ mod tests {
     #[cfg(feature = "http_wait")]
     #[tokio::test]
     async fn exec_before_ready_is_ran() {
-        use crate::core::wait::HttpWaitStrategy;
 
         struct ExecBeforeReady {}
 

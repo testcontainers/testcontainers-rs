@@ -250,7 +250,7 @@ impl<I: Image> Drop for Container<I> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{core::WaitFor, runners::SyncRunner, GenericImage};
+    use crate::{core::WaitFor, runners::SyncRunner, GenericImage, ImageExt};
 
     #[derive(Debug, Default)]
     pub struct HelloWorld;
