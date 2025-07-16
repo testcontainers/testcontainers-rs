@@ -71,10 +71,10 @@ impl Healthcheck {
     pub fn cmd<I, S>(command: I) -> Self
     where
         I: IntoIterator<Item = S>,
-        S: Into<String>,
+        S: AsRef<str>,
     {
         let mut test = vec!["CMD".to_string()];
-        test.extend(command.into_iter().map(Into::into));
+        test.extend(command.into_iter().map(|s| s.as_ref().to_owned()));
         Self {
             test,
             interval: None,
@@ -102,32 +102,42 @@ impl Healthcheck {
     }
 
     /// Sets the interval between health checks.
-    pub fn with_interval(mut self, interval: Duration) -> Self {
-        self.interval = Some(interval);
+    ///
+    /// Passing `None` will clear the value and use the Docker default.
+    pub fn with_interval(mut self, interval: impl Into<Option<Duration>>) -> Self {
+        self.interval = interval.into();
         self
     }
 
     /// Sets the timeout for each health check.
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = Some(timeout);
+    ///
+    /// Passing `None` will clear the value and use the Docker default.
+    pub fn with_timeout(mut self, timeout: impl Into<Option<Duration>>) -> Self {
+        self.timeout = timeout.into();
         self
     }
 
     /// Sets the number of consecutive failures needed to consider the container unhealthy.
-    pub fn with_retries(mut self, retries: u32) -> Self {
-        self.retries = Some(retries);
+    ///
+    /// Passing `None` will clear the value and use the Docker default.
+    pub fn with_retries(mut self, retries: impl Into<Option<u32>>) -> Self {
+        self.retries = retries.into();
         self
     }
 
     /// Sets the start period for the container to initialize before starting health checks.
-    pub fn with_start_period(mut self, start_period: Duration) -> Self {
-        self.start_period = Some(start_period);
+    ///
+    /// Passing `None` will clear the value and use the Docker default.
+    pub fn with_start_period(mut self, start_period: impl Into<Option<Duration>>) -> Self {
+        self.start_period = start_period.into();
         self
     }
 
     /// Sets the interval between health checks during the start period.
-    pub fn with_start_interval(mut self, interval: Duration) -> Self {
-        self.start_interval = Some(interval);
+    ///
+    /// Passing `None` will clear the value and use the Docker default.
+    pub fn with_start_interval(mut self, interval: impl Into<Option<Duration>>) -> Self {
+        self.start_interval = interval.into();
         self
     }
 
@@ -229,6 +239,29 @@ mod tests {
         assert_eq!(healthcheck.retries(), Some(4));
         assert_eq!(healthcheck.start_period(), Some(Duration::from_secs(15)));
         assert_eq!(healthcheck.start_interval(), Some(Duration::from_secs(2)));
+    }
+
+    #[test]
+    fn test_healthcheck_clear_values() {
+        let healthcheck = Healthcheck::cmd_shell("ping")
+            .with_interval(Duration::from_secs(1))
+            .with_timeout(Duration::from_secs(2))
+            .with_retries(3)
+            .with_start_period(Duration::from_secs(4))
+            .with_start_interval(Duration::from_secs(5));
+
+        let healthcheck = healthcheck
+            .with_interval(None)
+            .with_timeout(None)
+            .with_retries(None)
+            .with_start_period(None)
+            .with_start_interval(None);
+
+        assert_eq!(healthcheck.interval(), None);
+        assert_eq!(healthcheck.timeout(), None);
+        assert_eq!(healthcheck.retries(), None);
+        assert_eq!(healthcheck.start_period(), None);
+        assert_eq!(healthcheck.start_interval(), None);
     }
 
     #[test]
