@@ -1,6 +1,9 @@
 use std::time::{Duration, Instant};
 
-use bollard::Docker;
+use bollard::{
+    query_parameters::{ListImagesOptions, RemoveImageOptions},
+    Docker,
+};
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
@@ -45,14 +48,16 @@ async fn cleanup_hello_world_image() -> anyhow::Result<()> {
 
     futures::future::join_all(
         docker
-            .list_images::<String>(None)
+            .list_images(None::<ListImagesOptions>)
             .await?
             .into_iter()
             .flat_map(|image| image.repo_tags.into_iter())
             .filter(|tag| tag.starts_with("hello-world"))
             .map(|tag| async {
                 let tag_captured = tag;
-                docker.remove_image(&tag_captured, None, None).await
+                docker
+                    .remove_image(&tag_captured, None::<RemoveImageOptions>, None)
+                    .await
             }),
     )
     .await;

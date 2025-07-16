@@ -137,7 +137,7 @@ where
     /// Set Some(-1) to wait indefinitely, None to use system configured default and Some(0)
     /// to forcibly stop the container immediately - otherwise the runtime will issue SIGINT
     /// and then wait timeout_seconds seconds for the process to stop before issuing SIGKILL.
-    pub fn stop_with_timeout(&self, timeout_seconds: Option<i64>) -> Result<()> {
+    pub fn stop_with_timeout(&self, timeout_seconds: Option<i32>) -> Result<()> {
         self.rt()
             .block_on(self.async_impl().stop_with_timeout(timeout_seconds))
     }
