@@ -7,19 +7,16 @@ use std::{
 use bollard::{
     auth::DockerCredentials,
     body_full,
-    container::{
-        Config, CreateContainerOptions, InspectContainerOptions, ListContainersOptions, LogOutput,
-        LogsOptions, RemoveContainerOptions, UploadToContainerOptions,
-    },
+    container::LogOutput,
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    image::CreateImageOptions,
-    network::CreateNetworkOptions,
+    models::{ContainerCreateBody, NetworkCreateRequest},
     query_parameters::{
-        CreateImageOptionsBuilder, InspectContainerOptionsBuilder, InspectNetworkOptions,
-        InspectNetworkOptionsBuilder, ListContainersOptionsBuilder, ListNetworksOptions,
-        LogsOptionsBuilder, RemoveContainerOptionsBuilder, StartContainerOptions,
-        StopContainerOptionsBuilder, UploadToContainerOptionsBuilder,
+        CreateContainerOptions, CreateImageOptionsBuilder, InspectContainerOptions,
+        InspectContainerOptionsBuilder, InspectNetworkOptions, InspectNetworkOptionsBuilder,
+        ListContainersOptionsBuilder, ListNetworksOptions, LogsOptionsBuilder,
+        RemoveContainerOptionsBuilder, StartContainerOptions, StopContainerOptionsBuilder,
+        UploadToContainerOptionsBuilder,
     },
     Docker,
 };
@@ -299,9 +296,8 @@ impl Client {
     pub(crate) async fn create_network(&self, name: &str) -> Result<String, ClientError> {
         let network = self
             .bollard
-            .create_network(CreateNetworkOptions {
+            .create_network(NetworkCreateRequest {
                 name: name.to_owned(),
-                check_duplicate: true,
                 ..Default::default()
             })
             .await
@@ -320,11 +316,11 @@ impl Client {
 
     pub(crate) async fn create_container(
         &self,
-        options: Option<CreateContainerOptions<String>>,
-        config: Config<String>,
+        options: Option<CreateContainerOptions>,
+        config: ContainerCreateBody,
     ) -> Result<String, ClientError> {
         self.bollard
-            .create_container(options.clone(), config.clone())
+            .create_container(options, config)
             .await
             .map(|res| res.id)
             .map_err(ClientError::CreateContainer)

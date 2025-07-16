@@ -581,25 +581,27 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let options = bollard::container::ListContainersOptions {
-            all: false,
-            limit: Some(2),
-            size: false,
-            filters: std::collections::HashMap::from_iter([(
-                "label".to_string(),
-                labels
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .chain([
-                        "org.testcontainers.managed-by=testcontainers".to_string(),
-                        format!(
-                            "org.testcontainers.session-id={}",
-                            crate::runners::async_runner::session_id()
-                        ),
-                    ])
-                    .collect(),
-            )]),
-        };
+        let filters = std::collections::HashMap::from_iter([(
+            "label".to_string(),
+            labels
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .chain([
+                    "org.testcontainers.managed-by=testcontainers".to_string(),
+                    format!(
+                        "org.testcontainers.session-id={}",
+                        crate::runners::async_runner::session_id()
+                    ),
+                ])
+                .collect(),
+        )]);
+
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .limit(2)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = client.list_containers(Some(options)).await?;
 
@@ -643,19 +645,21 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let options = bollard::container::ListContainersOptions {
-            all: false,
-            limit: Some(2),
-            size: false,
-            filters: std::collections::HashMap::from_iter([(
-                "label".to_string(),
-                labels
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
-                    .collect(),
-            )]),
-        };
+        let filters = std::collections::HashMap::from_iter([(
+            "label".to_string(),
+            labels
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
+                .collect(),
+        )]);
+
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .limit(2)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = client.list_containers(Some(options)).await?;
 
