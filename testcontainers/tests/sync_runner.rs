@@ -331,7 +331,7 @@ fn sync_custom_healthcheck_basic() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     // Use a basic health check that should pass
-    let healthcheck = Healthcheck::cmd_shell("test -f /etc/passwd")
+    let healthcheck = Healthcheck::cmd(["test", "-f", "/etc/passwd"])
         .with_interval(Duration::from_secs(1))
         .with_timeout(Duration::from_secs(1))
         .with_retries(2);
