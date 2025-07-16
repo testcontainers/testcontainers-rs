@@ -298,10 +298,14 @@ mod test {
             .block_on(container.async_impl().docker_client.inspect(container.id()))?;
 
         assert!(inspect_info.config.is_some());
-        let config = inspect_info.config.unwrap();
+        let config = inspect_info
+            .config
+            .expect("Container config must be present");
         assert!(config.healthcheck.is_some());
 
-        let healthcheck_config = config.healthcheck.unwrap();
+        let healthcheck_config = config
+            .healthcheck
+            .expect("Healthcheck config must be present");
         assert_eq!(
             healthcheck_config.test,
             Some(vec![
