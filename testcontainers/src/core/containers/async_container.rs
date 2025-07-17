@@ -291,7 +291,7 @@ where
     /// Set Some(-1) to wait indefinitely, None to use system configured default and Some(0)
     /// to forcibly stop the container immediately - otherwise the runtime will issue SIGINT
     /// and then wait timeout_seconds seconds for the process to stop before issuing SIGKILL.
-    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i64>) -> Result<()> {
+    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i32>) -> Result<()> {
         log::debug!(
             "Stopping docker container {} with {} second timeout",
             self.id,
@@ -625,25 +625,27 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let options = bollard::container::ListContainersOptions {
-            all: false,
-            limit: Some(2),
-            size: false,
-            filters: std::collections::HashMap::from_iter([(
-                "label".to_string(),
-                labels
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .chain([
-                        "org.testcontainers.managed-by=testcontainers".to_string(),
-                        format!(
-                            "org.testcontainers.session-id={}",
-                            crate::runners::async_runner::session_id()
-                        ),
-                    ])
-                    .collect(),
-            )]),
-        };
+        let filters = std::collections::HashMap::from_iter([(
+            "label".to_string(),
+            labels
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .chain([
+                    "org.testcontainers.managed-by=testcontainers".to_string(),
+                    format!(
+                        "org.testcontainers.session-id={}",
+                        crate::runners::async_runner::session_id()
+                    ),
+                ])
+                .collect(),
+        )]);
+
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .limit(2)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = client.list_containers(Some(options)).await?;
 
@@ -687,19 +689,21 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let options = bollard::container::ListContainersOptions {
-            all: false,
-            limit: Some(2),
-            size: false,
-            filters: std::collections::HashMap::from_iter([(
-                "label".to_string(),
-                labels
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
-                    .collect(),
-            )]),
-        };
+        let filters = std::collections::HashMap::from_iter([(
+            "label".to_string(),
+            labels
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
+                .collect(),
+        )]);
+
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .limit(2)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = client.list_containers(Some(options)).await?;
 
@@ -722,6 +726,8 @@ mod tests {
     #[cfg(feature = "reusable-containers")]
     #[tokio::test]
     async fn async_reusable_containers_are_not_dropped() -> anyhow::Result<()> {
+        use bollard::query_parameters::InspectContainerOptions;
+
         use crate::{ImageExt, ReuseDirective};
 
         let client = crate::core::client::docker_client_instance().await?;
@@ -744,7 +750,7 @@ mod tests {
         };
 
         assert!(client
-            .inspect_container(&container_id, None)
+            .inspect_container(&container_id, None::<InspectContainerOptions>)
             .await?
             .state
             .and_then(|state| state.running)
@@ -753,10 +759,11 @@ mod tests {
         client
             .remove_container(
                 &container_id,
-                Some(bollard::container::RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                }),
+                Some(
+                    bollard::query_parameters::RemoveContainerOptionsBuilder::new()
+                        .force(true)
+                        .build(),
+                ),
             )
             .await
             .map_err(anyhow::Error::from)

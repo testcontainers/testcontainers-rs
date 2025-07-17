@@ -2,8 +2,8 @@ use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
 use bollard::{
-    container::{Config, CreateContainerOptions},
-    models::{HostConfig, PortBinding},
+    models::{ContainerCreateBody, HostConfig, PortBinding},
+    query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
 };
 use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
@@ -75,7 +75,7 @@ where
         let container_req = self.into();
 
         let client = Client::lazy_client().await?;
-        let mut create_options: Option<CreateContainerOptions<String>> = None;
+        let mut create_options: Option<CreateContainerOptions> = None;
 
         let extra_hosts: Vec<_> = container_req
             .hosts()
@@ -136,7 +136,7 @@ where
             }
         }
 
-        let mut config: Config<String> = Config {
+        let mut config = ContainerCreateBody {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
             host_config: Some(HostConfig {
@@ -179,10 +179,8 @@ where
 
         // name of the container
         if let Some(name) = container_req.container_name() {
-            create_options = Some(CreateContainerOptions {
-                name: name.to_owned(),
-                platform: None,
-            })
+            let options = CreateContainerOptionsBuilder::new().name(name).build();
+            create_options = Some(options)
         }
 
         // handle environment variables

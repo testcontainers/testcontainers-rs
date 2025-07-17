@@ -1,6 +1,6 @@
 #![cfg(feature = "blocking")]
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use testcontainers::{
     core::{
