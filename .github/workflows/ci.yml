@@ -4,7 +4,7 @@ on:
   pull_request:
   merge_group:
   push:
-    branches: [ main ]
+    branches: [main]
 
 concurrency:
   group: ${{ github.ref }}
@@ -43,6 +43,11 @@ jobs:
         toolchain:
           - stable
           - nightly
+        partition:
+          - 1/4
+          - 2/4
+          - 3/4
+          - 4/4
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -62,7 +67,7 @@ jobs:
         with:
           tool: cargo-hack
       - name: Tests
-        run: cargo hack test --feature-powerset --depth 2 --clean-per-run
+        run: cargo hack test --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }}
 
   fmt:
     name: Rustfmt check
