@@ -11,6 +11,7 @@ use bollard_stubs::models::{PortBinding, PortMap};
 )]
 pub enum ContainerPort {
     #[display("{0}/tcp")]
+    #[from_str(regex = r"^(?<0>\d+)(?:/tcp)?$")]
     Tcp(u16),
     #[display("{0}/udp")]
     Udp(u16),
@@ -333,6 +334,7 @@ mod tests {
     "LinkLocalIPv6Address": "",
     "LinkLocalIPv6PrefixLen": 0,
     "Ports": {
+      "18332": [],
       "18332/tcp": [
         {
           "HostIp": "0.0.0.0",
