@@ -152,6 +152,9 @@ where
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
             user: container_req.user().map(|user| user.to_string()),
+            healthcheck: container_req
+                .health_check()
+                .map(|hc| hc.clone().into_health_config()),
             ..Default::default()
         };
 
