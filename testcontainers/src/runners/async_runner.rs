@@ -472,13 +472,13 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
         let image = get_server_container(None)
             .await
-            .with_exposed_port(5000.tcp())
-            .with_wait_for(WaitFor::seconds(1));
+            .with_exposed_port(5000.tcp());
         let container = image.start().await?;
         container
-            .get_host_port_ipv4(5000)
+            .get_host_port_ipv4(5000.tcp())
             .await
             .expect("Port should be mapped");
         Ok(())
