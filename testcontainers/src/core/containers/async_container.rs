@@ -466,10 +466,7 @@ mod tests {
     #[cfg(feature = "http_wait")]
     use crate::core::{wait::HttpWaitStrategy, ContainerPort, ContainerState, ExecCommand};
     use crate::{
-        core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
-        images::generic::GenericImage,
-        runners::AsyncRunner,
-        Image, ImageExt,
+        core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
     };
 
     #[tokio::test]

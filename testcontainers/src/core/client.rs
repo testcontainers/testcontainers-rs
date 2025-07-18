@@ -12,11 +12,11 @@ use bollard::{
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     models::{ContainerCreateBody, NetworkCreateRequest},
     query_parameters::{
-        CreateContainerOptions, CreateImageOptionsBuilder, InspectContainerOptions,
-        InspectContainerOptionsBuilder, InspectNetworkOptions, InspectNetworkOptionsBuilder,
-        ListContainersOptionsBuilder, ListNetworksOptions, LogsOptionsBuilder,
-        RemoveContainerOptionsBuilder, StartContainerOptions, StopContainerOptionsBuilder,
-        UploadToContainerOptionsBuilder,
+        BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
+        CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
+        InspectNetworkOptions, InspectNetworkOptionsBuilder, ListContainersOptionsBuilder,
+        ListNetworksOptions, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
+        StartContainerOptions, StopContainerOptionsBuilder, UploadToContainerOptionsBuilder,
     },
     Docker,
 };
@@ -408,19 +408,22 @@ impl Client {
             .await
             .map_err(ClientError::CopyToContainerError)?;
 
-        let options = bollard::image::BuildImageOptions {
-            dockerfile: "Dockerfile",
-            t: descriptor,
-            rm: true,
-            nocache: false,
-            version: BuilderVersion::BuilderBuildKit,
-            session: Some(ulid::Ulid::new().to_string()),
-            ..Default::default()
-        };
+        let session = ulid::Ulid::new().to_string();
+
+        let options = BuildImageOptionsBuilder::new()
+            .dockerfile("Dockerfile")
+            .t(descriptor)
+            .rm(true)
+            .nocache(false)
+            .version(BuilderVersion::BuilderBuildKit)
+            .session(&session)
+            .build();
 
         let credentials = None;
 
-        let mut building = self.bollard.build_image(options, credentials, Some(tar));
+        let mut building = self
+            .bollard
+            .build_image(options, credentials, Some(body_full(tar)));
 
         while let Some(result) = building.next().await {
             match result {
