@@ -17,7 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 async-trait = { version = "0.1" }
-bollard = { version = "0.19.1"}
+bollard = { version = "0.19.1", features = ["buildkit"] }
 bollard-stubs = "=1.48.3-rc.28.0.4"
 bytes = "1.6.0"
 conquer-once = { version = "0.4", optional = true }
@@ -29,7 +29,14 @@ log = "0.4"
 memchr = "2.7.2"
 parse-display = "0.9.0"
 pin-project-lite = "0.2.14"
-reqwest = { version = "0.12.5", features = ["rustls-tls", "rustls-tls-native-roots", "hickory-dns", "json", "charset", "http2"], default-features = false, optional = true }
+reqwest = { version = "0.12.5", features = [
+    "rustls-tls",
+    "rustls-tls-native-roots",
+    "hickory-dns",
+    "json",
+    "charset",
+    "http2",
+], default-features = false, optional = true }
 serde = { version = "1", features = ["derive"] }
 serde-java-properties = { version = "0.2.0", optional = true }
 serde_json = "1"
@@ -40,7 +47,7 @@ tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
 tokio-stream = "0.1.15"
 tokio-tar = "0.3.1"
 tokio-util = { version = "0.7.10", features = ["io"] }
-ulid = { version = "1.1.3", optional = true }
+ulid = { version = "1.1.3" }
 url = { version = "2", features = ["serde"] }
 
 [features]
@@ -52,12 +59,15 @@ blocking = []
 watchdog = ["signal-hook", "conquer-once"]
 http_wait = ["reqwest"]
 properties-config = ["serde-java-properties"]
-reusable-containers = ["dep:ulid"]
+reusable-containers = []
 
 [dev-dependencies]
 anyhow = "1.0.86"
 pretty_env_logger = "0.5"
-reqwest = { version = "0.12.4", features = ["blocking"], default-features = false }
+reqwest = { version = "0.12.4", features = [
+    "blocking",
+], default-features = false }
 temp-dir = "0.1.13"
+tempfile = "3.20"
 testimages.workspace = true
 tokio = { version = "1", features = ["macros"] }

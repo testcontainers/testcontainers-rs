@@ -49,7 +49,7 @@ where
     }
 }
 
-fn lazy_sync_runner() -> Result<Arc<tokio::runtime::Runtime>> {
+pub(crate) fn lazy_sync_runner() -> Result<Arc<tokio::runtime::Runtime>> {
     let mut guard = ASYNC_RUNTIME
         .get_or_init(|| Mutex::new(Weak::new()))
         .lock()

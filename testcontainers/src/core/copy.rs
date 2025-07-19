@@ -4,6 +4,9 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
+pub struct CopyToContainerCollection(Vec<CopyToContainer>);
+
+#[derive(Debug, Clone)]
 pub struct CopyToContainer {
     target: String,
     source: CopyDataSource,
@@ -23,6 +26,31 @@ pub enum CopyToContainerError {
     PathNameError(String),
 }
 
+impl CopyToContainerCollection {
+    pub fn new(collection: Vec<CopyToContainer>) -> Self {
+        Self(collection)
+    }
+
+    pub fn add(&mut self, entry: CopyToContainer) {
+        self.0.push(entry);
+    }
+
+    pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
+        let mut ar = tokio_tar::Builder::new(Vec::new());
+
+        for copy_to_container in &self.0 {
+            copy_to_container.append_tar(&mut ar).await?
+        }
+
+        let bytes = ar
+            .into_inner()
+            .await
+            .map_err(CopyToContainerError::IoError)?;
+
+        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+    }
+}
+
 impl CopyToContainer {
     pub fn new(source: impl Into<CopyDataSource>, target: impl Into<String>) -> Self {
         Self {
@@ -32,7 +60,23 @@ impl CopyToContainer {
     }
 
     pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
-        self.source.tar(&self.target).await
+        let mut ar = tokio_tar::Builder::new(Vec::new());
+
+        self.append_tar(&mut ar).await?;
+
+        let bytes = ar
+            .into_inner()
+            .await
+            .map_err(CopyToContainerError::IoError)?;
+
+        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+    }
+
+    pub(crate) async fn append_tar(
+        &self,
+        ar: &mut tokio_tar::Builder<Vec<u8>>,
+    ) -> Result<(), CopyToContainerError> {
+        self.source.append_tar(ar, &self.target).await
     }
 }
 
@@ -53,33 +97,44 @@ impl From<Vec<u8>> for CopyDataSource {
 }
 
 impl CopyDataSource {
-    pub(crate) async fn tar(
+    pub(crate) async fn append_tar(
         &self,
+        ar: &mut tokio_tar::Builder<Vec<u8>>,
         target_path: impl Into<String>,
-    ) -> Result<bytes::Bytes, CopyToContainerError> {
+    ) -> Result<(), CopyToContainerError> {
         let target_path: String = target_path.into();
 
-        let bytes = match self {
+        match self {
             CopyDataSource::File(source_file_path) => {
-                tar_file(source_file_path, &target_path).await?
+                if let Err(e) = append_tar_file(ar, source_file_path, &target_path).await {
+                    log::error!(
+                        "Could not append file/dir to tar: {source_file_path:?}:{target_path}"
+                    );
+                    return Err(e);
+                }
             }
-            CopyDataSource::Data(data) => tar_bytes(data, &target_path).await?,
+            CopyDataSource::Data(data) => {
+                if let Err(e) = append_tar_bytes(ar, data, &target_path).await {
+                    log::error!("Could not append data to tar: {target_path}");
+                    return Err(e);
+                }
+            }
         };
 
-        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+        Ok(())
     }
 }
 
-async fn tar_file(
+async fn append_tar_file(
+    ar: &mut tokio_tar::Builder<Vec<u8>>,
     source_file_path: &Path,
     target_path: &str,
-) -> Result<Vec<u8>, CopyToContainerError> {
+) -> Result<(), CopyToContainerError> {
     let target_path = make_path_relative(target_path);
     let meta = tokio::fs::metadata(source_file_path)
         .await
         .map_err(CopyToContainerError::IoError)?;
 
-    let mut ar = tokio_tar::Builder::new(Vec::new());
     if meta.is_dir() {
         ar.append_dir_all(target_path, source_file_path)
             .await
@@ -94,15 +149,14 @@ async fn tar_file(
             .map_err(CopyToContainerError::IoError)?;
     };
 
-    let res = ar
-        .into_inner()
-        .await
-        .map_err(CopyToContainerError::IoError)?;
-
-    Ok(res)
+    Ok(())
 }
 
-async fn tar_bytes(data: &Vec<u8>, target_path: &str) -> Result<Vec<u8>, CopyToContainerError> {
+async fn append_tar_bytes(
+    ar: &mut tokio_tar::Builder<Vec<u8>>,
+    data: &Vec<u8>,
+    target_path: &str,
+) -> Result<(), CopyToContainerError> {
     let relative_target_path = make_path_relative(target_path);
 
     let mut header = tokio_tar::Header::new_gnu();
@@ -110,17 +164,11 @@ async fn tar_bytes(data: &Vec<u8>, target_path: &str) -> Result<Vec<u8>, CopyToC
     header.set_mode(0o0644);
     header.set_cksum();
 
-    let mut ar = tokio_tar::Builder::new(Vec::new());
     ar.append_data(&mut header, relative_target_path, data.as_slice())
         .await
         .map_err(CopyToContainerError::IoError)?;
 
-    let res = ar
-        .into_inner()
-        .await
-        .map_err(CopyToContainerError::IoError)?;
-
-    Ok(res)
+    Ok(())
 }
 
 fn make_path_relative(path: &str) -> String {
@@ -129,5 +177,75 @@ fn make_path_relative(path: &str) -> String {
         path.trim_start_matches("/").to_string()
     } else {
         path.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::Write};
+
+    use tempfile::tempdir;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn copytocontainer_tar_file_success() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "TEST").unwrap();
+
+        let copy_to_container = CopyToContainer::new(file_path, "file.txt");
+        let result = copy_to_container.tar().await;
+
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn copytocontainer_tar_data_success() {
+        let data = vec![1, 2, 3, 4, 5];
+        let copy_to_container = CopyToContainer::new(data, "data.bin");
+        let result = copy_to_container.tar().await;
+
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn copytocontainer_tar_file_not_found() {
+        let temp_dir = tempdir().unwrap();
+        let non_existent_file_path = temp_dir.path().join("non_existent_file.txt");
+
+        let copy_to_container = CopyToContainer::new(non_existent_file_path, "file.txt");
+        let result = copy_to_container.tar().await;
+
+        assert!(result.is_err());
+        if let Err(CopyToContainerError::IoError(err)) = result {
+            assert_eq!(err.kind(), io::ErrorKind::NotFound);
+        } else {
+            panic!("Expected IoError");
+        }
+    }
+
+    #[tokio::test]
+    async fn copytocontainercollection_tar_file_and_data() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "TEST").unwrap();
+
+        let copy_to_container_collection = CopyToContainerCollection::new(vec![
+            CopyToContainer::new(file_path, "file.txt"),
+            CopyToContainer::new(vec![1, 2, 3, 4, 5], "data.bin"),
+        ]);
+
+        let result = copy_to_container_collection.tar().await;
+
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
     }
 }
