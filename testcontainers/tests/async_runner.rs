@@ -308,3 +308,36 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
     assert_eq!(container.exit_code().await?, Some(0));
     Ok(())
 }
+
+#[tokio::test]
+async fn async_connection_between_containers() -> anyhow::Result<()> {
+    let server_container = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .with_wait_for(WaitFor::Duration {
+            length: Duration::from_secs(1),
+        })
+        .with_env_var("TESTCONTAINERS_COMMAND", "keep")
+        .with_network("bridge")
+        .start()
+        .await?;
+
+    let bridge_ip_address = server_container.get_bridge_ip_address().await?.to_string();
+    let servers_external_port = "80";
+
+    let client_container = GenericImage::new("simple_web_client", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("Client connected."))
+        .with_wait_for(WaitFor::Duration {
+            length: Duration::from_secs(1),
+        })
+        .with_env_var("SERVER_IP", &bridge_ip_address)
+        .with_env_var("SERVER_PORT", servers_external_port)
+        .with_env_var("TESTCONTAINERS_COMMAND", "keep")
+        .with_network("bridge")
+        .start()
+        .await?;
+
+    server_container.rm().await?;
+    client_container.rm().await?;
+
+    Ok(())
+}

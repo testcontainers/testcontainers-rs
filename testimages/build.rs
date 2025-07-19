@@ -32,11 +32,30 @@ fn main() -> Result<()> {
         .arg("simple_web_server:latest")
         .arg(".")
         .output()?;
+
     if !output.status.success() {
         eprintln!("stderr: {}", String::from_utf8(output.stderr)?);
         bail!("unable to build simple_web_server:latest");
     }
     eprintln!("Built simple_web_server:latest");
+
+    let output = Command::new("docker")
+        .arg("build")
+        .arg("--file")
+        .arg(format!(
+            "{cwd}/src/dockerfiles/simple_web_client.dockerfile"
+        ))
+        .arg("--force-rm")
+        .arg("--tag")
+        .arg("simple_web_client:latest")
+        .arg(".")
+        .output()?;
+
+    if !output.status.success() {
+        eprintln!("stderr: {}", String::from_utf8(output.stderr)?);
+        bail!("unable to build simple_web_client:latest");
+    }
+    eprintln!("Built simple_web_client:latest");
 
     // trigger recompilation when dockerfiles are modified
     println!("cargo:rerun-if-changed=src/dockerfiles");
