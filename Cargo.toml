@@ -1,18 +1,17 @@
 [workspace]
 resolver = "2"
-members = [
-    "testcontainers",
-    "testimages",
-]
+members = ["testcontainers"]
+exclude = ["testimages/no_expose_port", "testimages/simple-web-server"]
 
 [workspace.package]
-authors = ["Thomas Eizinger", "Artem Medvedev <i@ddtkey.com>", "Mervyn McCreight"]
+authors = [
+    "Thomas Eizinger",
+    "Artem Medvedev <i@ddtkey.com>",
+    "Mervyn McCreight",
+]
 edition = "2021"
 keywords = ["docker", "testcontainers"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/testcontainers/testcontainers-rs"
 rust-version = "1.82"
-
-[workspace.dependencies]
-testimages = { path = "testimages" }

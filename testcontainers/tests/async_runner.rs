@@ -10,8 +10,8 @@ use testcontainers::{
         wait::{ExitWaitStrategy, LogWaitStrategy},
         CmdWaitFor, ExecCommand, WaitFor,
     },
-    runners::AsyncRunner,
-    GenericImage, Image, ImageExt,
+    runners::{AsyncBuilder, AsyncRunner},
+    GenericBuildableImage, GenericImage, Image, ImageExt,
 };
 use tokio::io::AsyncReadExt;
 
@@ -33,6 +33,21 @@ impl Image for HelloWorld {
             WaitFor::exit(ExitWaitStrategy::new().with_exit_code(0)),
         ]
     }
+}
+
+async fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
+    let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
+        // "Dockerfile" is included already, so adding the build context directory is all what is needed
+        .with_file(
+            std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
+            ".",
+        )
+        .build_image()
+        .await
+        .unwrap();
+
+    let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
+    generic_image.with_wait_for(msg)
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -109,12 +124,14 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
 async fn async_run_exec() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(WaitFor::message_on_stderr("server will be listening to"))
-        .with_wait_for(WaitFor::log(
-            LogWaitStrategy::stdout("server is ready").with_times(2),
-        ))
-        .with_wait_for(WaitFor::seconds(1));
+    let image = get_server_container(Some(WaitFor::message_on_stderr(
+        "server will be listening to",
+    )))
+    .await
+    .with_wait_for(WaitFor::log(
+        LogWaitStrategy::stdout("server is ready").with_times(2),
+    ))
+    .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
 
     // exit regardless of the code
@@ -177,11 +194,12 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
 
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
-        .with_exposed_port(80.tcp())
-        .with_wait_for(WaitFor::http(
-            HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK),
-        ));
+    let waitfor_http_status =
+        WaitFor::http(HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK));
+
+    let image = get_server_container(Some(waitfor_http_status))
+        .await
+        .with_exposed_port(80.tcp());
     let _container = image.start().await?;
     Ok(())
 }
@@ -190,8 +208,8 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
 async fn async_run_exec_fails_due_to_unexpected_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+    let image = get_server_container(None)
+        .await
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
 
@@ -296,10 +314,7 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     // Container that should run until manually quit
-    let container = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-        .start()
-        .await?;
+    let container = get_server_container(None).await.start().await?;
 
     assert_eq!(container.exit_code().await?, None);
 
