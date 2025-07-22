@@ -375,7 +375,7 @@ mod tests {
         GenericBuildableImage, ImageExt,
     };
 
-    async fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
+    async fn get_server_container() -> GenericImage {
         let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
             // "Dockerfile" is included already, so adding the build context directory is all what is needed
             .with_file(
@@ -385,9 +385,7 @@ mod tests {
             .build_image()
             .await
             .unwrap();
-
-        let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
-        generic_image.with_wait_for(msg)
+        generic_image.with_wait_for(WaitFor::message_on_stdout("server is ready"))
     }
 
     /// Test that all user-supplied labels are added to containers started by `AsyncRunner::start`
@@ -473,9 +471,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port() -> anyhow::Result<()> {
         let _ = pretty_env_logger::try_init();
-        let image = get_server_container(None)
-            .await
-            .with_exposed_port(5000.tcp());
+        let image = get_server_container().await.with_exposed_port(5000.tcp());
         let container = image.start().await?;
         container
             .get_host_port_ipv4(5000.tcp())
@@ -493,7 +489,7 @@ mod tests {
         let udp_port = 1000;
         let sctp_port = 2000;
 
-        let generic_server = get_server_container(None)
+        let generic_server = get_server_container()
             .await
             // Explicitly expose the port, which otherwise would not be available.
             .with_exposed_port(udp_port.udp())
@@ -666,7 +662,7 @@ mod tests {
     #[tokio::test]
     async fn async_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty(
     ) -> anyhow::Result<()> {
-        let web_server = get_server_container(None)
+        let web_server = get_server_container()
             .await
             .with_wait_for(WaitFor::seconds(1));
 
@@ -685,7 +681,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
-        let web_server = get_server_container(None)
+        let web_server = get_server_container()
             .await
             .with_wait_for(WaitFor::seconds(1));
 
@@ -895,7 +891,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_user() -> anyhow::Result<()> {
-        let image = get_server_container(None).await;
+        let image = get_server_container().await;
         let expected_user = "root";
         let container = image.with_user(expected_user).start().await?;
 
