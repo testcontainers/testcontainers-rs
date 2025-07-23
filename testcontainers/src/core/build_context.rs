@@ -14,7 +14,9 @@ use crate::{core::copy::CopyToContainerCollection, CopyToContainer};
 ///
 /// # Example  
 ///   
-/// ```rust,ignore
+/// ```rust,no_run
+/// use testcontainers::core::BuildContextBuilder;
+///
 /// let context = BuildContextBuilder::default()  
 ///     .with_dockerfile_string("FROM alpine:latest\nCOPY app /usr/local/bin/")  
 ///     .with_file("./target/release/app", "./app")  
