@@ -19,7 +19,7 @@ use crate::{
 ///   
 /// # Example: Basic Image Build  
 ///   
-/// ```ignore
+/// ```rust,ignore
 /// use testcontainers::{GenericBuildableImage, runners::AsyncBuilder};  
 ///   
 /// let image = GenericBuildableImage::new("hello-world", "latest")  
@@ -39,7 +39,7 @@ use crate::{
 ///   
 /// # Example: Multi-File Build Context  
 ///   
-/// ```ignore
+/// ```rust,ignore
 /// let image = GenericBuildableImage::new("web-app", "1.0")  
 ///     .with_dockerfile("./Dockerfile")  
 ///     .with_file("./package.json", "./package.json")  
@@ -96,7 +96,11 @@ impl GenericBuildableImage {
         self
     }
 
-    /// Adds a file from the filesystem to the build context.
+    /// Adds a file or directory from the filesystem to the build context.
+    ///
+    /// Be aware, that if you don't add the Dockerfile with the specific `with_dockerfile()`
+    /// or `with_dockerfile_string()` functions it has to be named `Dockerfile`in the build
+    /// context. Containerfile won't be recognized!
     ///
     /// # Arguments
     ///
