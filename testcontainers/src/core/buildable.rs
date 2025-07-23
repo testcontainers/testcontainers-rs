@@ -9,7 +9,7 @@ use crate::{core::copy::CopyToContainerCollection, Image};
 /// If you want to dynamically create Dockerfiles look at Dockerfile generator crates like:
 /// <https://crates.io/crates/dockerfile_builder>
 ///   
-/// The build process, executed by [`SyncBuilder`]/[`AsyncBuilder`], follows these steps:  
+/// The build process, executed by [`crate::runners::SyncBuilder`] / [`crate::runners::AsyncBuilder`], follows these steps:  
 /// 1. Collect build context via `build_context()` which will be tarred and sent to buildkit.
 /// 2. Generate image descriptor via `descriptor()` which will be passed to the container
 /// 3. Build the Docker image using the Docker API
@@ -39,8 +39,8 @@ pub trait BuildableImage {
     ///
     /// <https://docs.docker.com/build/concepts/context/>
     ///
-    /// For creating build contexts, use the [`BuildContextBuilder`] API when not using
-    /// [`GenericBuildableImage`], which wraps `BuildContextBuilder` builder functions.
+    /// For creating build contexts, use the [`crate::core::BuildContextBuilder`] API when not using
+    /// [`crate::GenericBuildableImage`], which wraps `BuildContextBuilder` builder functions.
     ///   
     /// # Returns  
     ///   
