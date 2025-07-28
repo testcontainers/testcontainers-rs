@@ -20,35 +20,43 @@ use crate::{
 /// # Example: Basic Image Build  
 ///   
 /// ```rust,no_run
-/// use testcontainers::{GenericBuildableImage, runners::SyncBuilder};
+/// use testcontainers::{GenericBuildableImage, runners::AsyncBuilder};
 ///
-/// let image = GenericBuildableImage::new("hello-world", "latest")
-///     .with_dockerfile_string(
-///         r#"FROM alpine:latest
-///         COPY hello.sh /usr/local/bin/
-///         RUN chmod +x /usr/local/bin/hello.sh
-///         CMD ["/usr/local/bin/hello.sh"]"#
-///     )
-///     .with_data(
-///         "#!/bin/sh\necho 'Hello from custom image!'",
-///         "./hello.sh"
-///     )
-///     .build_image()
-///     .unwrap();  
-/// ```  
+/// #[tokio::test]
+/// async fn test_hello() -> anyhow::Result<()> {
+///     let image = GenericBuildableImage::new("hello-world", "latest")
+///         .with_dockerfile_string(
+///             r#"FROM alpine:latest
+///             COPY hello.sh /usr/local/bin/
+///             RUN chmod +x /usr/local/bin/hello.sh
+///             CMD ["/usr/local/bin/hello.sh"]"#
+///         )
+///         .with_data(
+///             "#!/bin/sh\necho 'Hello from custom image!'",
+///             "./hello.sh"
+///         )
+///         .build_image().await?;
+///     // start container
+///     // use it
+/// }
+/// ```
 ///   
 /// # Example: Multi-File Build Context  
 ///   
 /// ```rust,no_run
-/// use testcontainers::{GenericBuildableImage, runners::SyncBuilder};
+/// use testcontainers::{GenericBuildableImage, runners::AsyncBuilder};
 ///
-/// let image = GenericBuildableImage::new("web-app", "1.0")
-///     .with_dockerfile("./Dockerfile")
-///     .with_file("./package.json", "./package.json")
-///     .with_file("./src", "./src")
-///     .with_data(vec![0x00, 0x01, 0x02], "./data.dat")
-///     .build_image()
-///     .unwrap();  
+/// #[tokio::test]
+/// async fn test_webapp() -> anyhow::Result<()>  {
+///     let image = GenericBuildableImage::new("web-app", "1.0")
+///         .with_dockerfile("./Dockerfile")
+///         .with_file("./package.json", "./package.json")
+///         .with_file("./src", "./src")
+///         .with_data(vec![0x00, 0x01, 0x02], "./data.dat")
+///         .build_image().await?;
+///     // start container
+///     // use it
+/// }
 /// ```  
 #[derive(Debug)]
 pub struct GenericBuildableImage {

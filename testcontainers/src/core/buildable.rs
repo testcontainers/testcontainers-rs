@@ -19,12 +19,16 @@ use crate::{core::copy::CopyToContainerCollection, Image};
 /// # Example  
 ///   
 /// ```rust  
-/// use testcontainers::{GenericBuildableImage, runners::SyncBuilder};  
-///   
-/// let image = GenericBuildableImage::new("example-tc", "1.0")
-///     .with_dockerfile_string("FROM alpine:latest\nRUN echo 'hello'")
-///     .build_image()
-///     .unwrap();
+/// use testcontainers::{GenericBuildableImage, runners::AsyncBuilder};  
+///
+/// #[tokio::test]
+/// async fn test_example() -> anyhow::Result<()> {
+///     let image = GenericBuildableImage::new("example-tc", "1.0")
+///         .with_dockerfile_string("FROM alpine:latest\nRUN echo 'hello'")
+///         .build_image().await?;
+///     // start container
+///     // use it
+/// }
 /// ```  
 ///   
 pub trait BuildableImage {
