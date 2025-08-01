@@ -12,14 +12,12 @@ use crate::{
 ///
 /// For example:
 ///
-/// ```
+/// ```rust,ignore
 /// use testcontainers::{
 ///     core::{IntoContainerPort, WaitFor}, runners::AsyncRunner, GenericImage, ImageExt
 /// };
 ///
-/// # /*
 /// #[tokio::test]
-/// # */
 /// async fn test_redis() {
 ///     let container = GenericImage::new("redis", "7.2.4")
 ///         .with_exposed_port(6379.tcp())
