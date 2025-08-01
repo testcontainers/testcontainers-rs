@@ -101,17 +101,13 @@ impl TryFrom<PortMap> for Ports {
                     let mapping = match binding.host_ip.map(|ip| ip.parse()) {
                         Some(Ok(IpAddr::V4(_))) => {
                             log::debug!(
-                                "Registering IPv4 port mapping: {} -> {}",
-                                container_port,
-                                host_port
+                                "Registering IPv4 port mapping: {container_port} -> {host_port}",
                             );
                             &mut ipv4_mapping
                         }
                         Some(Ok(IpAddr::V6(_))) => {
                             log::debug!(
-                                "Registering IPv6 port mapping: {} -> {}",
-                                container_port,
-                                host_port
+                                "Registering IPv6 port mapping: {container_port} -> {host_port}",
                             );
                             &mut ipv6_mapping
                         }

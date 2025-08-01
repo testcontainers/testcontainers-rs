@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt,
     sync::{Arc, OnceLock, Weak},
 };
@@ -19,16 +19,18 @@ fn created_networks() -> &'static Mutex<HashMap<String, Weak<Network>>> {
     CREATED_NETWORKS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-pub(crate) struct Network {
-    name: String,
-    id: String,
-    client: Arc<Client>,
+pub struct Network {
+    pub name: String,
+    pub id: String,
+    pub(crate) client: Arc<Client>,
+    pub aliases: HashSet<String>,
 }
 
 impl Network {
     pub(crate) async fn new(
         name: impl Into<String>,
         client: Arc<Client>,
+        aliases: HashSet<String>,
     ) -> Result<Option<Arc<Self>>, ClientError> {
         let name = name.into();
         let mut guard = created_networks().lock().await;
@@ -46,6 +48,7 @@ impl Network {
                 name: name.clone(),
                 id,
                 client,
+                aliases,
             });
 
             guard.insert(name, Arc::downgrade(&created));

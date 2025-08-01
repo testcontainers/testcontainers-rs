@@ -284,7 +284,7 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
     let mut out = String::new();
     container.stdout(false).read_to_string(&mut out).await?;
 
-    println!("{}", out);
+    println!("{out}");
     assert!(out.contains("foofoofoo"));
     assert!(out.contains("barbarbar"));
 

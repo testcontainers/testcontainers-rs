@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     fmt::{Debug, Formatter},
     net::IpAddr,
     time::Duration,
@@ -25,6 +25,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) image_tag: Option<String>,
     pub(crate) container_name: Option<String>,
     pub(crate) network: Option<String>,
+    pub(crate) network_aliases: HashSet<String>,
     pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
@@ -228,6 +229,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             image_tag: None,
             container_name: None,
             network: None,
+            network_aliases: HashSet::new(),
             labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),

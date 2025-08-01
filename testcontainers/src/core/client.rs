@@ -101,6 +101,11 @@ pub enum ClientError {
     #[error("failed to remove a network: {0}")]
     RemoveNetwork(BollardError),
 
+    #[error("failed to connect container to network")]
+    ConnectionError(BollardError),
+    #[error("failed to disconnect container from network")]
+    DisconnectionError(BollardError),
+
     #[error("failed to initialize exec command: {0}")]
     InitExec(BollardError),
     #[error("failed to inspect exec command: {0}")]
@@ -114,7 +119,7 @@ pub enum ClientError {
 /// The internal client.
 pub(crate) struct Client {
     pub(crate) config: env::Config,
-    bollard: Docker,
+    pub(crate) bollard: Docker,
 }
 
 impl Client {
@@ -429,11 +434,11 @@ impl Client {
             match result {
                 Ok(r) => {
                     if let Some(s) = r.stream {
-                        log::info!("{}", s);
+                        log::info!("{s}");
                     }
                 }
                 Err(err) => {
-                    log::error!("{:?}", err);
+                    log::error!("{err:?}");
                     return Err(ClientError::BuildImage {
                         descriptor: descriptor.into(),
                         err,
