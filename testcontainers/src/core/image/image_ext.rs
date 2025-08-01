@@ -69,6 +69,9 @@ pub trait ImageExt<I: Image> {
     /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I>;
 
+    // Adds the specified network alias to the container.
+    fn with_net_alias(self, network_alias: impl Into<String>) -> ContainerRequest<I>;
+
     /// Adds the specified label to the container.
     ///
     /// **Note**: all keys in the `org.testcontainers.*` namespace should be regarded
@@ -247,6 +250,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             network: Some(network.into()),
             ..container_req
         }
+    }
+
+    fn with_net_alias(self, network_alias: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.network_aliases.insert(network_alias.into());
+        container_req
     }
 
     fn with_label(self, key: impl Into<String>, value: impl Into<String>) -> ContainerRequest<I> {

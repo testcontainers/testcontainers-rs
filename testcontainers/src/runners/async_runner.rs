@@ -172,7 +172,12 @@ where
                 host_config.network_mode = Some(network.to_string());
                 host_config
             });
-            Network::new(network, client.clone()).await?
+            Network::new(
+                network,
+                client.clone(),
+                container_req.network_aliases.clone(),
+            )
+            .await?
         } else {
             None
         };

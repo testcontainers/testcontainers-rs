@@ -1,5 +1,6 @@
 use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 
+use bollard::models::{EndpointSettings, NetworkConnectRequest, NetworkDisconnectRequest};
 use tokio::io::{AsyncBufRead, AsyncReadExt};
 use tokio_stream::StreamExt;
 
@@ -8,7 +9,7 @@ use crate::{
         async_drop,
         client::Client,
         env,
-        error::{ContainerMissingInfo, ExecError, Result, TestcontainersError},
+        error::{ClientError, ContainerMissingInfo, ExecError, Result, TestcontainersError},
         network::Network,
         ports::Ports,
         wait::WaitStrategy,
@@ -59,13 +60,72 @@ where
         network: Option<Arc<Network>>,
     ) -> Result<ContainerAsync<I>> {
         let ready_conditions = container_req.ready_conditions();
-        let container = Self::construct(id, docker_client, container_req, network);
+        let mut container = Self::construct(id, docker_client, container_req, network.clone());
+        container.connect(network).await?;
+
         let state = ContainerState::from_container(&container).await?;
         for cmd in container.image().exec_before_ready(state)? {
             container.exec(cmd).await?;
         }
         container.block_until_ready(ready_conditions).await?;
         Ok(container)
+    }
+
+    pub async fn connect(&mut self, net: Option<Arc<Network>>) -> Result<()> {
+        let container_id = self.id().into();
+        let net = if let Some(net) = net {
+            net
+        } else {
+            return Ok(());
+        };
+
+        let net_aliases_vec = net.aliases.clone().into_iter().collect();
+        let endpoint_settings = EndpointSettings {
+            aliases: Some(net_aliases_vec),
+            ..Default::default()
+        };
+
+        let bollard_netword_connect_request = NetworkConnectRequest {
+            container: Some(container_id),
+            endpoint_config: Some(endpoint_settings),
+        };
+        self.docker_client
+            .bollard
+            .connect_network(&net.name, bollard_netword_connect_request)
+            .await
+            .map_err(|err| TestcontainersError::Client(ClientError::ConnectionError(err)))?;
+
+        Ok(())
+    }
+
+    pub async fn disconnect(&mut self, name: &str) -> Result<()> {
+        let container_id = self.id().into();
+        let network_disconnect_request = NetworkDisconnectRequest {
+            container: Some(container_id),
+            force: Some(false),
+        };
+        self.docker_client
+            .bollard
+            .disconnect_network(name, network_disconnect_request)
+            .await
+            .map_err(|err| TestcontainersError::Client(ClientError::DisconnectionError(err)))?;
+
+        Ok(())
+    }
+
+    pub async fn force_disconnect(&mut self, name: &str) -> Result<()> {
+        let container_id = self.id().into();
+        let network_disconnect_request = NetworkDisconnectRequest {
+            container: Some(container_id),
+            force: Some(true),
+        };
+        self.docker_client
+            .bollard
+            .disconnect_network(name, network_disconnect_request)
+            .await
+            .map_err(|err| TestcontainersError::Client(ClientError::DisconnectionError(err)))?;
+
+        Ok(())
     }
 
     pub(crate) fn construct(
@@ -221,7 +281,7 @@ where
             cmd_ready_condition,
         } = cmd;
 
-        log::debug!("Executing command {:?}", cmd);
+        log::debug!("Executing command {cmd:?}",);
 
         let mut exec = self.docker_client.exec(&self.id, cmd).await?;
         self.block_until_ready(container_ready_conditions).await?;
@@ -442,7 +502,7 @@ where
                 match command {
                     env::Command::Remove => {
                         if let Err(e) = client.rm(&id).await {
-                            log::error!("Failed to remove container on drop: {}", e);
+                            log::error!("Failed to remove container on drop: {e}");
                         }
                     }
                     env::Command::Keep => {}
@@ -573,7 +633,7 @@ mod tests {
             while let Some(result) = stderr_lines.next_line().await.transpose() {
                 match result {
                     Ok(line) => {
-                        log::debug!(target: "container", "[{container_id}]:{}", line);
+                        log::debug!(target: "container", "[{container_id}]:{line}");
                     }
                     Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
                         log::debug!(target: "container", "[{container_id}] EOF");
