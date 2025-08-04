@@ -1,7 +1,7 @@
 use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
-    core::{env, error::Result, ports::Ports, ContainerPort, ExecCommand},
+    core::{env, error::Result, network::Network, ports::Ports, ContainerPort, ExecCommand},
     ContainerAsync, Image,
 };
 
@@ -64,6 +64,44 @@ impl<I> Container<I>
 where
     I: Image,
 {
+    // /// Removes the container.
+    // pub fn rm(mut self) -> Result<()> {
+    //     if let Some(active) = self.inner.take() {
+    //         active.runtime.block_on(active.async_impl.rm())?;
+    //     }
+    //     Ok(())
+    // }
+
+    /// Connect the container to `network`.
+    pub fn connect(&mut self, network: Option<Arc<Network>>) -> Result<()> {
+        if let Some(mut active) = self.inner.take() {
+            active
+                .runtime
+                .block_on(active.async_impl.connect(network))?;
+        }
+        Ok(())
+    }
+
+    /// Disconnect the container from the network `name`.
+    pub fn disconnect(&mut self, name: &str) -> Result<()> {
+        if let Some(mut active) = self.inner.take() {
+            active
+                .runtime
+                .block_on(active.async_impl.disconnect(name))?;
+        }
+        Ok(())
+    }
+
+    /// Force the container to disconnect from the network `ǹame`
+    pub fn force_disconnect(&mut self, name: &str) -> Result<()> {
+        if let Some(mut active) = self.inner.take() {
+            active
+                .runtime
+                .block_on(active.async_impl.force_disconnect(name))?;
+        }
+        Ok(())
+    }
+
     /// Returns the id of this container.
     pub fn id(&self) -> &str {
         self.async_impl().id()
