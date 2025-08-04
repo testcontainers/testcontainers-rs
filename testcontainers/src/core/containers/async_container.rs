@@ -71,15 +71,16 @@ where
         Ok(container)
     }
 
-    pub async fn connect(&mut self, net: Option<Arc<Network>>) -> Result<()> {
+    /// Connect the container to `network`.
+    pub async fn connect(&mut self, network: Option<Arc<Network>>) -> Result<()> {
         let container_id = self.id().into();
-        let net = if let Some(net) = net {
-            net
+        let network = if let Some(network) = network {
+            network
         } else {
             return Ok(());
         };
 
-        let net_aliases_vec = net.aliases.clone().into_iter().collect();
+        let net_aliases_vec = network.aliases.clone().into_iter().collect();
         let endpoint_settings = EndpointSettings {
             aliases: Some(net_aliases_vec),
             ..Default::default()
@@ -91,13 +92,14 @@ where
         };
         self.docker_client
             .bollard
-            .connect_network(&net.name, bollard_netword_connect_request)
+            .connect_network(&network.name, bollard_netword_connect_request)
             .await
             .map_err(|err| TestcontainersError::Client(ClientError::ConnectionError(err)))?;
 
         Ok(())
     }
 
+    /// Disconnect the container from the network `name`.
     pub async fn disconnect(&mut self, name: &str) -> Result<()> {
         let container_id = self.id().into();
         let network_disconnect_request = NetworkDisconnectRequest {
@@ -113,6 +115,7 @@ where
         Ok(())
     }
 
+    /// Force the container to disconnect from the network `ǹame`
     pub async fn force_disconnect(&mut self, name: &str) -> Result<()> {
         let container_id = self.id().into();
         let network_disconnect_request = NetworkDisconnectRequest {
