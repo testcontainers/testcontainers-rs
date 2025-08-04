@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use bollard::{
     models::{ContainerCreateBody, HostConfig, PortBinding},
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
-    secret::EndpointSettings,
-    secret::NetworkingConfig,
+    secret::{EndpointSettings, NetworkingConfig},
 };
 use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
