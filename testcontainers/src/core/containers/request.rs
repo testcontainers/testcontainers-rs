@@ -83,6 +83,10 @@ impl<I: Image> ContainerRequest<I> {
         &self.network
     }
 
+    pub(crate) fn network_aliases_as_vec(&self) -> Vec<String> {
+        self.network_aliases.clone().into_iter().collect()
+    }
+
     pub fn labels(&self) -> &BTreeMap<String, String> {
         &self.labels
     }

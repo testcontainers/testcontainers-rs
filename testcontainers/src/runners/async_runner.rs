@@ -4,6 +4,8 @@ use async_trait::async_trait;
 use bollard::{
     models::{ContainerCreateBody, HostConfig, PortBinding},
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
+    secret::EndpointSettings,
+    secret::NetworkingConfig,
 };
 use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
@@ -137,6 +139,22 @@ where
             }
         }
 
+        let network_aliases_as_vec = container_req.network_aliases_as_vec();
+
+        let networking_config = container_req.network.clone().map(|network_name| {
+            let endpoint_settings = EndpointSettings {
+                aliases: Some(network_aliases_as_vec.clone()),
+                dns_names: Some(network_aliases_as_vec),
+                ..Default::default()
+            };
+            let endpoints_config = Some(HashMap::from_iter([(
+                network_name.to_string(),
+                endpoint_settings,
+            )]));
+
+            NetworkingConfig { endpoints_config }
+        });
+
         let mut config = ContainerCreateBody {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
@@ -156,6 +174,7 @@ where
             healthcheck: container_req
                 .health_check()
                 .map(|hc| hc.clone().into_health_config()),
+            networking_config,
             ..Default::default()
         };
 
