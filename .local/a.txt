@@ -1,0 +1,8 @@
+influx setup \
+  --username admin \
+  --password xhHEBvzXfeFCjm \
+  --org gapit \
+  --bucket instruments \
+  --retention 0\
+  --token loltoken \
+  --force

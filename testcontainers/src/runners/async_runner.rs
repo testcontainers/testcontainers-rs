@@ -121,7 +121,8 @@ where
                     .await?
                 {
                     let network = if let Some(network) = container_req.network() {
-                        Network::new(network, client.clone()).await?
+                        let aliases = container_req.network_aliases.clone();
+                        Network::new(network, client.clone(), aliases).await?
                     } else {
                         None
                     };
