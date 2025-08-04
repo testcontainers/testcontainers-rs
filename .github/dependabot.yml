@@ -8,9 +8,7 @@ updates:
       prefix: ci
       include: scope
   - package-ecosystem: "cargo"
-    directories:
-      - "/"
-      - "/testcontainers"
+    directory: "/"
     schedule:
       interval: "weekly"
     groups:
