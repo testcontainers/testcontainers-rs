@@ -47,7 +47,7 @@ tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
 tokio-stream = "0.1.15"
 tokio-tar = "0.3.1"
 tokio-util = { version = "0.7.10", features = ["io"] }
-ulid = { version = "1.1.3" }
+ferroid = { version = "0.6.3", features = ["std", "ulid", "base32"] }
 url = { version = "2", features = ["serde"] }
 
 [features]

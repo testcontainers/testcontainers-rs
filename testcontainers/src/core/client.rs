@@ -1,9 +1,3 @@
-use std::{
-    collections::HashMap,
-    io::{self},
-    str::FromStr,
-};
-
 use bollard::{
     auth::DockerCredentials,
     body_full,
@@ -21,7 +15,13 @@ use bollard::{
     Docker,
 };
 use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
+use ferroid::{Base32UlidExt, ULID};
 use futures::{StreamExt, TryStreamExt};
+use std::{
+    collections::HashMap,
+    io::{self},
+    str::FromStr,
+};
 use tokio::sync::OnceCell;
 use url::Url;
 
@@ -408,7 +408,7 @@ impl Client {
             .await
             .map_err(ClientError::CopyToContainerError)?;
 
-        let session = ulid::Ulid::new().to_string();
+        let session = ULID::from_datetime(std::time::SystemTime::now()).encode();
 
         let options = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
@@ -416,7 +416,7 @@ impl Client {
             .rm(true)
             .nocache(false)
             .version(BuilderVersion::BuilderBuildKit)
-            .session(&session)
+            .session(session.as_str())
             .build();
 
         let credentials = None;
