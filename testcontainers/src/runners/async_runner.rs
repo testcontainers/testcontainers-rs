@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use bollard::{
@@ -12,6 +15,7 @@ use crate::{
         client::{Client, ClientError},
         copy::CopyToContainer,
         error::{Result, WaitContainerError},
+        host_port_mapping,
         mounts::{AccessMode, Mount, MountType},
         network::Network,
         CgroupnsMode, ContainerState,
@@ -77,8 +81,21 @@ where
         let client = Client::lazy_client().await?;
         let mut create_options: Option<CreateContainerOptions> = None;
 
-        let extra_hosts: Vec<_> = container_req
+        let mut hosts_map: BTreeMap<String, _> = container_req
             .hosts()
+            .map(|(k, v)| (k.into_owned(), v.clone()))
+            .collect();
+
+        // Add host.testcontainers.internal mapping if host ports are exposed
+        host_port_mapping::setup_host_mapping(
+            &client,
+            &mut hosts_map,
+            container_req.exposed_host_ports(),
+        )
+        .await?;
+
+        let extra_hosts: Vec<_> = hosts_map
+            .iter()
             .map(|(key, value)| format!("{key}:{value}"))
             .collect();
 
