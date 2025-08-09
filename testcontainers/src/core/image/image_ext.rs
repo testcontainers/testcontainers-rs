@@ -93,6 +93,21 @@ pub trait ImageExt<I: Image> {
     /// Adds a host to the container.
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I>;
 
+    /// Exposes a host port to the container.
+    ///
+    /// The exposed port will be accessible from within the container at `host.testcontainers.internal:<port>`.
+    /// This allows containers to access services running on the host machine.
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("alpine", "latest")
+    ///     .with_exposed_host_port(8080)
+    ///     .with_exposed_host_port(5432);
+    /// ```
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I>;
+
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
@@ -285,6 +300,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.hosts.insert(key.into(), value.into());
+        container_req
+    }
+
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.exposed_host_ports.push(port);
         container_req
     }
 
