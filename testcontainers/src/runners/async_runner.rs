@@ -381,11 +381,13 @@ mod tests {
 
     #[cfg(feature = "device-requests")]
     mod device_requests_imports {
-        pub use crate::core::ExecCommand;
+        pub use std::process::Command;
+
         pub use anyhow::{bail, Context};
         pub use bollard::Docker;
-        pub use std::process::Command;
         pub use tokio::io::AsyncReadExt;
+
+        pub use crate::core::ExecCommand;
     }
 
     #[cfg(feature = "device-requests")]
