@@ -271,6 +271,17 @@ where
             });
         }
 
+        #[cfg(feature = "device-requests")]
+        {
+            // device requests
+            if let Some(device_requests) = &container_req.device_requests {
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.device_requests = Some(device_requests.clone());
+                    host_config
+                });
+            }
+        }
+
         let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
         if !cmd.is_empty() {
             config.cmd = Some(cmd);
@@ -367,6 +378,19 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 
 #[cfg(test)]
 mod tests {
+
+    #[cfg(feature = "device-requests")]
+    mod device_requests_imports {
+        pub use crate::core::ExecCommand;
+        pub use anyhow::{bail, Context};
+        pub use bollard::Docker;
+        pub use std::process::Command;
+        pub use tokio::io::AsyncReadExt;
+    }
+
+    #[cfg(feature = "device-requests")]
+    use device_requests_imports::*;
+
     use super::*;
     use crate::{
         core::{IntoContainerPort, WaitFor},
@@ -477,6 +501,64 @@ mod tests {
             .get_host_port_ipv4(5000.tcp())
             .await
             .expect("Port should be mapped");
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "device-requests")]
+    async fn async_run_command_should_request_gpu() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
+        // PRECONDITION: the host has GPU and NVIDIA drivers
+        let host_has_gpu = Command::new("nvidia-smi")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+        if !host_has_gpu {
+            bail!("Host does not have GPU or NVIDIA drivers, context: https://www.nvidia.com/en-us/drivers/");
+        }
+
+        // PRECONDITION: Docker on host has NVIDIA runtime
+        let client = Docker::connect_with_defaults()?;
+        let info = client.info().await?;
+        let has_nvidia_runtimes = info
+            .runtimes
+            .context("No runtimes found")?
+            .iter()
+            .any(|(key, _runtime)| key.contains("nvidia"));
+        if !has_nvidia_runtimes {
+            bail!("No Docker NVIDIA runtime installed, context: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html");
+        }
+
+        // GIVEN: a container with a device request for GPU
+        use bollard::models::DeviceRequest;
+        let device_request = DeviceRequest {
+            driver: Some(String::from("nvidia")),
+            count: Some(-1), // expose all
+            capabilities: Some(vec![vec![String::from("gpu")]]),
+            device_ids: None,
+            options: None,
+        };
+
+        // The image must have nvidia drivers installed, so we don't use the simple server here
+        let image = GenericImage::new("ubuntu", "24.04")
+            .with_device_requests(vec![device_request])
+            .with_cmd(["sleep", "infinity"]); // keep the container running to have time to run the command
+        let container = image.start().await?;
+
+        // WHEN: `nvidia-smi` command is executed
+        let mut result = container.exec(ExecCommand::new(["nvidia-smi"])).await?;
+
+        // THEN: the output contains the expected "NVIDIA-SMI" string
+        let mut output: String = String::new();
+        let mut stdout = result.stdout();
+        stdout.read_to_string(&mut output).await?;
+
+        assert!(
+            output.contains("NVIDIA-SMI"),
+            "Could not access NVIDIA System Management Interface"
+        );
+
         Ok(())
     }
 

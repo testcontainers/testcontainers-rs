@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+#[cfg(feature = "device-requests")]
+use bollard::models::DeviceRequest;
 use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
@@ -204,6 +206,35 @@ pub trait ImageExt<I: Image> {
     ///     );
     /// ```
     fn with_health_check(self, health_check: Healthcheck) -> ContainerRequest<I>;
+
+    /// Injects device requests into the container request.
+    ///
+    /// This allows, for instance, exposing the underlying host's GPU:
+    /// https://docs.docker.com/compose/how-tos/gpu-support/#example-of-a-compose-file-for-running-a-service-with-access-to-1-gpu-device
+    ///
+    /// This brings in 2 requirements:
+    ///
+    /// - The host must have [NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed.
+    /// - The image must have [NVIDIA drivers](https://www.nvidia.com/en-us/drivers/) installed.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::bollard::models::DeviceRequest;
+    ///
+    /// let device_request = DeviceRequest {
+    ///     driver: Some("nvidia"),
+    ///     count: Some(-1), // expose all
+    ///     capabilities: [["gpu"]],
+    ///     device_ids: None,
+    ///     options: None,
+    /// };
+    ///
+    /// let image = GenericImage::new("ubuntu", "24.04")
+    ///     .with_device_requests([device_request]);
+    /// ```
+    #[cfg(feature = "device-requests")]
+    fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -455,5 +486,14 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.health_check = Some(health_check);
         container_req
+    }
+
+    #[cfg(feature = "device-requests")]
+    fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            device_requests: Some(device_requests),
+            ..container_req
+        }
     }
 }
