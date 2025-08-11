@@ -223,15 +223,15 @@ pub trait ImageExt<I: Image> {
     /// use testcontainers::bollard::models::DeviceRequest;
     ///
     /// let device_request = DeviceRequest {
-    ///     driver: Some("nvidia"),
+    ///     driver: Some(String::from("nvidia")),
     ///     count: Some(-1), // expose all
-    ///     capabilities: [["gpu"]],
+    ///     capabilities: Some(vec![vec![String::from("gpu")]]),
     ///     device_ids: None,
     ///     options: None,
     /// };
     ///
     /// let image = GenericImage::new("ubuntu", "24.04")
-    ///     .with_device_requests([device_request]);
+    ///     .with_device_requests(vec![device_request]);
     /// ```
     #[cfg(feature = "device-requests")]
     fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I>;
