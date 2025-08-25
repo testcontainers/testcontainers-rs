@@ -481,6 +481,13 @@ impl Client {
             .map_err(ClientError::RemoveNetwork)
     }
 
+    pub(crate) async fn docker_version(&self) -> Result<Option<String>, ClientError> {
+        match self.bollard.version().await {
+            Ok(version) => Ok(version.version),
+            Err(err) => Err(ClientError::Init(err)),
+        }
+    }
+
     pub(crate) async fn docker_hostname(&self) -> Result<url::Host, ClientError> {
         let docker_host = &self.config.docker_host();
         let docker_host_url = Url::from_str(docker_host)

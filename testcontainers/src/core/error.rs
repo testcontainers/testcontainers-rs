@@ -24,6 +24,9 @@ pub enum TestcontainersError {
     Exec(#[from] ExecError),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+    /// Represents an error when host port mapping is not available
+    #[error("host port mapping unavailable")]
+    HostPortMappingUnavailable,
     /// Represents any other error that does not fit into the above categories
     #[error("other error: {0}")]
     Other(Box<dyn Error + Sync + Send>),

@@ -63,6 +63,7 @@ reusable-containers = []
 
 [dev-dependencies]
 anyhow = "1.0.86"
+mockall = "0.13"
 pretty_env_logger = "0.5"
 reqwest = { version = "0.12.4", features = [
     "blocking",
