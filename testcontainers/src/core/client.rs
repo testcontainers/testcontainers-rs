@@ -454,10 +454,46 @@ impl Client {
             .bollard
             .create_image(Some(pull_options), None, credentials);
         while let Some(result) = pulling.next().await {
-            result.map_err(|err| ClientError::PullImage {
-                descriptor: descriptor.to_string(),
-                err,
-            })?;
+            // if the image pull fails, try to pull the image for linux/amd64 platform instead
+            match result {
+                Ok(_) => {}
+                Err(BollardError::DockerResponseServerError {
+                    status_code: _,
+                    message: _,
+                }) => {
+                    self.pull_image_linux_amd64(descriptor).await?;
+                }
+                _ => {
+                    // if the linux/amd64 image pull also fails, return the initial error
+                    result.map_err(|err| ClientError::PullImage {
+                        descriptor: descriptor.to_string(),
+                        err,
+                    })?;
+                }
+            };
+        }
+        Ok(())
+    }
+
+    async fn pull_image_linux_amd64(&self, descriptor: &str) -> Result<(), ClientError> {
+        let pull_options = CreateImageOptionsBuilder::new()
+            .from_image(descriptor)
+            .platform("linux/amd64")
+            .build();
+        let credentials = self.credentials_for_image(descriptor).await;
+        let mut pulling = self
+            .bollard
+            .create_image(Some(pull_options), None, credentials);
+        while let Some(result) = pulling.next().await {
+            match result {
+                Ok(_) => {}
+                Err(err) => {
+                    return Err(ClientError::PullImage {
+                        descriptor: descriptor.to_string(),
+                        err,
+                    });
+                }
+            };
         }
         Ok(())
     }
