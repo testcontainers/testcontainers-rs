@@ -21,7 +21,7 @@ use crate::{
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 #[cfg(feature = "reusable-containers")]
-static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ulid::Ulid> = std::sync::OnceLock::new();
+static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ferroid::ULID> = std::sync::OnceLock::new();
 
 #[doc(hidden)]
 /// A unique identifier for the currently "active" `testcontainers` "session".
@@ -36,8 +36,9 @@ static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ulid::Ulid> = std::sync::O
 /// like [`Client::get_running_container_id`](Client::get_running_container_id),
 /// as the container name, labels, and network would all still match.
 #[cfg(feature = "reusable-containers")]
-pub(crate) fn session_id() -> &'static ulid::Ulid {
-    TESTCONTAINERS_SESSION_ID.get_or_init(ulid::Ulid::new)
+pub(crate) fn session_id() -> &'static ferroid::ULID {
+    TESTCONTAINERS_SESSION_ID
+        .get_or_init(|| ferroid::ULID::from_datetime(std::time::SystemTime::now()))
 }
 
 #[async_trait]
