@@ -67,7 +67,7 @@ jobs:
         with:
           tool: cargo-hack
       - name: Tests
-        run: cargo hack test --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }}
+        run: cargo hack test --feature-powerset --exclude-features device-requests --depth 2 --clean-per-run --partition ${{ matrix.partition }}
 
   fmt:
     name: Rustfmt check

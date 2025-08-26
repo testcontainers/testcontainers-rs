@@ -60,6 +60,7 @@ watchdog = ["signal-hook", "conquer-once"]
 http_wait = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
+device-requests = []
 
 [dev-dependencies]
 anyhow = "1.0.86"
