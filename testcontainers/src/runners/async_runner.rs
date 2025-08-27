@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use bollard::{
     models::{ContainerCreateBody, HostConfig, PortBinding},
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
+    secret::{EndpointSettings, NetworkingConfig},
 };
 use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
@@ -121,7 +122,8 @@ where
                     .await?
                 {
                     let network = if let Some(network) = container_req.network() {
-                        Network::new(network, client.clone()).await?
+                        let aliases = container_req.network_aliases.clone();
+                        Network::new(network, client.clone(), aliases).await?
                     } else {
                         None
                     };
@@ -135,6 +137,22 @@ where
                 }
             }
         }
+
+        let network_aliases_as_vec = container_req.network_aliases_as_vec();
+
+        let networking_config = container_req.network.clone().map(|network_name| {
+            let endpoint_settings = EndpointSettings {
+                aliases: Some(network_aliases_as_vec.clone()),
+                dns_names: Some(network_aliases_as_vec),
+                ..Default::default()
+            };
+            let endpoints_config = Some(HashMap::from_iter([(
+                network_name.to_string(),
+                endpoint_settings,
+            )]));
+
+            NetworkingConfig { endpoints_config }
+        });
 
         let mut config = ContainerCreateBody {
             image: Some(container_req.descriptor()),
@@ -155,6 +173,7 @@ where
             healthcheck: container_req
                 .health_check()
                 .map(|hc| hc.clone().into_health_config()),
+            networking_config,
             ..Default::default()
         };
 
@@ -172,7 +191,12 @@ where
                 host_config.network_mode = Some(network.to_string());
                 host_config
             });
-            Network::new(network, client.clone()).await?
+            Network::new(
+                network,
+                client.clone(),
+                container_req.network_aliases.clone(),
+            )
+            .await?
         } else {
             None
         };
