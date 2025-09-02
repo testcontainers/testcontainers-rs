@@ -501,7 +501,7 @@ mod tests {
         use log::warn;
         use tokio::io::AsyncReadExt;
 
-        use crate::core::ExecCommand;
+        use crate::{core::ExecCommand, GenericImage};
 
         let _ = pretty_env_logger::try_init();
 
