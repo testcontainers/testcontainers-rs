@@ -491,32 +491,26 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "device-requests")]
     #[tokio::test]
+    #[cfg(feature = "device-requests")]
     async fn async_run_command_should_request_gpu() -> anyhow::Result<()> {
-        use std::process::Command;
-
-        use anyhow::Context;
-        use bollard::Docker;
-        use log::warn;
-        use tokio::io::AsyncReadExt;
-
-        use crate::{core::ExecCommand, GenericImage};
+        use anyhow::Context as _;
+        use tokio::io::AsyncReadExt as _;
 
         let _ = pretty_env_logger::try_init();
 
         // PRECONDITION: the host has GPU and NVIDIA drivers
-        let host_has_gpu = Command::new("nvidia-smi")
+        let host_has_gpu = std::process::Command::new("nvidia-smi")
             .output()
             .map(|output| output.status.success())
             .unwrap_or(false);
         if !host_has_gpu {
-            warn!("Host does not have GPU or NVIDIA drivers, context: https://www.nvidia.com/en-us/drivers/");
+            log::warn!("Host does not have GPU or NVIDIA drivers, context: https://www.nvidia.com/en-us/drivers/");
             return Ok(());
         }
 
         // PRECONDITION: Docker on host has NVIDIA runtime
-        let client = Docker::connect_with_defaults()?;
+        let client = bollard::Docker::connect_with_defaults()?;
         let info = client.info().await?;
         let has_nvidia_runtimes = info
             .runtimes
@@ -524,13 +518,12 @@ mod tests {
             .iter()
             .any(|(key, _runtime)| key.contains("nvidia"));
         if !has_nvidia_runtimes {
-            warn!("No Docker NVIDIA runtime installed, context: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html");
+            log::warn!("No Docker NVIDIA runtime installed, context: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html");
             return Ok(());
         }
 
         // GIVEN: a container with a device request for GPU
-        use bollard::models::DeviceRequest;
-        let device_request = DeviceRequest {
+        let device_request = bollard::models::DeviceRequest {
             driver: Some(String::from("nvidia")),
             count: Some(-1), // expose all
             capabilities: Some(vec![vec![String::from("gpu")]]),
@@ -539,13 +532,15 @@ mod tests {
         };
 
         // The image must have nvidia drivers installed, so we don't use the simple server here
-        let image = GenericImage::new("ubuntu", "24.04")
+        let image = crate::GenericImage::new("ubuntu", "24.04")
             .with_device_requests(vec![device_request])
             .with_cmd(["sleep", "infinity"]); // keep the container running to have time to run the command
         let container = image.start().await?;
 
         // WHEN: `nvidia-smi` command is executed
-        let mut result = container.exec(ExecCommand::new(["nvidia-smi"])).await?;
+        let mut result = container
+            .exec(crate::core::ExecCommand::new(["nvidia-smi"]))
+            .await?;
 
         // THEN: the output contains the expected "NVIDIA-SMI" string
         let mut output: String = String::new();
