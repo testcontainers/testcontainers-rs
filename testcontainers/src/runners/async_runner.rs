@@ -378,21 +378,6 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 
 #[cfg(test)]
 mod tests {
-
-    #[cfg(feature = "device-requests")]
-    mod device_requests_imports {
-        pub use std::process::Command;
-
-        pub use anyhow::{bail, Context};
-        pub use bollard::Docker;
-        pub use tokio::io::AsyncReadExt;
-
-        pub use crate::core::ExecCommand;
-    }
-
-    #[cfg(feature = "device-requests")]
-    use device_requests_imports::*;
-
     use super::*;
     use crate::{
         core::{IntoContainerPort, WaitFor},
@@ -506,9 +491,18 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
     #[cfg(feature = "device-requests")]
+    #[tokio::test]
     async fn async_run_command_should_request_gpu() -> anyhow::Result<()> {
+        use std::process::Command;
+
+        use anyhow::Context;
+        use bollard::Docker;
+        use log::warn;
+        use tokio::io::AsyncReadExt;
+
+        use crate::core::ExecCommand;
+
         let _ = pretty_env_logger::try_init();
 
         // PRECONDITION: the host has GPU and NVIDIA drivers
@@ -517,7 +511,8 @@ mod tests {
             .map(|output| output.status.success())
             .unwrap_or(false);
         if !host_has_gpu {
-            bail!("Host does not have GPU or NVIDIA drivers, context: https://www.nvidia.com/en-us/drivers/");
+            warn!("Host does not have GPU or NVIDIA drivers, context: https://www.nvidia.com/en-us/drivers/");
+            return Ok(());
         }
 
         // PRECONDITION: Docker on host has NVIDIA runtime
@@ -529,7 +524,8 @@ mod tests {
             .iter()
             .any(|(key, _runtime)| key.contains("nvidia"));
         if !has_nvidia_runtimes {
-            bail!("No Docker NVIDIA runtime installed, context: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html");
+            warn!("No Docker NVIDIA runtime installed, context: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html");
+            return Ok(());
         }
 
         // GIVEN: a container with a device request for GPU
