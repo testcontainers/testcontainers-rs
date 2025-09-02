@@ -532,7 +532,7 @@ mod tests {
         };
 
         // The image must have nvidia drivers installed, so we don't use the simple server here
-        let image = crate::GenericImage::new("ubuntu", "24.04")
+        let image = GenericImage::new("ubuntu", "24.04")
             .with_device_requests(vec![device_request])
             .with_cmd(["sleep", "infinity"]); // keep the container running to have time to run the command
         let container = image.start().await?;

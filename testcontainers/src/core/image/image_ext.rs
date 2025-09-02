@@ -220,7 +220,7 @@ pub trait ImageExt<I: Image> {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use testcontainers::bollard::models::DeviceRequest;
+    /// use testcontainers::{GenericImage, bollard::models::DeviceRequest};
     ///
     /// let device_request = DeviceRequest {
     ///     driver: Some(String::from("nvidia")),
