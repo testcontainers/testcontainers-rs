@@ -445,10 +445,19 @@ impl Client {
         Ok(())
     }
 
-    pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
+    pub(crate) async fn pull_image(
+        &self,
+        descriptor: &str,
+        platform: Option<String>,
+    ) -> Result<(), ClientError> {
         let pull_options = CreateImageOptionsBuilder::new()
             .from_image(descriptor)
-            .platform(self.config.platform().unwrap_or_default())
+            .platform(
+                platform
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or_else(|| self.config.platform().unwrap_or_default()),
+            )
             .build();
 
         let credentials = self.credentials_for_image(descriptor).await;
@@ -462,7 +471,7 @@ impl Client {
                 Err(BollardError::DockerResponseServerError {
                     status_code: _,
                     message: _,
-                }) => {
+                }) if !matches!(platform.as_ref().map(|s| s.as_str()), Some("linux/amd64")) => {
                     self.pull_image_linux_amd64(descriptor).await?;
                 }
                 _ => {
@@ -708,7 +717,7 @@ mod tests {
         let config = env::Config::load::<OsEnvWithPlatformLinuxAmd64>().await?;
         let mut client = Client::new().await?;
         client.config = config;
-        client.pull_image("hello-world:latest").await?;
+        client.pull_image("hello-world:latest", None).await?;
 
         let image = client.bollard.inspect_image("hello-world:latest").await?;
 
@@ -718,7 +727,7 @@ mod tests {
         let config = env::Config::load::<OsEnvWithPlatformLinux386>().await?;
         let mut client = Client::new().await?;
         client.config = config;
-        client.pull_image("hello-world:latest").await?;
+        client.pull_image("hello-world:latest", None).await?;
 
         let image = client.bollard.inspect_image("hello-world:latest").await?;
 

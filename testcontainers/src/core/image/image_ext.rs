@@ -70,7 +70,7 @@ pub trait ImageExt<I: Image> {
 
     /// Sets the platform the container will be run on.
     ///
-    /// Platform in the format os[/arch[/variant]] used for image lookup.
+    /// Platform in the format `os[/arch[/variant]]` used for image lookup.
     ///
     /// # Examples
     ///
