@@ -23,12 +23,12 @@ impl ExecResult {
     }
 
     /// Returns an asynchronous reader for stdout. It follows log stream until the command exits.
-    pub fn stdout<'b>(&'b mut self) -> Pin<Box<dyn AsyncBufRead + 'b>> {
+    pub fn stdout<'b>(&'b mut self) -> Pin<Box<dyn AsyncBufRead + Send + 'b>> {
         Box::pin(tokio_util::io::StreamReader::new(&mut self.stdout))
     }
 
     /// Returns an asynchronous reader for stderr. It follows log stream until the command exits.
-    pub fn stderr<'b>(&'b mut self) -> Pin<Box<dyn AsyncBufRead + 'b>> {
+    pub fn stderr<'b>(&'b mut self) -> Pin<Box<dyn AsyncBufRead + Send + 'b>> {
         Box::pin(tokio_util::io::StreamReader::new(&mut self.stderr))
     }
 

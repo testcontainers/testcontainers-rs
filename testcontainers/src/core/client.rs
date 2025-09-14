@@ -6,14 +6,18 @@ use std::{
 
 use bollard::{
     auth::DockerCredentials,
-    container::{
-        Config, CreateContainerOptions, ListContainersOptions, LogOutput, LogsOptions,
-        RemoveContainerOptions, UploadToContainerOptions,
-    },
+    body_full,
+    container::LogOutput,
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    image::CreateImageOptions,
-    network::{CreateNetworkOptions, InspectNetworkOptions},
+    models::{ContainerCreateBody, NetworkCreateRequest},
+    query_parameters::{
+        BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
+        CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
+        InspectNetworkOptions, InspectNetworkOptionsBuilder, ListContainersOptionsBuilder,
+        ListNetworksOptions, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
+        StartContainerOptions, StopContainerOptionsBuilder, UploadToContainerOptionsBuilder,
+    },
     Docker,
 };
 use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
@@ -23,9 +27,8 @@ use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
-    copy::{CopyToContainer, CopyToContainerError},
-    env,
-    env::ConfigurationError,
+    copy::{CopyToContainer, CopyToContainerCollection, CopyToContainerError},
+    env::{self, ConfigurationError},
     logs::{
         stream::{LogStream, RawLogStream},
         LogFrame, LogSource, WaitingStreamWrapper,
@@ -61,6 +64,11 @@ pub enum ClientError {
     InvalidDockerHost(String),
     #[error("failed to pull the image '{descriptor}', error: {err}")]
     PullImage {
+        descriptor: String,
+        err: BollardError,
+    },
+    #[error("failed to build the image '{descriptor}', error: {err}")]
+    BuildImage {
         descriptor: String,
         err: BollardError,
     },
@@ -152,7 +160,7 @@ impl Client {
 
     pub(crate) async fn inspect(&self, id: &str) -> Result<ContainerInspectResponse, ClientError> {
         self.bollard
-            .inspect_container(id, None)
+            .inspect_container(id, None::<InspectContainerOptions>)
             .await
             .map_err(ClientError::InspectContainer)
     }
@@ -161,11 +169,12 @@ impl Client {
         self.bollard
             .remove_container(
                 id,
-                Some(RemoveContainerOptions {
-                    force: true,
-                    v: true,
-                    ..Default::default()
-                }),
+                Some(
+                    RemoveContainerOptionsBuilder::new()
+                        .force(true)
+                        .v(true)
+                        .build(),
+                ),
             )
             .await
             .map_err(ClientError::RemoveContainer)
@@ -174,12 +183,12 @@ impl Client {
     pub(crate) async fn stop(
         &self,
         id: &str,
-        timeout_seconds: Option<i64>,
+        timeout_seconds: Option<i32>,
     ) -> Result<(), ClientError> {
         self.bollard
             .stop_container(
                 id,
-                timeout_seconds.map(|t| bollard::container::StopContainerOptions { t }),
+                timeout_seconds.map(|t| StopContainerOptionsBuilder::new().t(t).build()),
             )
             .await
             .map_err(ClientError::StopContainer)
@@ -187,7 +196,7 @@ impl Client {
 
     pub(crate) async fn start(&self, id: &str) -> Result<(), ClientError> {
         self.bollard
-            .start_container::<String>(id, None)
+            .start_container(id, None::<StartContainerOptions>)
             .await
             .map_err(ClientError::Init)
     }
@@ -269,17 +278,20 @@ impl Client {
         source_filter: Option<LogSource>,
         follow: bool,
     ) -> LogStream {
-        let options = LogsOptions {
-            follow,
-            stdout: source_filter
-                .map(LogSource::includes_stdout)
-                .unwrap_or(true),
-            stderr: source_filter
-                .map(LogSource::includes_stderr)
-                .unwrap_or(true),
-            tail: "all".to_owned(),
-            ..Default::default()
-        };
+        let options = LogsOptionsBuilder::new()
+            .follow(follow)
+            .stdout(
+                source_filter
+                    .map(LogSource::includes_stdout)
+                    .unwrap_or(true),
+            )
+            .stderr(
+                source_filter
+                    .map(LogSource::includes_stderr)
+                    .unwrap_or(true),
+            )
+            .tail("all")
+            .build();
 
         self.bollard.logs(container_id, Some(options)).into()
     }
@@ -288,9 +300,8 @@ impl Client {
     pub(crate) async fn create_network(&self, name: &str) -> Result<String, ClientError> {
         let network = self
             .bollard
-            .create_network(CreateNetworkOptions {
+            .create_network(NetworkCreateRequest {
                 name: name.to_owned(),
-                check_duplicate: true,
                 ..Default::default()
             })
             .await
@@ -302,18 +313,18 @@ impl Client {
     /// Inspects a network
     pub(crate) async fn inspect_network(&self, name: &str) -> Result<Network, ClientError> {
         self.bollard
-            .inspect_network(name, Some(InspectNetworkOptions::<String>::default()))
+            .inspect_network(name, Some(InspectNetworkOptionsBuilder::new().build()))
             .await
             .map_err(ClientError::InspectNetwork)
     }
 
     pub(crate) async fn create_container(
         &self,
-        options: Option<CreateContainerOptions<String>>,
-        config: Config<String>,
+        options: Option<CreateContainerOptions>,
+        config: ContainerCreateBody,
     ) -> Result<String, ClientError> {
         self.bollard
-            .create_container(options.clone(), config.clone())
+            .create_container(options, config)
             .await
             .map(|res| res.id)
             .map_err(ClientError::CreateContainer)
@@ -321,7 +332,7 @@ impl Client {
 
     pub(crate) async fn start_container(&self, container_id: &str) -> Result<(), ClientError> {
         self.bollard
-            .start_container::<String>(container_id, None)
+            .start_container(container_id, None::<StartContainerOptions>)
             .await
             .map_err(ClientError::StartContainer)
     }
@@ -333,10 +344,10 @@ impl Client {
     ) -> Result<(), ClientError> {
         let container_id: String = container_id.into();
 
-        let options = UploadToContainerOptions {
-            path: "/".to_string(),
-            no_overwrite_dir_non_dir: "false".into(),
-        };
+        let options = UploadToContainerOptionsBuilder::new()
+            .path("/")
+            .no_overwrite_dir_non_dir("false")
+            .build();
 
         let tar = copy_to_container
             .tar()
@@ -344,19 +355,106 @@ impl Client {
             .map_err(ClientError::CopyToContainerError)?;
 
         self.bollard
-            .upload_to_container::<String>(&container_id, Some(options), tar)
+            .upload_to_container(&container_id, Some(options), body_full(tar))
             .await
             .map_err(ClientError::UploadToContainerError)
     }
 
+    pub(crate) async fn container_is_running(
+        &self,
+        container_id: &str,
+    ) -> Result<bool, ClientError> {
+        let options = InspectContainerOptionsBuilder::new().size(false).build();
+        let container_info = self
+            .bollard
+            .inspect_container(container_id, Some(options))
+            .await
+            .map_err(ClientError::InspectContainer)?;
+
+        if let Some(state) = container_info.state {
+            Ok(state.running.unwrap_or_default())
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub(crate) async fn container_exit_code(
+        &self,
+        container_id: &str,
+    ) -> Result<Option<i64>, ClientError> {
+        let options = InspectContainerOptionsBuilder::new().size(false).build();
+        let container_info = self
+            .bollard
+            .inspect_container(container_id, Some(options))
+            .await
+            .map_err(ClientError::InspectContainer)?;
+
+        let Some(state) = container_info.state else {
+            return Ok(None);
+        };
+        if state.running == Some(true) {
+            return Ok(None);
+        }
+        Ok(state.exit_code)
+    }
+
+    pub(crate) async fn build_image(
+        &self,
+        descriptor: &str,
+        build_context: &CopyToContainerCollection,
+    ) -> Result<(), ClientError> {
+        let tar = build_context
+            .tar()
+            .await
+            .map_err(ClientError::CopyToContainerError)?;
+
+        let session = ulid::Ulid::new().to_string();
+
+        let options = BuildImageOptionsBuilder::new()
+            .dockerfile("Dockerfile")
+            .t(descriptor)
+            .rm(true)
+            .nocache(false)
+            .version(BuilderVersion::BuilderBuildKit)
+            .session(&session)
+            .build();
+
+        let credentials = None;
+
+        let mut building = self
+            .bollard
+            .build_image(options, credentials, Some(body_full(tar)));
+
+        while let Some(result) = building.next().await {
+            match result {
+                Ok(r) => {
+                    if let Some(s) = r.stream {
+                        log::info!("{}", s);
+                    }
+                }
+                Err(err) => {
+                    log::error!("{:?}", err);
+                    return Err(ClientError::BuildImage {
+                        descriptor: descriptor.into(),
+                        err,
+                    });
+                }
+            };
+        }
+
+        Ok(())
+    }
+
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
-        let pull_options = Some(CreateImageOptions {
-            from_image: descriptor,
-            platform: self.config.platform().unwrap_or_default(),
-            ..Default::default()
-        });
+        let pull_options = CreateImageOptionsBuilder::new()
+            .from_image(descriptor)
+            .platform(self.config.platform().unwrap_or_default())
+            .build();
+
         let credentials = self.credentials_for_image(descriptor).await;
-        let mut pulling = self.bollard.create_image(pull_options, None, credentials);
+        let mut pulling = self
+            .bollard
+            .create_image(Some(pull_options), None, credentials);
         while let Some(result) = pulling.next().await {
             result.map_err(|err| ClientError::PullImage {
                 descriptor: descriptor.to_string(),
@@ -369,7 +467,7 @@ impl Client {
     pub(crate) async fn network_exists(&self, network: &str) -> Result<bool, ClientError> {
         let networks = self
             .bollard
-            .list_networks::<String>(None)
+            .list_networks(None::<ListNetworksOptions>)
             .await
             .map_err(ClientError::ListNetworks)?;
 
@@ -401,7 +499,7 @@ impl Client {
                 if is_in_container().await {
                     let host = self
                         .bollard
-                        .inspect_network::<String>("bridge", None)
+                        .inspect_network("bridge", None::<InspectNetworkOptions>)
                         .await
                         .ok()
                         .and_then(|net| net.ipam)
@@ -481,16 +579,15 @@ impl Client {
         .flatten()
         .collect::<HashMap<_, _>>();
 
-        let options = Some(ListContainersOptions {
-            all: false,
-            size: false,
-            limit: None,
-            filters: filters.clone(),
-        });
+        let options = ListContainersOptionsBuilder::new()
+            .all(false)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = self
             .bollard
-            .list_containers(options)
+            .list_containers(Some(options))
             .await
             .map_err(ClientError::ListContainers)?;
 

@@ -49,7 +49,7 @@ where
     }
 }
 
-fn lazy_sync_runner() -> Result<Arc<tokio::runtime::Runtime>> {
+pub(crate) fn lazy_sync_runner() -> Result<Arc<tokio::runtime::Runtime>> {
     let mut guard = ASYNC_RUNTIME
         .get_or_init(|| Mutex::new(Weak::new()))
         .lock()
@@ -90,7 +90,8 @@ mod tests {
     use crate::{
         core::{client::Client, mounts::Mount, IntoContainerPort, WaitFor},
         images::generic::GenericImage,
-        ImageExt,
+        runners::SyncBuilder,
+        GenericBuildableImage, ImageExt,
     };
 
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -116,6 +117,18 @@ mod tests {
 
     fn network_exists(client: &Arc<Client>, name: &str) -> bool {
         runtime().block_on(client.network_exists(name)).unwrap()
+    }
+
+    fn get_server_container() -> GenericImage {
+        let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
+            // "Dockerfile" is included already, so adding the build context directory is all what is needed
+            .with_file(
+                std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
+                ".",
+            )
+            .build_image()
+            .unwrap();
+        generic_image.with_wait_for(WaitFor::message_on_stdout("server is ready"))
     }
 
     #[derive(Default)]
@@ -165,9 +178,8 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_map_exposed_port() -> anyhow::Result<()> {
-        let image = GenericImage::new("simple_web_server", "latest")
+        let image = get_server_container()
             .with_exposed_port(5000.tcp())
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start()?;
         let res = container.get_host_port_ipv4(5000.tcp());
@@ -226,9 +238,7 @@ mod tests {
     #[test]
     fn sync_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty(
     ) -> anyhow::Result<()> {
-        let web_server = GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-            .with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_container().with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("bridge").start()?;
 
@@ -238,9 +248,7 @@ mod tests {
 
     #[test]
     fn sync_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
-        let web_server = GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-            .with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_container().with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("host").start()?;
 
@@ -261,7 +269,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_with_container_network_should_not_expose_ports() -> anyhow::Result<()> {
-        let _first_container = GenericImage::new("simple_web_server", "latest")
+        let _first_container = get_server_container()
             .with_container_name("the_first_one")
             .start()?;
 

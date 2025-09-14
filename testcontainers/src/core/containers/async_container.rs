@@ -291,7 +291,7 @@ where
     /// Set Some(-1) to wait indefinitely, None to use system configured default and Some(0)
     /// to forcibly stop the container immediately - otherwise the runtime will issue SIGINT
     /// and then wait timeout_seconds seconds for the process to stop before issuing SIGKILL.
-    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i64>) -> Result<()> {
+    pub async fn stop_with_timeout(&self, timeout_seconds: Option<i32>) -> Result<()> {
         log::debug!(
             "Stopping docker container {} with {} second timeout",
             self.id,
@@ -367,6 +367,18 @@ where
         let mut stderr = Vec::new();
         self.stderr(false).read_to_end(&mut stderr).await?;
         Ok(stderr)
+    }
+
+    /// Returns whether the container is still running.
+    pub async fn is_running(&self) -> Result<bool> {
+        let status = self.docker_client.container_is_running(&self.id).await?;
+        Ok(status)
+    }
+
+    /// Returns `Some(exit_code)` when the container is finished and `None` when the container is still running.
+    pub async fn exit_code(&self) -> Result<Option<i64>> {
+        let exit_code = self.docker_client.container_exit_code(&self.id).await?;
+        Ok(exit_code)
     }
 
     pub(crate) async fn block_until_ready(&self, ready_conditions: Vec<WaitFor>) -> Result<()> {
@@ -451,16 +463,60 @@ where
 mod tests {
     use tokio::io::AsyncBufReadExt;
 
+    #[cfg(feature = "http_wait")]
+    use crate::core::{wait::HttpWaitStrategy, ContainerPort, ContainerState, ExecCommand};
     use crate::{
-        core::{ContainerPort, ContainerState, ExecCommand, WaitFor},
-        images::generic::GenericImage,
-        runners::AsyncRunner,
-        Image, ImageExt,
+        core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
     };
 
     #[tokio::test]
+    async fn async_custom_healthcheck_is_applied() -> anyhow::Result<()> {
+        use std::time::Duration;
+
+        use crate::core::Healthcheck;
+
+        let healthcheck = Healthcheck::cmd_shell("test -f /etc/passwd")
+            .with_interval(Duration::from_secs(1))
+            .with_timeout(Duration::from_secs(1))
+            .with_retries(2);
+
+        let container = GenericImage::new("alpine", "latest")
+            .with_cmd(["sleep", "30"])
+            .with_health_check(healthcheck)
+            .with_ready_conditions(vec![WaitFor::healthcheck()])
+            .start()
+            .await?;
+
+        let inspect_info = container.docker_client.inspect(container.id()).await?;
+        assert!(inspect_info.config.is_some());
+
+        let config = inspect_info
+            .config
+            .expect("Container config must be present");
+        assert!(config.healthcheck.is_some());
+
+        let healthcheck_config = config
+            .healthcheck
+            .expect("Healthcheck config must be present");
+        assert_eq!(
+            healthcheck_config.test,
+            Some(vec![
+                "CMD-SHELL".to_string(),
+                "test -f /etc/passwd".to_string()
+            ])
+        );
+        assert_eq!(healthcheck_config.interval, Some(1_000_000_000));
+        assert_eq!(healthcheck_config.timeout, Some(1_000_000_000));
+        assert_eq!(healthcheck_config.retries, Some(2));
+        assert_eq!(healthcheck_config.start_period, None);
+
+        assert!(container.is_running().await?);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn async_logs_are_accessible() -> anyhow::Result<()> {
-        let image = GenericImage::new("testcontainers/helloworld", "1.1.0");
+        let image = GenericImage::new("testcontainers/helloworld", "1.2.0");
         let container = image.start().await?;
 
         let stderr = container.stderr(true);
@@ -552,7 +608,7 @@ mod tests {
             ("test-name", "async_containers_are_reused"),
         ];
 
-        let initial_image = GenericImage::new("testcontainers/helloworld", "1.1.0")
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.2.0")
             .with_reuse(crate::ReuseDirective::CurrentSession)
             .with_labels(labels);
 
@@ -569,25 +625,27 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let options = bollard::container::ListContainersOptions {
-            all: false,
-            limit: Some(2),
-            size: false,
-            filters: std::collections::HashMap::from_iter([(
-                "label".to_string(),
-                labels
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .chain([
-                        "org.testcontainers.managed-by=testcontainers".to_string(),
-                        format!(
-                            "org.testcontainers.session-id={}",
-                            crate::runners::async_runner::session_id()
-                        ),
-                    ])
-                    .collect(),
-            )]),
-        };
+        let filters = std::collections::HashMap::from_iter([(
+            "label".to_string(),
+            labels
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .chain([
+                    "org.testcontainers.managed-by=testcontainers".to_string(),
+                    format!(
+                        "org.testcontainers.session-id={}",
+                        crate::runners::async_runner::session_id()
+                    ),
+                ])
+                .collect(),
+        )]);
+
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .limit(2)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = client.list_containers(Some(options)).await?;
 
@@ -614,7 +672,7 @@ mod tests {
             ("test-name", "async_reused_containers_are_not_confused"),
         ];
 
-        let initial_image = GenericImage::new("testcontainers/helloworld", "1.1.0")
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.2.0")
             .with_reuse(ReuseDirective::Always)
             .with_labels(labels);
 
@@ -631,19 +689,21 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let options = bollard::container::ListContainersOptions {
-            all: false,
-            limit: Some(2),
-            size: false,
-            filters: std::collections::HashMap::from_iter([(
-                "label".to_string(),
-                labels
-                    .iter()
-                    .map(|(key, value)| format!("{key}={value}"))
-                    .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
-                    .collect(),
-            )]),
-        };
+        let filters = std::collections::HashMap::from_iter([(
+            "label".to_string(),
+            labels
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .chain(["org.testcontainers.managed-by=testcontainers".to_string()])
+                .collect(),
+        )]);
+
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .limit(2)
+            .size(false)
+            .filters(&filters)
+            .build();
 
         let containers = client.list_containers(Some(options)).await?;
 
@@ -666,11 +726,13 @@ mod tests {
     #[cfg(feature = "reusable-containers")]
     #[tokio::test]
     async fn async_reusable_containers_are_not_dropped() -> anyhow::Result<()> {
+        use bollard::query_parameters::InspectContainerOptions;
+
         use crate::{ImageExt, ReuseDirective};
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let image = GenericImage::new("testcontainers/helloworld", "1.1.0")
+        let image = GenericImage::new("testcontainers/helloworld", "1.2.0")
             .with_reuse(ReuseDirective::Always)
             .with_labels([
                 ("foo", "bar"),
@@ -688,7 +750,7 @@ mod tests {
         };
 
         assert!(client
-            .inspect_container(&container_id, None)
+            .inspect_container(&container_id, None::<InspectContainerOptions>)
             .await?
             .state
             .and_then(|state| state.running)
@@ -697,10 +759,11 @@ mod tests {
         client
             .remove_container(
                 &container_id,
-                Some(bollard::container::RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                }),
+                Some(
+                    bollard::query_parameters::RemoveContainerOptionsBuilder::new()
+                        .force(true)
+                        .build(),
+                ),
             )
             .await
             .map_err(anyhow::Error::from)
@@ -709,8 +772,6 @@ mod tests {
     #[cfg(feature = "http_wait")]
     #[tokio::test]
     async fn exec_before_ready_is_ran() {
-        use crate::core::wait::HttpWaitStrategy;
-
         struct ExecBeforeReady {}
 
         impl Image for ExecBeforeReady {

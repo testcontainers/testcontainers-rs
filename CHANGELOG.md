@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0] - 2025-07-27
+### Details
+#### Bug Fixes
+- Make tls features optional ([#806](https://github.com/testcontainers/testcontainers-rs/pull/806))
+- Add `Send` trait to `stderr` & `stdout` of `ExecResult` ([#809](https://github.com/testcontainers/testcontainers-rs/pull/809))
+- Added new parse rule for correctly parsing ports without protocol specifier ([#812](https://github.com/testcontainers/testcontainers-rs/pull/812))
+
+#### Features
+- Allow ready conditions customization via ImageExt ([#794](https://github.com/testcontainers/testcontainers-rs/pull/794))
+- Allow to wait for log line on either stdout or stderr ([#795](https://github.com/testcontainers/testcontainers-rs/pull/795))
+- Add `Container*::exit_code` ([#791](https://github.com/testcontainers/testcontainers-rs/pull/791))
+- Add `Container*::is_running` ([#790](https://github.com/testcontainers/testcontainers-rs/pull/790))
+- Add custom health check support for containers ([#816](https://github.com/testcontainers/testcontainers-rs/pull/816))
+- Introduce container builder api ([#801](https://github.com/testcontainers/testcontainers-rs/pull/801))
+
+#### Miscellaneous Tasks
+- [❗] Update bollard to 1.19.1 ([#817](https://github.com/testcontainers/testcontainers-rs/pull/817))
+
+#### Refactor
+- Testimages and tests to use builder API ([#804](https://github.com/testcontainers/testcontainers-rs/pull/804))
 ## [0.24.0] - 2025-05-04
 ### Details
 #### Features

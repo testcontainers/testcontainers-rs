@@ -1,0 +1,9 @@
+[package]
+name = "no_expose_port"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+axum = { version = "0.8.1", features = ["http2"] }
+tokio = { version = "1.17.0", features = ["full"] }

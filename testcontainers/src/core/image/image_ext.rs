@@ -5,6 +5,7 @@ use bollard_stubs::models::ResourcesUlimits;
 use crate::{
     core::{
         copy::{CopyDataSource, CopyToContainer},
+        healthcheck::Healthcheck,
         logs::consumer::LogConsumer,
         CgroupnsMode, ContainerPort, Host, Mount, PortMapping, WaitFor,
     },
@@ -181,6 +182,28 @@ pub trait ImageExt<I: Image> {
     /// There is no guarantee that the specified ready conditions for an image would result
     /// in a running container. Users of this API are advised to use this at their own risk.
     fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I>;
+
+    /// Sets a custom health check for the container.
+    ///
+    /// This will override any `HEALTHCHECK` instruction defined in the image.
+    /// See [`Healthcheck`] for more details on how to build a health check.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{core::{Healthcheck, WaitFor}, GenericImage, ImageExt};
+    /// use std::time::Duration;
+    ///
+    /// let image = GenericImage::new("mysql", "8.0")
+    ///     .with_wait_for(WaitFor::healthcheck())
+    ///     .with_health_check(
+    ///         Healthcheck::cmd(["mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"])
+    ///             .with_interval(Duration::from_secs(2))
+    ///             .with_timeout(Duration::from_secs(1))
+    ///             .with_retries(5)
+    ///     );
+    /// ```
+    fn with_health_check(self, health_check: Healthcheck) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -425,6 +448,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.ready_conditions = Some(ready_conditions);
+        container_req
+    }
+
+    fn with_health_check(self, health_check: Healthcheck) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.health_check = Some(health_check);
         container_req
     }
 }

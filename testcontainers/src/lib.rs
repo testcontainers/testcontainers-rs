@@ -22,7 +22,13 @@
 //!
 //! Unsurprisingly, working with testcontainers is very similar to working with Docker itself.
 //!
-//! First, you need to define the [`Image`] that you want to run, and then simply call the `start` method on it from either the [`AsyncRunner`] or [`SyncRunner`] trait.
+//! If you need to build an image first, then you need to define the [`BuildableImage`] that specifies the build context
+//! and the Dockerfile, then call the `build_image` method on it from either the [`AsyncBuilder`] or [`SyncBuilder`] trait.
+//! This will yield an [`Image`] you could actually start.
+//!
+//! If you already have a Docker image you can just define your [`Image`] that you want to run, and then simply call the
+//! `start` method on it from either the [`AsyncRunner`] or [`SyncRunner`] trait.
+//!
 //! This will return you [`ContainerAsync`] or [`Container`] respectively.
 //! Containers implement `Drop`. As soon as they go out of scope, the underlying docker container is removed.
 //! To disable this behavior, you can set ENV variable `TESTCONTAINERS_COMMAND` to `keep`.
@@ -60,7 +66,8 @@
 //! # Ecosystem
 //!
 //! `testcontainers` is the core crate that provides an API for working with containers in a test environment.
-//! The only image that is provided by the core crate is the [`GenericImage`], which is a simple wrapper around any docker image.
+//! The only buildable image and image implementations that are provided by the core crate are the [`GenericBuildableImage`]
+//! and [`GenericImage`], respectively.
 //!
 //! However, it does not provide ready-to-use modules, you can implement your [`Image`]s using the library directly or use community supported [`testcontainers-modules`].
 //!
@@ -70,6 +77,8 @@
 //!
 //! [tc_website]: https://testcontainers.org
 //! [`Docker`]: https://docker.com
+//! [`AsyncBuilder`]: runners::AsyncBuilder
+//! [`SyncBuilder`]: runners::SyncBuilder
 //! [`AsyncRunner`]: runners::AsyncRunner
 //! [`SyncRunner`]: runners::SyncRunner
 //! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
@@ -83,12 +92,15 @@ pub use crate::core::ReuseDirective;
 pub use crate::core::{
     copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
-    ContainerAsync, ContainerRequest, Image, ImageExt,
+    BuildableImage, ContainerAsync, ContainerRequest, Healthcheck, Image, ImageExt,
 };
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]
 pub(crate) mod watchdog;
+
+mod buildables;
+pub use buildables::generic::GenericBuildableImage;
 
 /// All available Docker images.
 mod images;
