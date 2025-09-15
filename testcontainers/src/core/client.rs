@@ -448,7 +448,9 @@ impl Client {
     pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
         let pull_options = CreateImageOptionsBuilder::new()
             .from_image(descriptor)
+            .platform(self.config.platform().unwrap_or_default())
             .build();
+
         let credentials = self.credentials_for_image(descriptor).await;
         let mut pulling = self
             .bollard
@@ -634,5 +636,59 @@ where
             })
             .boxed();
         LogStream::new(stream)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct OsEnvWithPlatformLinuxAmd64;
+
+    impl env::GetEnvValue for OsEnvWithPlatformLinuxAmd64 {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_DEFAULT_PLATFORM" => Some("linux/amd64".to_string()),
+                _ => env::Os::get_env_value(key),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct OsEnvWithPlatformLinux386;
+
+    impl env::GetEnvValue for OsEnvWithPlatformLinux386 {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_DEFAULT_PLATFORM" => Some("linux/386".to_string()),
+                _ => env::Os::get_env_value(key),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_client_pull_image_with_platform() -> anyhow::Result<()> {
+        let config = env::Config::load::<OsEnvWithPlatformLinuxAmd64>().await?;
+        let mut client = Client::new().await?;
+        client.config = config;
+        client.pull_image("hello-world:latest").await?;
+
+        let image = client.bollard.inspect_image("hello-world:latest").await?;
+
+        assert_eq!(Some("linux".to_string()), image.os);
+        assert_eq!(Some("amd64".to_string()), image.architecture);
+
+        let config = env::Config::load::<OsEnvWithPlatformLinux386>().await?;
+        let mut client = Client::new().await?;
+        client.config = config;
+        client.pull_image("hello-world:latest").await?;
+
+        let image = client.bollard.inspect_image("hello-world:latest").await?;
+
+        assert_eq!(Some("linux".to_string()), image.os);
+        assert_eq!(Some("386".to_string()), image.architecture);
+
+        Ok(())
     }
 }

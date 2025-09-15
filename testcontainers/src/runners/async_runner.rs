@@ -179,7 +179,10 @@ where
 
         // name of the container
         if let Some(name) = container_req.container_name() {
-            let options = CreateContainerOptionsBuilder::new().name(name).build();
+            let options = CreateContainerOptionsBuilder::new()
+                .name(name)
+                .platform(client.config.platform().unwrap_or_default())
+                .build();
             create_options = Some(options)
         }
 
