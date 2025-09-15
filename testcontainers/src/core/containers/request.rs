@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+#[cfg(feature = "device-requests")]
+use bollard::models::DeviceRequest;
 use bollard_stubs::models::ResourcesUlimits;
 
 use crate::{
@@ -48,6 +50,8 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) user: Option<String>,
     pub(crate) ready_conditions: Option<Vec<WaitFor>>,
     pub(crate) health_check: Option<Healthcheck>,
+    #[cfg(feature = "device-requests")]
+    pub(crate) device_requests: Option<Vec<DeviceRequest>>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -217,6 +221,11 @@ impl<I: Image> ContainerRequest<I> {
     pub fn health_check(&self) -> Option<&Healthcheck> {
         self.health_check.as_ref()
     }
+
+    #[cfg(feature = "device-requests")]
+    pub fn device_requests(&self) -> Option<&[DeviceRequest]> {
+        self.device_requests.as_deref()
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -251,6 +260,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             user: None,
             ready_conditions: None,
             health_check: None,
+            #[cfg(feature = "device-requests")]
+            device_requests: None,
         }
     }
 }
@@ -302,6 +313,9 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);
+
+        #[cfg(feature = "device-requests")]
+        repr.field("device_requests", &self.device_requests);
 
         repr.finish()
     }
