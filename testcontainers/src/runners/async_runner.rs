@@ -180,9 +180,9 @@ where
         // name of the container
         if let Some(name) = container_req.container_name() {
             let options = CreateContainerOptionsBuilder::new()
-              .name(name)
-              .platform(client.config.platform().map(|s| s.to_string()))
-              .build();
+                  .name(name)
+                  .platform(client.config.platform())
+                  .build();
             create_options = Some(options)
         }
 
