@@ -454,8 +454,7 @@ impl Client {
             .from_image(descriptor)
             .platform(
                 platform
-                    .as_ref()
-                    .map(|s| s.as_str())
+                    .as_deref()
                     .unwrap_or_else(|| self.config.platform().unwrap_or_default()),
             )
             .build();
@@ -471,7 +470,7 @@ impl Client {
                 Err(BollardError::DockerResponseServerError {
                     status_code: _,
                     message: _,
-                }) if !matches!(platform.as_ref().map(|s| s.as_str()), Some("linux/amd64")) => {
+                }) if !matches!(platform.as_deref(), Some("linux/amd64")) => {
                     self.pull_image_linux_amd64(descriptor).await?;
                 }
                 _ => {
