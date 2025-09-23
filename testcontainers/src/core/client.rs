@@ -4,6 +4,9 @@ use std::{
     str::FromStr,
 };
 
+#[cfg(feature = "buildkit")]
+use bollard::query_parameters::{BuildImageOptionsBuilder, BuilderVersion};
+
 use bollard::{
     auth::DockerCredentials,
     body_full,
@@ -12,11 +15,11 @@ use bollard::{
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     models::{ContainerCreateBody, NetworkCreateRequest},
     query_parameters::{
-        BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
-        CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
-        InspectNetworkOptions, InspectNetworkOptionsBuilder, ListContainersOptionsBuilder,
-        ListNetworksOptions, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
-        StartContainerOptions, StopContainerOptionsBuilder, UploadToContainerOptionsBuilder,
+        CreateContainerOptions, CreateImageOptionsBuilder, InspectContainerOptions,
+        InspectContainerOptionsBuilder, InspectNetworkOptions, InspectNetworkOptionsBuilder,
+        ListContainersOptionsBuilder, ListNetworksOptions, LogsOptionsBuilder,
+        RemoveContainerOptionsBuilder, StartContainerOptions, StopContainerOptionsBuilder,
+        UploadToContainerOptionsBuilder,
     },
     Docker,
 };
@@ -398,6 +401,7 @@ impl Client {
         Ok(state.exit_code)
     }
 
+    #[cfg(feature = "buildkit")]
     pub(crate) async fn build_image(
         &self,
         descriptor: &str,
