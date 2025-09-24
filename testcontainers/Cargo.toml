@@ -18,7 +18,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 async-trait = { version = "0.1" }
 bollard = { version = "0.19.1", features = ["buildkit"] }
-bollard-stubs = "=1.49.0-rc.28.3.3"
 bytes = "1.6.0"
 conquer-once = { version = "0.4", optional = true }
 docker_credential = "1.3.1"

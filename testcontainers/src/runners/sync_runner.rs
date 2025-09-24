@@ -83,7 +83,7 @@ mod tests {
         sync::{Arc, OnceLock},
     };
 
-    use bollard_stubs::models::ContainerInspectResponse;
+    use bollard::models::ContainerInspectResponse;
     use tokio::runtime::Runtime;
 
     use super::*;

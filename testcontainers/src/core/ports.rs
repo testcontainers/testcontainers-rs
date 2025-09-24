@@ -1,6 +1,6 @@
 use std::{collections::HashMap, net::IpAddr, num::ParseIntError};
 
-use bollard_stubs::models::{PortBinding, PortMap};
+use bollard::models::{PortBinding, PortMap};
 
 /// Represents a port that is exposed by a container.
 ///
@@ -163,7 +163,7 @@ impl From<u16> for ContainerPort {
 
 #[cfg(test)]
 mod tests {
-    use bollard_stubs::models::ContainerInspectResponse;
+    use bollard::models::ContainerInspectResponse;
 
     use super::*;
 
