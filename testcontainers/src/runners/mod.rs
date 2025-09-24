@@ -1,13 +1,17 @@
-pub(crate) mod async_builder;
 pub(crate) mod async_runner;
 
+#[cfg(feature = "buildkit")]
+pub(crate) mod async_builder;
+
+#[cfg(feature = "buildkit")]
+#[cfg_attr(docsrs, doc(cfg(feature = "buildkit")))]
 pub use self::{async_builder::AsyncBuilder, async_runner::AsyncRunner};
 
-#[cfg(feature = "blocking")]
+#[cfg(all(feature = "blocking", feature = "buildkit"))]
 pub(crate) mod sync_builder;
 
-#[cfg(feature = "blocking")]
-#[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
+#[cfg(all(feature = "blocking", feature = "buildkit"))]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "blocking", feature = "buildkit"))))]
 pub use self::sync_builder::SyncBuilder;
 
 #[cfg(feature = "blocking")]

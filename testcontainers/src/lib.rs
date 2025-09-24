@@ -84,6 +84,8 @@
 //! [`testcontainers-modules`]: https://crates.io/crates/testcontainers-modules
 
 pub mod core;
+#[cfg(feature = "buildkit")]
+pub use crate::core::BuildableImage;
 #[cfg(feature = "blocking")]
 #[cfg_attr(docsrs, doc(cfg(feature = "blocking")))]
 pub use crate::core::Container;
@@ -92,14 +94,17 @@ pub use crate::core::ReuseDirective;
 pub use crate::core::{
     copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
-    BuildableImage, ContainerAsync, ContainerRequest, Healthcheck, Image, ImageExt,
+    ContainerAsync, ContainerRequest, Healthcheck, Image, ImageExt,
 };
 
 #[cfg(feature = "watchdog")]
 #[cfg_attr(docsrs, doc(cfg(feature = "watchdog")))]
 pub(crate) mod watchdog;
 
+#[cfg(feature = "buildkit")]
 mod buildables;
+#[cfg(feature = "buildkit")]
+#[cfg_attr(docsrs, doc(cfg(feature = "buildkit")))]
 pub use buildables::generic::GenericBuildableImage;
 
 /// All available Docker images.
