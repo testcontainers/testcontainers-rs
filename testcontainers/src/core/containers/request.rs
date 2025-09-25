@@ -30,6 +30,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
+    pub(crate) exposed_host_ports: Vec<u16>,
     pub(crate) mounts: Vec<Mount>,
     pub(crate) copy_to_sources: Vec<CopyToContainer>,
     pub(crate) ports: Option<Vec<PortMapping>>,
@@ -67,6 +68,8 @@ pub enum Host {
     Addr(IpAddr),
     #[display("host-gateway")]
     HostGateway,
+    #[display("{0}")]
+    Hostname(String),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -108,6 +111,10 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn hosts(&self) -> impl Iterator<Item = (Cow<'_, str>, &Host)> {
         self.hosts.iter().map(|(name, host)| (name.into(), host))
+    }
+
+    pub fn exposed_host_ports(&self) -> &[u16] {
+        &self.exposed_host_ports
     }
 
     pub fn mounts(&self) -> impl Iterator<Item = &Mount> {
@@ -240,6 +247,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
+            exposed_host_ports: Vec::new(),
             mounts: Vec::new(),
             copy_to_sources: Vec::new(),
             ports: None,
@@ -296,6 +304,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("labels", &self.labels)
             .field("env_vars", &self.env_vars)
             .field("hosts", &self.hosts)
+            .field("exposed_host_ports", &self.exposed_host_ports)
             .field("mounts", &self.mounts)
             .field("ports", &self.ports)
             .field("ulimits", &self.ulimits)
