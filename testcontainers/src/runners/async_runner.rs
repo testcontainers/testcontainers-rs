@@ -2,10 +2,11 @@ use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
 use bollard::{
-    models::{ContainerCreateBody, HostConfig, PortBinding},
+    models::{
+        ContainerCreateBody, HostConfig, HostConfigCgroupnsModeEnum, PortBinding, ResourcesUlimits,
+    },
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
 };
-use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
 use crate::{
     core::{

@@ -10,7 +10,10 @@ use bollard::{
     container::LogOutput,
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    models::{ContainerCreateBody, NetworkCreateRequest},
+    models::{
+        ContainerCreateBody, ContainerInspectResponse, ExecInspectResponse, Network,
+        NetworkCreateRequest,
+    },
     query_parameters::{
         BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
         CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
@@ -20,7 +23,6 @@ use bollard::{
     },
     Docker,
 };
-use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::OnceCell;
 use url::Url;

@@ -8,7 +8,7 @@ use std::{
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
-use bollard_stubs::models::ResourcesUlimits;
+use bollard::models::ResourcesUlimits;
 
 use crate::{
     core::{
