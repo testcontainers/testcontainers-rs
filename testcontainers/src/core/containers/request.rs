@@ -26,6 +26,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) image_name: Option<String>,
     pub(crate) image_tag: Option<String>,
     pub(crate) container_name: Option<String>,
+    pub(crate) platform: Option<String>,
     pub(crate) network: Option<String>,
     pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
@@ -92,6 +93,10 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn container_name(&self) -> &Option<String> {
         &self.container_name
+    }
+
+    pub fn platform(&self) -> &Option<String> {
+        &self.platform
     }
 
     pub fn env_vars(&self) -> impl Iterator<Item = (Cow<'_, str>, Cow<'_, str>)> {
@@ -236,6 +241,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             image_name: None,
             image_tag: None,
             container_name: None,
+            platform: None,
             network: None,
             labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
@@ -292,6 +298,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("image_name", &self.image_name)
             .field("image_tag", &self.image_tag)
             .field("container_name", &self.container_name)
+            .field("platform", &self.platform)
             .field("network", &self.network)
             .field("labels", &self.labels)
             .field("env_vars", &self.env_vars)
