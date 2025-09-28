@@ -45,11 +45,10 @@ Some integration tests require containers to reach services running directly on 
 
 ### Enable the Feature
 
-Declare the feature flag in `Cargo.toml`:
+Declare the feature flag when adding the dependency:
 
-```toml
-# Cargo.toml
-testcontainers = { version = "*", features = ["host-port-exposure"] }
+```sh
+cargo add testcontainers --features host-port-exposure
 ```
 
 It can be combined with other common crate features. Host port exposure does not support `reusable-containers`, preventing tunnels from leaking across test sessions.
