@@ -52,8 +52,8 @@ url = { version = "2", features = ["serde"] }
 
 [features]
 default = ["ring"]
-ring = ["bollard/ssl", "russh/ring"]
-aws-lc-rs = ["bollard/aws-lc-rs", "russh/aws-lc-rs"]
+ring = ["bollard/ssl", "russh?/ring"]
+aws-lc-rs = ["bollard/aws-lc-rs", "russh?/aws-lc-rs"]
 ssl = ["bollard/ssl_providerless"]
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
