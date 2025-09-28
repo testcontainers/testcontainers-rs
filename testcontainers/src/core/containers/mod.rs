@@ -1,4 +1,5 @@
 pub(crate) mod async_container;
+#[cfg(feature = "host-port-exposure")]
 pub(crate) mod host;
 pub(crate) mod request;
 #[cfg(feature = "blocking")]

@@ -8,10 +8,11 @@ use bollard::{
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
 };
 
+#[cfg(feature = "host-port-exposure")]
+use crate::core::containers::host::HostPortExposure;
 use crate::{
     core::{
         client::{Client, ClientError},
-        containers::host::HostPortExposure,
         copy::CopyToContainer,
         error::{Result, WaitContainerError},
         mounts::{AccessMode, Mount, MountType},
@@ -74,8 +75,10 @@ where
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
+        #[allow(unused_mut)]
         let mut container_req = self.into();
 
+        #[cfg(feature = "host-port-exposure")]
         let host_port_exposure = HostPortExposure::setup(&mut container_req).await?;
 
         let client = Client::lazy_client().await?;
@@ -135,6 +138,7 @@ where
                         client,
                         container_req,
                         network,
+                        #[cfg(feature = "host-port-exposure")]
                         host_port_exposure,
                     ));
                 }
@@ -337,6 +341,7 @@ where
                 client.clone(),
                 container_req,
                 network,
+                #[cfg(feature = "host-port-exposure")]
                 host_port_exposure,
             )
             .await?;

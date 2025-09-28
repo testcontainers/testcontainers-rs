@@ -33,6 +33,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) mounts: Vec<Mount>,
     pub(crate) copy_to_sources: Vec<CopyToContainer>,
     pub(crate) ports: Option<Vec<PortMapping>>,
+    #[cfg(feature = "host-port-exposure")]
     pub(crate) host_port_exposures: Option<Vec<u16>>,
     pub(crate) ulimits: Option<Vec<ResourcesUlimits>>,
     pub(crate) privileged: bool,
@@ -126,6 +127,7 @@ impl<I: Image> ContainerRequest<I> {
         self.ports.as_ref()
     }
 
+    #[cfg(feature = "host-port-exposure")]
     pub fn host_port_exposures(&self) -> Option<&[u16]> {
         self.host_port_exposures.as_deref()
     }
@@ -248,6 +250,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             mounts: Vec::new(),
             copy_to_sources: Vec::new(),
             ports: None,
+            #[cfg(feature = "host-port-exposure")]
             host_port_exposures: None,
             ulimits: None,
             privileged: false,
@@ -305,6 +308,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("mounts", &self.mounts)
             .field("ports", &self.ports);
 
+        #[cfg(feature = "host-port-exposure")]
         repr.field("host_port_exposures", &self.host_port_exposures);
 
         repr.field("ulimits", &self.ulimits)

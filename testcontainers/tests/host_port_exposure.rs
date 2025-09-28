@@ -1,3 +1,5 @@
+#![cfg(feature = "host-port-exposure")]
+
 use std::{
     io::Write,
     net::{TcpListener, TcpStream},
