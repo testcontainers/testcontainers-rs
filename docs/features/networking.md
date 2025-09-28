@@ -1,6 +1,7 @@
 # Networking
 
 Testcontainers for Rust includes several helpers to connect containers with the outside world. This page covers two complementary workflows:
+
 - mapping container ports to the host so your test code can reach services inside the container;
 - exposing host ports inside a container so the container can call back into services running on your machine.
 
