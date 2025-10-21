@@ -50,7 +50,7 @@ fn sync_can_run_hello_world() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "http_wait")]
+#[cfg(feature = "http_wait_plain")]
 #[test]
 fn sync_wait_for_http() -> anyhow::Result<()> {
     use crate::core::wait::HttpWaitStrategy;

@@ -29,9 +29,6 @@ memchr = "2.7.2"
 parse-display = "0.9.0"
 pin-project-lite = "0.2.14"
 reqwest = { version = "0.12.5", features = [
-    "rustls-tls",
-    "rustls-tls-native-roots",
-    "hickory-dns",
     "json",
     "charset",
     "http2",
@@ -56,7 +53,8 @@ aws-lc-rs = ["bollard/aws-lc-rs"]
 ssl = ["bollard/ssl_providerless"]
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
-http_wait = ["reqwest"]
+http_wait = ["http_wait_plain", "reqwest/rustls-tls", "reqwest/rustls-tls-native-roots", "reqwest/hickory-dns"]
+http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
 device-requests = []
