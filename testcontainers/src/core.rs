@@ -7,7 +7,7 @@ pub use self::{
     copy::{CopyDataSource, CopyToContainer, CopyToContainerCollection, CopyToContainerError},
     healthcheck::Healthcheck,
     image::{ContainerState, ExecCommand, Image, ImageExt},
-    mounts::{AccessMode, Mount, MountType},
+    mounts::{AccessMode, Mount, MountTmpfsOptions, MountType},
     ports::{ContainerPort, IntoContainerPort},
     wait::{cmd_wait::CmdWaitFor, WaitFor},
 };
