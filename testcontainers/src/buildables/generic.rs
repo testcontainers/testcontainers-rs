@@ -24,7 +24,7 @@ use crate::{
 ///
 /// #[tokio::test]
 /// async fn test_hello() -> anyhow::Result<()> {
-///     let image = GenericBuildableImage::new("testcontainers/helloworld", "1.3.0")
+///     let image = GenericBuildableImage::new("hello-world", "my-tag")
 ///         .with_dockerfile_string(
 ///             r#"FROM alpine:latest
 ///             COPY hello.sh /usr/local/bin/
