@@ -323,3 +323,104 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
     assert_eq!(container.exit_code().await?, Some(0));
     Ok(())
 }
+
+#[tokio::test]
+async fn async_tmpfs_mount_with_size() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a container with tmpfs mount configured with size and mode
+    // This test verifies that containers can be created and run with tmpfs size configuration
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(
+            Mount::tmpfs_mount("/data")
+                .with_size("100m")
+                .with_mode(0o1777),
+        )
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'test data' > /data/test.txt && cat /data/test.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify we can write to and read from the tmpfs mount
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(
+        stdout.contains("test data"),
+        "Should be able to write to and read from tmpfs mount"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_without_size() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a container with basic tmpfs mount (no size configured)
+    // This verifies backward compatibility - tmpfs mounts work without explicit size
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(Mount::tmpfs_mount("/tmpdata"))
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'hello' > /tmpdata/file.txt && cat /tmpdata/file.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify tmpfs mount is functional
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(
+        stdout.contains("hello"),
+        "Basic tmpfs mount should work without explicit size"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_with_multiple_sizes() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Test that we can create multiple tmpfs mounts with different sizes
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(Mount::tmpfs_mount("/data1").with_size("50m"))
+        .with_mount(Mount::tmpfs_mount("/data2").with_size("100m"))
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'data1' > /data1/test.txt && echo 'data2' > /data2/test.txt && cat /data1/test.txt /data2/test.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify both tmpfs mounts are functional
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(stdout.contains("data1"), "First tmpfs mount should work");
+    assert!(stdout.contains("data2"), "Second tmpfs mount should work");
+
+    Ok(())
+}
