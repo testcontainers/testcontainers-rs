@@ -320,7 +320,7 @@ mod tests {
     "Cmd": [
       "/hello"
     ],
-    "Image": "hello-world",
+    "Image": "testcontainers/helloworld",
     "Volumes": null,
     "WorkingDir": "",
     "Entrypoint": null,

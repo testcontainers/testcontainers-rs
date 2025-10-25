@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn should_return_env_vars() {
-        let image = GenericImage::new("hello-world", "latest")
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_env_var("one-key", "one-value")
             .with_env_var("two-key", "two-value");
 

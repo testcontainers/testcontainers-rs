@@ -1,4 +1,4 @@
-//! A simple hello-world server.
+//! A simple testcontainers/helloworld server.
 use std::net::SocketAddr;
 
 use axum::{routing::get, Router};

@@ -608,7 +608,7 @@ mod tests {
             ("test-name", "async_containers_are_reused"),
         ];
 
-        let initial_image = GenericImage::new("testcontainers/helloworld", "1.2.0")
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(crate::ReuseDirective::CurrentSession)
             .with_labels(labels);
 
@@ -672,7 +672,7 @@ mod tests {
             ("test-name", "async_reused_containers_are_not_confused"),
         ];
 
-        let initial_image = GenericImage::new("testcontainers/helloworld", "1.2.0")
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(ReuseDirective::Always)
             .with_labels(labels);
 
@@ -732,7 +732,7 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let image = GenericImage::new("testcontainers/helloworld", "1.2.0")
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(ReuseDirective::Always)
             .with_labels([
                 ("foo", "bar"),
@@ -826,11 +826,11 @@ mod tests {
 
         impl Image for HelloWorld {
             fn name(&self) -> &str {
-                "hello-world"
+                "testcontainers/helloworld"
             }
 
             fn tag(&self) -> &str {
-                "latest"
+                "1.3.0"
             }
 
             fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -839,7 +839,7 @@ mod tests {
         }
 
         let container = HelloWorld {}
-            .with_ready_conditions(vec![WaitFor::message_on_stdout("Hello from Docker!")]);
+            .with_ready_conditions(vec![WaitFor::message_on_stdout("Starting server on port")]);
         let _ = container.start().await.unwrap();
     }
 }

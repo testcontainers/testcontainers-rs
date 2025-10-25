@@ -7,7 +7,7 @@ use bollard::{
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::{ExitWaitStrategy, LogWaitStrategy},
+        wait::LogWaitStrategy,
         CmdWaitFor, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
@@ -20,18 +20,15 @@ pub struct HelloWorld;
 
 impl Image for HelloWorld {
     fn name(&self) -> &str {
-        "hello-world"
+        "testcontainers/helloworld"
     }
 
     fn tag(&self) -> &str {
-        "latest"
+        "1.3.0"
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![
-            WaitFor::message_on_stdout("Hello from Docker!"),
-            WaitFor::exit(ExitWaitStrategy::new().with_exit_code(0)),
-        ]
+        vec![WaitFor::message_on_stdout("Starting server on port")]
     }
 }
 
@@ -67,7 +64,7 @@ async fn cleanup_hello_world_image() -> anyhow::Result<()> {
             .await?
             .into_iter()
             .flat_map(|image| image.repo_tags.into_iter())
-            .filter(|tag| tag.starts_with("hello-world"))
+            .filter(|tag| tag.starts_with("testcontainers/helloworld"))
             .map(|tag| async {
                 let tag_captured = tag;
                 docker
@@ -99,7 +96,8 @@ async fn explicit_call_to_pull_missing_image_hello_world() -> anyhow::Result<()>
 async fn start_containers_in_parallel() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
+    let image =
+        GenericImage::new("testcontainers/helloworld", "1.3.0").with_wait_for(WaitFor::seconds(2));
 
     // Make sure the image is already pulled, since otherwise pulling it may cause the deadline
     // below to be exceeded.
@@ -232,7 +230,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
     let _container = HelloWorld
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()) == "Hello from Docker!\n" {
+            if String::from_utf8_lossy(frame.bytes()).contains("Starting server on port") {
                 let _ = tx.send(());
             }
         })
