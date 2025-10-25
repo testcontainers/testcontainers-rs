@@ -1,7 +1,7 @@
-//! A simple testcontainers/helloworld server.
+//! A simple hello-world server.
 use std::net::SocketAddr;
 
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use tokio::signal;
 
 #[tokio::main]
