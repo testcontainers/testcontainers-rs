@@ -832,7 +832,8 @@ mod tests {
                     "/bin/sh",
                     "-c",
                     "echo 'exec_before_ready ran!' > /opt/hello",
-                ])])
+                ])
+                .with_cmd_ready_condition(CmdWaitFor::exit())])
             }
         }
 
