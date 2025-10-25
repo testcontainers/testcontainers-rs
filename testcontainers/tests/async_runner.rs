@@ -99,7 +99,8 @@ async fn explicit_call_to_pull_missing_image_hello_world() -> anyhow::Result<()>
 async fn start_containers_in_parallel() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
+    let image =
+        GenericImage::new("testcontainers/helloworld", "1.3.0").with_wait_for(WaitFor::seconds(2));
 
     // Make sure the image is already pulled, since otherwise pulling it may cause the deadline
     // below to be exceeded.
@@ -232,7 +233,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
     let _container = HelloWorld
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()) == "Hello from Docker!\n" {
+            if String::from_utf8_lossy(frame.bytes()).contains("Hello from Docker!") {
                 let _ = tx.send(());
             }
         })
