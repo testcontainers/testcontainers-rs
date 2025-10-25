@@ -27,6 +27,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) image_tag: Option<String>,
     pub(crate) container_name: Option<String>,
     pub(crate) network: Option<String>,
+    pub(crate) hostname: Option<String>,
     pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
@@ -217,6 +218,10 @@ impl<I: Image> ContainerRequest<I> {
         self.readonly_rootfs
     }
 
+    pub fn hostname(&self) -> Option<&str> {
+        self.hostname.as_deref()
+    }
+
     /// Returns the custom health check configuration for the container.
     pub fn health_check(&self) -> Option<&Healthcheck> {
         self.health_check.as_ref()
@@ -237,6 +242,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             image_tag: None,
             container_name: None,
             network: None,
+            hostname: None,
             labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
@@ -293,6 +299,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("image_tag", &self.image_tag)
             .field("container_name", &self.container_name)
             .field("network", &self.network)
+            .field("hostname", &self.hostname)
             .field("labels", &self.labels)
             .field("env_vars", &self.env_vars)
             .field("hosts", &self.hosts)

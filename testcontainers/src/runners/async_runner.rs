@@ -140,6 +140,7 @@ where
         let mut config = ContainerCreateBody {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
+            hostname: container_req.hostname().map(|h| h.to_string()),
             host_config: Some(HostConfig {
                 privileged: Some(container_req.privileged()),
                 extra_hosts: Some(extra_hosts),

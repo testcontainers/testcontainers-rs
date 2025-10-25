@@ -95,6 +95,9 @@ pub trait ImageExt<I: Image> {
     /// Adds a host to the container.
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I>;
 
+    /// Configures hostname for the container.
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I>;
+
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
@@ -316,6 +319,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.hosts.insert(key.into(), value.into());
+        container_req
+    }
+
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.hostname = Some(hostname.into());
         container_req
     }
 
