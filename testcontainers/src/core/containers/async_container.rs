@@ -798,6 +798,8 @@ mod tests {
     #[cfg(feature = "http_wait_plain")]
     #[tokio::test]
     async fn exec_before_ready_is_ran() {
+        use crate::core::CmdWaitFor;
+
         struct ExecBeforeReady {}
 
         impl Image for ExecBeforeReady {
@@ -837,7 +839,10 @@ mod tests {
         let container = ExecBeforeReady {};
         let container = container.start().await.unwrap();
         let mut exec_result = container
-            .exec(ExecCommand::new(vec!["cat", "/opt/hello"]))
+            .exec(
+                ExecCommand::new(vec!["cat", "/opt/hello"])
+                    .with_cmd_ready_condition(CmdWaitFor::exit()),
+            )
             .await
             .unwrap();
         let stdout = exec_result.stdout_to_vec().await.unwrap();
