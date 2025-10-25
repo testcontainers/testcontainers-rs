@@ -839,7 +839,7 @@ mod tests {
         }
 
         let container = HelloWorld {}
-            .with_ready_conditions(vec![WaitFor::message_on_stdout("Starting server on port")]);
+            .with_ready_conditions(vec![WaitFor::message_on_stdout("Ready, listening on")]);
         let _ = container.start().await.unwrap();
     }
 }

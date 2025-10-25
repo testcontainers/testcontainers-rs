@@ -147,7 +147,7 @@ mod tests {
         }
 
         fn ready_conditions(&self) -> Vec<WaitFor> {
-            vec![WaitFor::message_on_stdout("Starting server on port")]
+            vec![WaitFor::message_on_stdout("Ready, listening on")]
         }
 
         fn env_vars(
