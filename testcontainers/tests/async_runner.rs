@@ -28,7 +28,7 @@ impl Image for HelloWorld {
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Ready, listening on")]
+        vec![WaitFor::message_on_stderr("Ready, listening on")]
     }
 }
 

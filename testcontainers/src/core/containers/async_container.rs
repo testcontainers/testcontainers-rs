@@ -865,7 +865,7 @@ mod tests {
         }
 
         let container = HelloWorld {}
-            .with_ready_conditions(vec![WaitFor::message_on_stdout("Ready, listening on")]);
+            .with_ready_conditions(vec![WaitFor::message_on_stderr("Ready, listening on")]);
         let _ = container.start().await.unwrap();
     }
 }
