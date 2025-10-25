@@ -186,7 +186,7 @@ async fn async_run_exec() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "http_wait")]
+#[cfg(feature = "http_wait_plain")]
 #[tokio::test]
 async fn async_wait_for_http() -> anyhow::Result<()> {
     use reqwest::StatusCode;

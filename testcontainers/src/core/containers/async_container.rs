@@ -463,7 +463,7 @@ where
 mod tests {
     use tokio::io::AsyncBufReadExt;
 
-    #[cfg(feature = "http_wait")]
+    #[cfg(feature = "http_wait_plain")]
     use crate::core::{wait::HttpWaitStrategy, ContainerPort, ContainerState, ExecCommand};
     use crate::{
         core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
@@ -769,7 +769,7 @@ mod tests {
             .map_err(anyhow::Error::from)
     }
 
-    #[cfg(feature = "http_wait")]
+    #[cfg(feature = "http_wait_plain")]
     #[tokio::test]
     async fn exec_before_ready_is_ran() {
         struct ExecBeforeReady {}
