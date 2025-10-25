@@ -7,7 +7,7 @@ use bollard::{
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
-        wait::LogWaitStrategy,
+        wait::{ExitWaitStrategy, LogWaitStrategy},
         CmdWaitFor, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
@@ -20,15 +20,18 @@ pub struct HelloWorld;
 
 impl Image for HelloWorld {
     fn name(&self) -> &str {
-        "testcontainers/helloworld"
+        "hello-world"
     }
 
     fn tag(&self) -> &str {
-        "1.3.0"
+        "latest"
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stderr("Ready, listening on")]
+        vec![
+            WaitFor::message_on_stdout("Hello from Docker!"),
+            WaitFor::exit(ExitWaitStrategy::new().with_exit_code(0)),
+        ]
     }
 }
 
@@ -64,7 +67,7 @@ async fn cleanup_hello_world_image() -> anyhow::Result<()> {
             .await?
             .into_iter()
             .flat_map(|image| image.repo_tags.into_iter())
-            .filter(|tag| tag.starts_with("testcontainers/helloworld"))
+            .filter(|tag| tag.starts_with("hello-world"))
             .map(|tag| async {
                 let tag_captured = tag;
                 docker
@@ -230,7 +233,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
     let _container = HelloWorld
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()).contains("Starting server on port") {
+            if String::from_utf8_lossy(frame.bytes()).contains("Hello from Docker!") {
                 let _ = tx.send(());
             }
         })
