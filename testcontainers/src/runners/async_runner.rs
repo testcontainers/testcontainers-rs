@@ -366,6 +366,13 @@ impl From<&Mount> for bollard::models::Mount {
             source: mount.source().map(str::to_string),
             typ: Some(mount_type),
             read_only: Some(is_read_only),
+            tmpfs_options: mount
+                .tmpfs_options()
+                .map(|opts| bollard::models::MountTmpfsOptions {
+                    size_bytes: opts.size_bytes,
+                    mode: opts.mode,
+                    options: None,
+                }),
             ..Default::default()
         }
     }
