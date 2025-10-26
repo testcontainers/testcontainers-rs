@@ -19,7 +19,7 @@ fn get_server_image(msg: Option<WaitFor>) -> GenericImage {
             std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
             ".",
         )
-        .build_image_with(BuildImageOptions::new().with_skip_if_exists(true))
+        .build_image_with(BuildImageOptions::new())
         .unwrap();
 
     let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
