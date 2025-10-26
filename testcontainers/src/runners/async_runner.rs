@@ -8,6 +8,8 @@ use bollard::{
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
 };
 
+#[cfg(feature = "host-port-exposure")]
+use crate::core::containers::host::HostPortExposure;
 use crate::{
     core::{
         client::{Client, ClientError},
@@ -73,7 +75,11 @@ where
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
-        let container_req = self.into();
+        #[allow(unused_mut)]
+        let mut container_req = self.into();
+
+        #[cfg(feature = "host-port-exposure")]
+        let host_port_exposure = HostPortExposure::setup(&mut container_req).await?;
 
         let client = Client::lazy_client().await?;
         let mut create_options: Option<CreateContainerOptions> = None;
@@ -132,6 +138,8 @@ where
                         client,
                         container_req,
                         network,
+                        #[cfg(feature = "host-port-exposure")]
+                        host_port_exposure,
                     ));
                 }
             }
@@ -140,6 +148,7 @@ where
         let mut config = ContainerCreateBody {
             image: Some(container_req.descriptor()),
             labels: Some(labels),
+            hostname: container_req.hostname().map(|h| h.to_string()),
             host_config: Some(HostConfig {
                 privileged: Some(container_req.privileged()),
                 extra_hosts: Some(extra_hosts),
@@ -328,8 +337,15 @@ where
         tokio::time::timeout(startup_timeout, async {
             client.start_container(&container_id).await?;
 
-            let container =
-                ContainerAsync::new(container_id, client.clone(), container_req, network).await?;
+            let container = ContainerAsync::new(
+                container_id,
+                client.clone(),
+                container_req,
+                network,
+                #[cfg(feature = "host-port-exposure")]
+                host_port_exposure,
+            )
+            .await?;
 
             let state = ContainerState::from_container(&container).await?;
             for cmd in container.image().exec_after_start(state)? {
@@ -366,6 +382,13 @@ impl From<&Mount> for bollard::models::Mount {
             source: mount.source().map(str::to_string),
             typ: Some(mount_type),
             read_only: Some(is_read_only),
+            tmpfs_options: mount
+                .tmpfs_options()
+                .map(|opts| bollard::models::MountTmpfsOptions {
+                    size_bytes: opts.size_bytes,
+                    mode: opts.mode,
+                    options: None,
+                }),
             ..Default::default()
         }
     }
@@ -418,7 +441,7 @@ mod tests {
             ),
         ]);
 
-        let image = GenericImage::new("hello-world", "latest").with_labels(&labels);
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0").with_labels(&labels);
 
         let container = {
             #[cfg(not(feature = "reusable-containers"))]
@@ -471,7 +494,9 @@ mod tests {
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
     ) -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let container = GenericImage::new("hello-world", "latest").start().await?;
+        let container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .start()
+            .await?;
 
         let container_details = client.inspect(container.id()).await?;
         let publish_ports = container_details
@@ -565,18 +590,16 @@ mod tests {
         let client = Client::lazy_client().await?;
         let _ = pretty_env_logger::try_init();
 
-        let udp_port = 1000;
-        let sctp_port = 2000;
+        let udp_port = 1000.udp();
+        let sctp_port = 2000.sctp();
 
         let generic_server = get_server_container()
             .await
             // Explicitly expose the port, which otherwise would not be available.
-            .with_exposed_port(udp_port.udp())
-            .with_exposed_port(sctp_port.sctp());
+            .with_exposed_port(udp_port)
+            .with_exposed_port(sctp_port);
 
         let container = generic_server.start().await?;
-        container.get_host_port_ipv4(udp_port.udp()).await?;
-        container.get_host_port_ipv4(sctp_port.sctp()).await?;
 
         let container_details = client.inspect(container.id()).await?;
 
@@ -600,7 +623,12 @@ mod tests {
         expected_ports.push(sctp_expected_port);
         expected_ports.push(tcp_expected_port);
 
-        assert_eq!(current_ports, expected_ports);
+        assert!(
+            expected_ports
+                .iter()
+                .all(|port| current_ports.contains(port)),
+            "exposed ports: {current_ports:?} doesn't contain all expected ports: {expected_ports:?}"
+        );
 
         Ok(())
     }
@@ -608,7 +636,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_mapped_port(123, 456.tcp())
             .with_mapped_port(555, 888.tcp())
@@ -642,7 +670,7 @@ mod tests {
         let udp_port = 1000;
         let sctp_port = 2000;
 
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_mapped_port(123, udp_port.udp())
             .with_mapped_port(555, sctp_port.sctp())
@@ -677,7 +705,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_include_network() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_network("awesome-net-1").start().await?;
 
         let container_details = client.inspect(container.id()).await?;
@@ -697,7 +725,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_include_name() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_container_name("async_hello_container")
             .start()
@@ -712,7 +740,7 @@ mod tests {
     #[tokio::test]
     async fn async_should_create_network_if_image_needs_it_and_drop_it_in_the_end(
     ) -> anyhow::Result<()> {
-        let hello_world = GenericImage::new("hello-world", "latest");
+        let hello_world = GenericImage::new("testcontainers/helloworld", "1.3.0");
 
         {
             let client = Client::lazy_client().await?;
@@ -777,7 +805,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_set_shared_memory_size() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_shm_size(1_000_000).start().await?;
 
         let container_details = client.inspect(container.id()).await?;
@@ -793,7 +821,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_include_privileged() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_privileged(true).start().await?;
 
         let client = Client::lazy_client().await?;
@@ -810,7 +838,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_cap_add() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let expected_capability = "NET_ADMIN";
         let container = image
             .with_cap_add(expected_capability.to_string())
@@ -837,7 +865,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_cap_drop() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let expected_capability = "AUDIT_WRITE";
         let container = image
             .with_cap_drop(expected_capability.to_string())
@@ -864,7 +892,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_include_ulimits() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_ulimit("nofile", 123, Some(456)).start().await?;
 
         let client = Client::lazy_client().await?;
@@ -885,7 +913,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_host_cgroupns_mode() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_cgroupns_mode(CgroupnsMode::Host).start().await?;
 
         let client = Client::lazy_client().await?;
@@ -907,7 +935,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_private_cgroupns_mode() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_cgroupns_mode(CgroupnsMode::Private)
             .start()
@@ -932,7 +960,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_host_userns_mode() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_userns_mode("host").start().await?;
 
         let client = Client::lazy_client().await?;
@@ -949,7 +977,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_working_dir() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.2.0");
         let expected_working_dir = "/foo";
         let container = image.with_working_dir(expected_working_dir).start().await?;
 

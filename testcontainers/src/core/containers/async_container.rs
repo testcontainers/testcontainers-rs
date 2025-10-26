@@ -3,6 +3,8 @@ use std::{fmt, net::IpAddr, pin::Pin, str::FromStr, sync::Arc, time::Duration};
 use tokio::io::{AsyncBufRead, AsyncReadExt};
 use tokio_stream::StreamExt;
 
+#[cfg(feature = "host-port-exposure")]
+use super::host::HostPortExposure;
 use crate::{
     core::{
         async_drop,
@@ -42,6 +44,8 @@ pub struct ContainerAsync<I: Image> {
     #[allow(dead_code)]
     network: Option<Arc<Network>>,
     dropped: bool,
+    #[cfg(feature = "host-port-exposure")]
+    host_port_exposure: Option<HostPortExposure>,
     #[cfg(feature = "reusable-containers")]
     reuse: crate::ReuseDirective,
 }
@@ -57,9 +61,17 @@ where
         docker_client: Arc<Client>,
         container_req: ContainerRequest<I>,
         network: Option<Arc<Network>>,
+        #[cfg(feature = "host-port-exposure")] host_port_exposure: Option<HostPortExposure>,
     ) -> Result<ContainerAsync<I>> {
         let ready_conditions = container_req.ready_conditions();
-        let container = Self::construct(id, docker_client, container_req, network);
+        let container = Self::construct(
+            id,
+            docker_client,
+            container_req,
+            network,
+            #[cfg(feature = "host-port-exposure")]
+            host_port_exposure,
+        );
         let state = ContainerState::from_container(&container).await?;
         for cmd in container.image().exec_before_ready(state)? {
             container.exec(cmd).await?;
@@ -73,6 +85,7 @@ where
         docker_client: Arc<Client>,
         mut container_req: ContainerRequest<I>,
         network: Option<Arc<Network>>,
+        #[cfg(feature = "host-port-exposure")] host_port_exposure: Option<HostPortExposure>,
     ) -> ContainerAsync<I> {
         #[cfg(feature = "reusable-containers")]
         let reuse = container_req.reuse();
@@ -84,6 +97,8 @@ where
             docker_client,
             network,
             dropped: false,
+            #[cfg(feature = "host-port-exposure")]
+            host_port_exposure,
             #[cfg(feature = "reusable-containers")]
             reuse,
         };
@@ -409,6 +424,12 @@ where
             .field("network", &self.network)
             .field("dropped", &self.dropped);
 
+        #[cfg(feature = "host-port-exposure")]
+        repr.field(
+            "host_port_exposure",
+            &self.host_port_exposure.as_ref().map(|_| true),
+        );
+
         #[cfg(feature = "reusable-containers")]
         repr.field("reuse", &self.reuse);
 
@@ -430,6 +451,11 @@ where
 
                 return;
             }
+        }
+
+        #[cfg(feature = "host-port-exposure")]
+        if let Some(mut exposure) = self.host_port_exposure.take() {
+            exposure.shutdown();
         }
 
         if !self.dropped {
@@ -463,7 +489,7 @@ where
 mod tests {
     use tokio::io::AsyncBufReadExt;
 
-    #[cfg(feature = "http_wait")]
+    #[cfg(feature = "http_wait_plain")]
     use crate::core::{wait::HttpWaitStrategy, ContainerPort, ContainerState, ExecCommand};
     use crate::{
         core::WaitFor, images::generic::GenericImage, runners::AsyncRunner, Image, ImageExt,
@@ -516,7 +542,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_logs_are_accessible() -> anyhow::Result<()> {
-        let image = GenericImage::new("testcontainers/helloworld", "1.2.0");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.start().await?;
 
         let stderr = container.stderr(true);
@@ -608,7 +634,7 @@ mod tests {
             ("test-name", "async_containers_are_reused"),
         ];
 
-        let initial_image = GenericImage::new("testcontainers/helloworld", "1.2.0")
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(crate::ReuseDirective::CurrentSession)
             .with_labels(labels);
 
@@ -672,7 +698,7 @@ mod tests {
             ("test-name", "async_reused_containers_are_not_confused"),
         ];
 
-        let initial_image = GenericImage::new("testcontainers/helloworld", "1.2.0")
+        let initial_image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(ReuseDirective::Always)
             .with_labels(labels);
 
@@ -732,7 +758,7 @@ mod tests {
 
         let client = crate::core::client::docker_client_instance().await?;
 
-        let image = GenericImage::new("testcontainers/helloworld", "1.2.0")
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(ReuseDirective::Always)
             .with_labels([
                 ("foo", "bar"),
@@ -769,9 +795,11 @@ mod tests {
             .map_err(anyhow::Error::from)
     }
 
-    #[cfg(feature = "http_wait")]
+    #[cfg(feature = "http_wait_plain")]
     #[tokio::test]
     async fn exec_before_ready_is_ran() {
+        use crate::core::CmdWaitFor;
+
         struct ExecBeforeReady {}
 
         impl Image for ExecBeforeReady {
@@ -804,14 +832,18 @@ mod tests {
                     "/bin/sh",
                     "-c",
                     "echo 'exec_before_ready ran!' > /opt/hello",
-                ])])
+                ])
+                .with_cmd_ready_condition(CmdWaitFor::exit())])
             }
         }
 
         let container = ExecBeforeReady {};
         let container = container.start().await.unwrap();
         let mut exec_result = container
-            .exec(ExecCommand::new(vec!["cat", "/opt/hello"]))
+            .exec(
+                ExecCommand::new(vec!["cat", "/opt/hello"])
+                    .with_cmd_ready_condition(CmdWaitFor::exit()),
+            )
             .await
             .unwrap();
         let stdout = exec_result.stdout_to_vec().await.unwrap();
@@ -826,11 +858,11 @@ mod tests {
 
         impl Image for HelloWorld {
             fn name(&self) -> &str {
-                "hello-world"
+                "testcontainers/helloworld"
             }
 
             fn tag(&self) -> &str {
-                "latest"
+                "1.3.0"
             }
 
             fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -839,7 +871,7 @@ mod tests {
         }
 
         let container = HelloWorld {}
-            .with_ready_conditions(vec![WaitFor::message_on_stdout("Hello from Docker!")]);
+            .with_ready_conditions(vec![WaitFor::message_on_stderr("Ready, listening on")]);
         let _ = container.start().await.unwrap();
     }
 }

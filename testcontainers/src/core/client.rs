@@ -122,8 +122,11 @@ pub(crate) struct Client {
 impl Client {
     async fn new() -> Result<Client, ClientError> {
         let config = env::Config::load::<env::Os>().await?;
-        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
+        Self::new_with_config(config)
+    }
 
+    pub(crate) fn new_with_config(config: env::Config) -> Result<Client, ClientError> {
+        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
         Ok(Client { config, bollard })
     }
 
@@ -679,6 +682,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bollard::query_parameters::RemoveImageOptions;
+
     use super::*;
 
     #[derive(Debug)]
@@ -706,23 +711,44 @@ mod tests {
     }
 
     #[tokio::test]
+    // Tehcnically the test is racy if we would want to use image in other tests, but we don't use
+    // it usually, so no serial-tests or anything like that is used
     async fn test_client_pull_image_with_platform() -> anyhow::Result<()> {
-        let config = env::Config::load::<OsEnvWithPlatformLinuxAmd64>().await?;
-        let mut client = Client::new().await?;
-        client.config = config;
-        client.pull_image("hello-world:latest").await?;
+        const IMAGE: &str = "hello-world:linux";
 
-        let image = client.bollard.inspect_image("hello-world:latest").await?;
+        let config = env::Config::load::<OsEnvWithPlatformLinuxAmd64>().await?;
+        println!("Config platform: {:?}", config.platform());
+        let client = Client::new_with_config(config)?;
+
+        // remove image if exists (it may already have another platform variant)
+        let credentials = client.credentials_for_image(IMAGE).await;
+        let _ = client
+            .bollard
+            .remove_image(
+                IMAGE,
+                Option::<RemoveImageOptions>::None,
+                credentials.clone(),
+            )
+            .await;
+
+        client.pull_image(IMAGE).await?;
+
+        let image = client.bollard.inspect_image(IMAGE).await?;
 
         assert_eq!(Some("linux".to_string()), image.os);
         assert_eq!(Some("amd64".to_string()), image.architecture);
 
         let config = env::Config::load::<OsEnvWithPlatformLinux386>().await?;
-        let mut client = Client::new().await?;
-        client.config = config;
-        client.pull_image("hello-world:latest").await?;
+        let client = Client::new_with_config(config)?;
 
-        let image = client.bollard.inspect_image("hello-world:latest").await?;
+        client
+            .bollard
+            .remove_image(IMAGE, Option::<RemoveImageOptions>::None, credentials)
+            .await?;
+
+        client.pull_image(IMAGE).await?;
+
+        let image = client.bollard.inspect_image(IMAGE).await?;
 
         assert_eq!(Some("linux".to_string()), image.os);
         assert_eq!(Some("386".to_string()), image.architecture);
