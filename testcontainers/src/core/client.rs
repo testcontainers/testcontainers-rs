@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     io::{self},
     str::FromStr,
+    sync::Arc,
 };
 
 use bollard::{
@@ -24,7 +25,7 @@ use bollard::{
     Docker,
 };
 use futures::{StreamExt, TryStreamExt};
-use tokio::sync::OnceCell;
+use tokio::sync::{Mutex, OnceCell};
 use url::Url;
 
 use crate::core::{
@@ -45,6 +46,20 @@ mod factory;
 pub use factory::docker_client_instance;
 
 static IN_A_CONTAINER: OnceCell<bool> = OnceCell::const_new();
+
+type BuildLockMap = Mutex<HashMap<String, Arc<Mutex<()>>>>;
+static BUILD_LOCKS: OnceCell<BuildLockMap> = OnceCell::const_new();
+
+async fn get_build_lock(descriptor: &str) -> Arc<Mutex<()>> {
+    let locks = BUILD_LOCKS
+        .get_or_init(|| async { Mutex::new(HashMap::new()) })
+        .await;
+
+    let mut map = locks.lock().await;
+    map.entry(descriptor.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
 
 // See https://github.com/docker/docker/blob/a9fa38b1edf30b23cae3eade0be48b3d4b1de14b/daemon/initlayer/setup_unix.go#L25
 // and Java impl: https://github.com/testcontainers/testcontainers-java/blob/994b385761dde7d832ab7b6c10bc62747fe4b340/core/src/main/java/org/testcontainers/dockerclient/DockerClientConfigUtils.java#L16C5-L17
@@ -407,6 +422,44 @@ impl Client {
         &self,
         descriptor: &str,
         build_context: &CopyToContainerCollection,
+        options: crate::core::build::build_options::BuildImageOptions,
+    ) -> Result<(), ClientError> {
+        if options.skip_if_exists {
+            let lock = get_build_lock(descriptor).await;
+            let _guard = lock.lock().await;
+
+            match self.bollard.inspect_image(descriptor).await {
+                Ok(_) => {
+                    log::info!("Image '{}' already exists, skipping build", descriptor);
+                    return Ok(());
+                }
+                Err(BollardError::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {
+                    log::info!("Image '{}' not found, proceeding with build", descriptor);
+                }
+                Err(err) => {
+                    log::warn!(
+                        "Failed to inspect image '{}': {:?}, proceeding with build",
+                        descriptor,
+                        err
+                    );
+                }
+            }
+
+            self.build_image_impl(descriptor, build_context, options)
+                .await
+        } else {
+            self.build_image_impl(descriptor, build_context, options)
+                .await
+        }
+    }
+
+    async fn build_image_impl(
+        &self,
+        descriptor: &str,
+        build_context: &CopyToContainerCollection,
+        options: crate::core::build::build_options::BuildImageOptions,
     ) -> Result<(), ClientError> {
         let tar = build_context
             .tar()
@@ -415,20 +468,25 @@ impl Client {
 
         let session = ulid::Ulid::new().to_string();
 
-        let options = BuildImageOptionsBuilder::new()
+        let mut builder = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
             .t(descriptor)
             .rm(true)
-            .nocache(false)
+            .nocache(options.no_cache)
             .version(BuilderVersion::BuilderBuildKit)
-            .session(&session)
-            .build();
+            .session(&session);
+
+        if !options.build_args.is_empty() {
+            builder = builder.buildargs(&options.build_args);
+        }
+
+        let build_options = builder.build();
 
         let credentials = None;
 
-        let mut building = self
-            .bollard
-            .build_image(options, credentials, Some(body_full(tar)));
+        let mut building =
+            self.bollard
+                .build_image(build_options, credentials, Some(body_full(tar)));
 
         while let Some(result) = building.next().await {
             match result {
