@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.0] - 2025-10-27
+### Details
+#### Features
+- Platform config passing through ImageExt trait ([#838](https://github.com/testcontainers/testcontainers-rs/pull/838))
+
+#### Miscellaneous Tasks
+- Remove usage of reqwest hickory dns feature ([#860](https://github.com/testcontainers/testcontainers-rs/pull/860))
+- Drop weak dependencies due to cargo bug ([#862](https://github.com/testcontainers/testcontainers-rs/pull/862))
+
 ## [0.25.1] - 2025-10-27
 ### Details
 #### Bug Fixes
