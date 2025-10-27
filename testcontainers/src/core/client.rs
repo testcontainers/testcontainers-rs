@@ -739,7 +739,7 @@ mod tests {
             )
             .await;
 
-        client.pull_image(IMAGE).await?;
+        client.pull_image(IMAGE, None).await?;
 
         let image = client.bollard.inspect_image(IMAGE).await?;
 
@@ -754,7 +754,7 @@ mod tests {
             .remove_image(IMAGE, Option::<RemoveImageOptions>::None, credentials)
             .await?;
 
-        client.pull_image(IMAGE).await?;
+        client.pull_image(IMAGE, None).await?;
 
         let image = client.bollard.inspect_image(IMAGE).await?;
 
