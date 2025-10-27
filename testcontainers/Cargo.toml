@@ -59,7 +59,7 @@ http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
 device-requests = []
-host-port-exposure = ["dep:russh"]
+host-port-exposure = ["russh"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
