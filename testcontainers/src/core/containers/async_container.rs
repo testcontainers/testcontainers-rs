@@ -147,7 +147,9 @@ where
                 .unwrap_or("'system default'".into())
         );
 
-        self.docker_client().stop(self.id(), timeout_seconds).await?;
+        self.docker_client()
+            .stop(self.id(), timeout_seconds)
+            .await?;
         Ok(())
     }
 
