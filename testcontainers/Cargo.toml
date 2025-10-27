@@ -59,7 +59,7 @@ http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
 device-requests = []
-host-port-exposure = ["dep:russh"]
+host-port-exposure = ["dep:russh", "russh/ring"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
@@ -67,7 +67,6 @@ pretty_env_logger = "0.5"
 reqwest = { version = "0.12.4", features = [
     "blocking",
 ], default-features = false }
-russh = { version = "0.54.4", default-features = false, features = ["ring"] }
 temp-dir = "0.1"
 tempfile = "3.20"
 tokio = { version = "1", features = ["macros"] }
