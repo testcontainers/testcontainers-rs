@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.26.0] - 2025-10-27
+## [0.25.2] - 2025-10-27
 ### Details
 #### Features
 - Platform config passing through ImageExt trait ([#838](https://github.com/testcontainers/testcontainers-rs/pull/838))
