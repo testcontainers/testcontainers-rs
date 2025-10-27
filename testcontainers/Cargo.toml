@@ -49,8 +49,8 @@ url = { version = "2", features = ["serde"] }
 
 [features]
 default = ["ring"]
-ring = ["bollard/ssl", "russh?/ring"]
-aws-lc-rs = ["bollard/aws-lc-rs", "russh?/aws-lc-rs"]
+ring = ["bollard/ssl"]
+aws-lc-rs = ["bollard/aws-lc-rs"]
 ssl = ["bollard/ssl_providerless"]
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
@@ -59,7 +59,7 @@ http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
 device-requests = []
-host-port-exposure = ["dep:russh"]
+host-port-exposure = ["dep:russh", "russh/ring"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
