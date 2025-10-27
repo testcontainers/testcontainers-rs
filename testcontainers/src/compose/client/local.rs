@@ -59,7 +59,10 @@ impl ComposeInterface for LocalComposeCli {
             cmd.env(key, value);
         }
 
-        let output = cmd.output().await.map_err(|e| ComposeError::Testcontainers(e.into()))?;
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| ComposeError::Testcontainers(e.into()))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -92,7 +95,10 @@ impl ComposeInterface for LocalComposeCli {
             cmd.arg("--rmi");
         }
 
-        let output = cmd.output().await.map_err(|e| ComposeError::Testcontainers(e.into()))?;
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| ComposeError::Testcontainers(e.into()))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
