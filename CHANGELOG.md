@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.0] - 2025-10-27
+### Details
+#### Bug Fixes
+- Replace tokio-tar with astral-tokio-tar ([#852](https://github.com/testcontainers/testcontainers-rs/pull/852))
+
+#### Documentation
+- Rustdoc for builder API ([#820](https://github.com/testcontainers/testcontainers-rs/pull/820))
+
+#### Features
+- Use DOCKER_DEFAULT_PLATFORM env var to specify platform ([#800](https://github.com/testcontainers/testcontainers-rs/pull/800))
+- Fallback to platform linux/amd64 when image pull fails ([#837](https://github.com/testcontainers/testcontainers-rs/pull/837))
+- Add support for devices request ([#832](https://github.com/testcontainers/testcontainers-rs/pull/832))
+- Add configurable tmpfs mount sizes ([#853](https://github.com/testcontainers/testcontainers-rs/pull/853))
+- Support `http_wait` functionallity without tls dependencies ([#850](https://github.com/testcontainers/testcontainers-rs/pull/850))
+- Add container hostname support ([#848](https://github.com/testcontainers/testcontainers-rs/pull/848))
+- Expose host ports between host and containers via ssh sidecar ([#846](https://github.com/testcontainers/testcontainers-rs/pull/846))
+
+#### Miscellaneous Tasks
+- Update bollard-stubs requirement from =1.48.3-rc.28.0.4 to =1.49.0-rc.28.3.3 ([#828](https://github.com/testcontainers/testcontainers-rs/pull/828))
+
+#### Refactor
+- Remove bollard_stubs dependency as bollard re-exports it ([#844](https://github.com/testcontainers/testcontainers-rs/pull/844))
+
+#### Testing
+- Avoid flakiness in `platform` test
+- Switch to testcontainers/helloworld and reduce some flakiness ([#855](https://github.com/testcontainers/testcontainers-rs/pull/855))
+
 ## [0.25.0] - 2025-07-27
 ### Details
 #### Bug Fixes
