@@ -296,9 +296,12 @@ mod test {
             .with_ready_conditions(vec![WaitFor::healthcheck()])
             .start()?;
 
-        let inspect_info = container
-            .rt()
-            .block_on(container.async_impl().docker_client.inspect(container.id()))?;
+        let inspect_info = container.rt().block_on(
+            container
+                .async_impl()
+                .docker_client()
+                .inspect(container.id()),
+        )?;
 
         assert!(inspect_info.config.is_some());
         let config = inspect_info
