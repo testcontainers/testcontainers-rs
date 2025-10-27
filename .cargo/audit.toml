@@ -1,0 +1,9 @@
+[advisories]
+ignore = [
+  # This advisory comes from `russh -> rsa` which is optional dependency
+  "RUSTSEC-2023-0071",
+]
+
+[output]
+deny = ["warnings"]
+quiet = false

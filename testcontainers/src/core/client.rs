@@ -531,10 +531,18 @@ impl Client {
         Ok(())
     }
 
-    pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
+    pub(crate) async fn pull_image(
+        &self,
+        descriptor: &str,
+        platform: Option<String>,
+    ) -> Result<(), ClientError> {
         let pull_options = CreateImageOptionsBuilder::new()
             .from_image(descriptor)
-            .platform(self.config.platform().unwrap_or_default())
+            .platform(
+                platform
+                    .as_deref()
+                    .unwrap_or_else(|| self.config.platform().unwrap_or_default()),
+            )
             .build();
 
         let credentials = self.credentials_for_image(descriptor).await;
@@ -548,7 +556,7 @@ impl Client {
                 Err(BollardError::DockerResponseServerError {
                     status_code: _,
                     message: _,
-                }) => {
+                }) if !matches!(platform.as_deref(), Some("linux/amd64")) => {
                     self.pull_image_linux_amd64(descriptor).await?;
                 }
                 _ => {
@@ -812,7 +820,7 @@ mod tests {
             )
             .await;
 
-        client.pull_image(IMAGE).await?;
+        client.pull_image(IMAGE, None).await?;
 
         let image = client.bollard.inspect_image(IMAGE).await?;
 
@@ -827,7 +835,7 @@ mod tests {
             .remove_image(IMAGE, Option::<RemoveImageOptions>::None, credentials)
             .await?;
 
-        client.pull_image(IMAGE).await?;
+        client.pull_image(IMAGE, None).await?;
 
         let image = client.bollard.inspect_image(IMAGE).await?;
 
