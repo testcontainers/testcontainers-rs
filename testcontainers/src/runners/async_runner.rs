@@ -187,13 +187,27 @@ where
             None
         };
 
+        let mut options_builder: Option<CreateContainerOptionsBuilder> = None;
+
         // name of the container
         if let Some(name) = container_req.container_name() {
-            let options = CreateContainerOptionsBuilder::new()
-                .name(name)
-                .platform(client.config.platform().unwrap_or_default())
-                .build();
-            create_options = Some(options)
+            let options = CreateContainerOptionsBuilder::new().name(name);
+
+            options_builder = Some(options);
+        }
+
+        // platform of the container
+        if let Some(platform) = container_req.platform() {
+            let options = options_builder.unwrap_or(CreateContainerOptionsBuilder::new());
+            options_builder = Some(options.platform(platform));
+        } else {
+            // set platform from global platform setting if available
+            let options = options_builder.unwrap_or(CreateContainerOptionsBuilder::new());
+            options_builder = Some(options.platform(client.config.platform().unwrap_or_default()));
+        }
+
+        if let Some(options) = options_builder {
+            create_options = Some(options.build());
         }
 
         // handle environment variables
@@ -311,7 +325,12 @@ where
                     status_code: 404, ..
                 },
             )) => {
-                client.pull_image(&container_req.descriptor()).await?;
+                client
+                    .pull_image(
+                        &container_req.descriptor(),
+                        container_req.platform().clone(),
+                    )
+                    .await?;
                 client.create_container(create_options, config).await
             }
             res => res,
@@ -361,7 +380,12 @@ where
     async fn pull_image(self) -> Result<ContainerRequest<I>> {
         let container_req = self.into();
         let client = Client::lazy_client().await?;
-        client.pull_image(&container_req.descriptor()).await?;
+        client
+            .pull_image(
+                &container_req.descriptor(),
+                container_req.platform().clone(),
+            )
+            .await?;
 
         Ok(container_req)
     }
