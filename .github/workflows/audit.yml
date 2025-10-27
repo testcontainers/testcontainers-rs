@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Generate Cargo.lock if doesn't exist
+        run: |
+          if [ ! -f Cargo.lock ]; then
+            cargo generate-lockfile
+          fi
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
