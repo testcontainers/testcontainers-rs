@@ -106,6 +106,10 @@ pub use buildables::generic::GenericBuildableImage;
 mod images;
 pub use images::generic::GenericImage;
 
+#[cfg(feature = "docker-compose")]
+#[cfg_attr(docsrs, doc(cfg(feature = "docker-compose")))]
+pub mod compose;
+
 pub mod runners;
 
 /// Re-export of the `bollard` crate to allow direct interaction with the Docker API.
