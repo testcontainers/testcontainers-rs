@@ -158,11 +158,12 @@ let image = GenericBuildableImage::new("my-app", "latest")
 
 ## Synchronous API
 
-For non-async tests, use the [`SyncRunner`](https://docs.rs/testcontainers/latest/testcontainers/runners/trait.SyncRunner.html) trait (requires the `blocking` feature):
+For non-async tests, use the [`SyncBuilder`](https://docs.rs/testcontainers/latest/testcontainers/runners/trait.SyncBuilder.html) trait to build images and [`SyncRunner`](https://docs.rs/testcontainers/latest/testcontainers/runners/trait.SyncRunner.html) to run containers (requires the `blocking` feature):
 
 ```rust
 use testcontainers::{
-    runners::SyncRunner,
+    core::BuildImageOptions,
+    runners::{SyncBuilder, SyncRunner},
     GenericBuildableImage,
 };
 
@@ -171,6 +172,20 @@ fn test_sync_build() -> Result<(), Box<dyn std::error::Error>> {
     let image = GenericBuildableImage::new("my-app", "latest")
         .with_dockerfile_string("FROM alpine:latest")
         .build_image()?;
+
+    let container = image.start()?;
+    Ok(())
+}
+
+#[test]
+fn test_sync_build_with_options() -> Result<(), Box<dyn std::error::Error>> {
+    let image = GenericBuildableImage::new("my-app", "latest")
+        .with_dockerfile_string("FROM alpine:latest\nARG VERSION")
+        .build_image_with(
+            BuildImageOptions::new()
+                .with_skip_if_exists(true)
+                .with_build_arg("VERSION", "1.0.0")
+        )?;
 
     let container = image.start()?;
     Ok(())
