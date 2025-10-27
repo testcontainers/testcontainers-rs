@@ -68,6 +68,20 @@ pub trait ImageExt<I: Image> {
     /// Sets the container name.
     fn with_container_name(self, name: impl Into<String>) -> ContainerRequest<I>;
 
+    /// Sets the platform the container will be run on.
+    ///
+    /// Platform in the format `os[/arch[/variant]]` used for image lookup.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag")
+    ///     .with_platform("linux/amd64");
+    /// ```
+    fn with_platform(self, platform: impl Into<String>) -> ContainerRequest<I>;
+
     /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I>;
 
@@ -279,6 +293,15 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
 
         ContainerRequest {
             container_name: Some(name.into()),
+            ..container_req
+        }
+    }
+
+    fn with_platform(self, platform: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+
+        ContainerRequest {
+            platform: Some(platform.into()),
             ..container_req
         }
     }
