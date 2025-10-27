@@ -41,7 +41,7 @@ impl ComposeInterface for LocalComposeCli {
             cmd.arg("-f").arg(compose_file);
         }
 
-        cmd.arg("up");
+        cmd.arg("up").arg("-d");
 
         if command.build {
             cmd.arg("--build");
@@ -59,9 +59,20 @@ impl ComposeInterface for LocalComposeCli {
             cmd.env(key, value);
         }
 
-        cmd.output()
-            .await
-            .map_err(|e| ComposeError::Testcontainers(e.into()))?;
+        let output = cmd.output().await.map_err(|e| ComposeError::Testcontainers(e.into()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            log::error!("docker compose up failed: {}", stderr);
+            log::debug!("stdout: {}", stdout);
+            return Err(ComposeError::Testcontainers(
+                crate::TestcontainersError::other(format!(
+                    "docker compose up exited with status {}: {}",
+                    output.status, stderr
+                )),
+            ));
+        }
 
         Ok(())
     }
@@ -81,9 +92,18 @@ impl ComposeInterface for LocalComposeCli {
             cmd.arg("--rmi");
         }
 
-        cmd.output()
-            .await
-            .map_err(|e| ComposeError::Testcontainers(e.into()))?;
+        let output = cmd.output().await.map_err(|e| ComposeError::Testcontainers(e.into()))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            log::error!("docker compose down failed: {}", stderr);
+            return Err(ComposeError::Testcontainers(
+                crate::TestcontainersError::other(format!(
+                    "docker compose down exited with status {}: {}",
+                    output.status, stderr
+                )),
+            ));
+        }
 
         Ok(())
     }

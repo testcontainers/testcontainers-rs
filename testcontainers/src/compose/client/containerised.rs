@@ -65,6 +65,7 @@ impl ComposeInterface for ContainerisedComposeCli {
         }
 
         cmd_parts.push("up".to_string());
+        cmd_parts.push("-d".to_string());
 
         if command.build {
             cmd_parts.push("--build".to_string());
@@ -79,7 +80,7 @@ impl ComposeInterface for ContainerisedComposeCli {
         cmd_parts.push("--wait-timeout".to_string());
         cmd_parts.push(command.wait_timeout.as_secs().to_string());
 
-        let exec = ExecCommand::new(cmd_parts);
+        let exec = ExecCommand::new(cmd_parts).with_cmd_ready_condition(CmdWaitFor::exit_code(0));
         self.container.exec(exec).await?;
 
         Ok(())
