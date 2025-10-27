@@ -8,7 +8,7 @@ use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::{ExitWaitStrategy, LogWaitStrategy},
-        CmdWaitFor, ExecCommand, WaitFor,
+        BuildImageOptions, CmdWaitFor, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
     GenericBuildableImage, GenericImage, Image, ImageExt,
@@ -35,14 +35,14 @@ impl Image for HelloWorld {
     }
 }
 
-async fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
+async fn get_server_image(msg: Option<WaitFor>) -> GenericImage {
     let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
         // "Dockerfile" is included already, so adding the build context directory is all what is needed
         .with_file(
             std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
             ".",
         )
-        .build_image()
+        .build_image_with(BuildImageOptions::new())
         .await
         .unwrap();
 
@@ -125,7 +125,7 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
 async fn async_run_exec() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = get_server_container(Some(WaitFor::message_on_stderr(
+    let image = get_server_image(Some(WaitFor::message_on_stderr(
         "server will be listening to",
     )))
     .await
@@ -198,7 +198,7 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
     let waitfor_http_status =
         WaitFor::http(HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK));
 
-    let image = get_server_container(Some(waitfor_http_status))
+    let image = get_server_image(Some(waitfor_http_status))
         .await
         .with_exposed_port(80.tcp());
     let _container = image.start().await?;
@@ -209,7 +209,7 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
 async fn async_run_exec_fails_due_to_unexpected_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = get_server_container(None)
+    let image = get_server_image(None)
         .await
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
@@ -315,7 +315,7 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     // Container that should run until manually quit
-    let container = get_server_container(None).await.start().await?;
+    let container = get_server_image(None).await.start().await?;
 
     assert_eq!(container.exit_code().await?, None);
 

@@ -88,7 +88,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        core::{client::Client, mounts::Mount, IntoContainerPort, WaitFor},
+        core::{client::Client, mounts::Mount, BuildImageOptions, IntoContainerPort, WaitFor},
         images::generic::GenericImage,
         runners::SyncBuilder,
         GenericBuildableImage, ImageExt,
@@ -119,14 +119,14 @@ mod tests {
         runtime().block_on(client.network_exists(name)).unwrap()
     }
 
-    fn get_server_container() -> GenericImage {
+    fn get_server_image() -> GenericImage {
         let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
             // "Dockerfile" is included already, so adding the build context directory is all what is needed
             .with_file(
                 std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
                 ".",
             )
-            .build_image()
+            .build_image_with(BuildImageOptions::new())
             .unwrap();
         generic_image.with_wait_for(WaitFor::message_on_stdout("server is ready"))
     }
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_map_exposed_port() -> anyhow::Result<()> {
-        let image = get_server_container()
+        let image = get_server_image()
             .with_exposed_port(5000.tcp())
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start()?;
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn sync_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty(
     ) -> anyhow::Result<()> {
-        let web_server = get_server_container().with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_image().with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("bridge").start()?;
 
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn sync_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
-        let web_server = get_server_container().with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_image().with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("host").start()?;
 
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_with_container_network_should_not_expose_ports() -> anyhow::Result<()> {
-        let _first_container = get_server_container()
+        let _first_container = get_server_image()
             .with_container_name("the_first_one")
             .start()?;
 
