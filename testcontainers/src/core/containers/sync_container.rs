@@ -257,15 +257,15 @@ mod test {
 
     impl Image for HelloWorld {
         fn name(&self) -> &str {
-            "hello-world"
+            "testcontainers/helloworld"
         }
 
         fn tag(&self) -> &str {
-            "latest"
+            "1.3.0"
         }
 
         fn ready_conditions(&self) -> Vec<WaitFor> {
-            vec![WaitFor::message_on_stdout("Hello from Docker!")]
+            vec![WaitFor::message_on_stderr("Ready, listening on")]
         }
     }
 
@@ -324,7 +324,7 @@ mod test {
 
     #[test]
     fn sync_logs_are_accessible() -> anyhow::Result<()> {
-        let image = GenericImage::new("testcontainers/helloworld", "1.2.0");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.start()?;
 
         let stderr = container.stderr(true);

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
-use bollard_stubs::models::ResourcesUlimits;
+use bollard::models::ResourcesUlimits;
 
 use crate::{
     core::{
@@ -109,6 +109,9 @@ pub trait ImageExt<I: Image> {
     /// Adds a host to the container.
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I>;
 
+    /// Configures hostname for the container.
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I>;
+
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
@@ -130,6 +133,14 @@ pub trait ImageExt<I: Image> {
     /// ```
     fn with_mapped_port(self, host_port: u16, container_port: ContainerPort)
         -> ContainerRequest<I>;
+
+    /// Declares a host port that should be reachable from inside the container.
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I>;
+
+    /// Declares multiple host ports that should be reachable from inside the container.
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_ports(self, ports: impl IntoIterator<Item = u16>) -> ContainerRequest<I>;
 
     /// Adds a resource ulimit to the container.
     ///
@@ -342,6 +353,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         container_req
     }
 
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.hostname = Some(hostname.into());
+        container_req
+    }
+
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.mounts.push(mount.into());
@@ -374,6 +391,25 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             ports: Some(ports),
             ..container_req
         }
+    }
+
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I> {
+        self.with_exposed_host_ports([port])
+    }
+
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_ports(self, ports: impl IntoIterator<Item = u16>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        let exposures = container_req
+            .host_port_exposures
+            .get_or_insert_with(Vec::new);
+
+        exposures.extend(ports);
+        exposures.sort_unstable();
+        exposures.dedup();
+
+        container_req
     }
 
     fn with_ulimit(self, name: &str, soft: i64, hard: Option<i64>) -> ContainerRequest<I> {
@@ -518,5 +554,66 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             device_requests: Some(device_requests),
             ..container_req
         }
+    }
+}
+
+#[cfg(all(test, feature = "host-port-exposure"))]
+mod tests {
+    use super::*;
+    use crate::images::generic::GenericImage;
+
+    #[test]
+    fn test_with_exposed_host_port_single() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_port(8080);
+
+        assert_eq!(request.host_port_exposures, Some(vec![8080]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_multiple() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([8080, 9090, 3000]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_deduplication() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([8080, 9090, 8080, 3000, 9090]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_empty() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_chaining() {
+        let image = GenericImage::new("test", "latest");
+        let request = image
+            .with_exposed_host_port(8080)
+            .with_exposed_host_ports([9090, 3000]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_preserves_existing() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_port(8080);
+
+        // The first call already set host_port_exposures to Some(vec![8080])
+        // Now we add more ports
+        let request = request.with_exposed_host_ports([9090, 3000]);
+
+        // The result should include all ports: 8080 (from first call), 9090, 3000 (from second call)
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
     }
 }

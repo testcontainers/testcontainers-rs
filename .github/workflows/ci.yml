@@ -31,8 +31,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
-      - name: Build
-        run: cargo hack build --feature-powerset --depth 2 --keep-going
+      - name: Build (without host-port-exposure)
+        run: cargo hack build --feature-powerset --depth 2 --keep-going --exclude-features host-port-exposure
+      - name: Build (host-port-exposure with TLS backend)
+        run: cargo hack build --feature-powerset --depth 2 --keep-going --include-features host-port-exposure,ring,aws-lc-rs --at-least-one-of ring,aws-lc-rs
 
   test:
     name: Test
@@ -66,8 +68,10 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
-      - name: Tests
-        run: cargo hack test --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }}
+      - name: Tests (without host-port-exposure)
+        run: cargo hack test --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }} --exclude-features host-port-exposure
+      - name: Tests (host-port-exposure with TLS backend)
+        run: cargo hack test --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }} --include-features host-port-exposure,ring,aws-lc-rs --at-least-one-of ring,aws-lc-rs
 
   fmt:
     name: Rustfmt check

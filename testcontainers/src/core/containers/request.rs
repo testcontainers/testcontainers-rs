@@ -8,7 +8,7 @@ use std::{
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
-use bollard_stubs::models::ResourcesUlimits;
+use bollard::models::ResourcesUlimits;
 
 use crate::{
     core::{
@@ -28,12 +28,15 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) container_name: Option<String>,
     pub(crate) platform: Option<String>,
     pub(crate) network: Option<String>,
+    pub(crate) hostname: Option<String>,
     pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
     pub(crate) mounts: Vec<Mount>,
     pub(crate) copy_to_sources: Vec<CopyToContainer>,
     pub(crate) ports: Option<Vec<PortMapping>>,
+    #[cfg(feature = "host-port-exposure")]
+    pub(crate) host_port_exposures: Option<Vec<u16>>,
     pub(crate) ulimits: Option<Vec<ResourcesUlimits>>,
     pub(crate) privileged: bool,
     pub(crate) cap_add: Option<Vec<String>>,
@@ -130,6 +133,11 @@ impl<I: Image> ContainerRequest<I> {
         self.ports.as_ref()
     }
 
+    #[cfg(feature = "host-port-exposure")]
+    pub fn host_port_exposures(&self) -> Option<&[u16]> {
+        self.host_port_exposures.as_deref()
+    }
+
     pub fn privileged(&self) -> bool {
         self.privileged
     }
@@ -222,6 +230,10 @@ impl<I: Image> ContainerRequest<I> {
         self.readonly_rootfs
     }
 
+    pub fn hostname(&self) -> Option<&str> {
+        self.hostname.as_deref()
+    }
+
     /// Returns the custom health check configuration for the container.
     pub fn health_check(&self) -> Option<&Healthcheck> {
         self.health_check.as_ref()
@@ -243,12 +255,15 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             container_name: None,
             platform: None,
             network: None,
+            hostname: None,
             labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
             mounts: Vec::new(),
             copy_to_sources: Vec::new(),
             ports: None,
+            #[cfg(feature = "host-port-exposure")]
+            host_port_exposures: None,
             ulimits: None,
             privileged: false,
             cap_add: None,
@@ -300,12 +315,17 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("container_name", &self.container_name)
             .field("platform", &self.platform)
             .field("network", &self.network)
+            .field("hostname", &self.hostname)
             .field("labels", &self.labels)
             .field("env_vars", &self.env_vars)
             .field("hosts", &self.hosts)
             .field("mounts", &self.mounts)
-            .field("ports", &self.ports)
-            .field("ulimits", &self.ulimits)
+            .field("ports", &self.ports);
+
+        #[cfg(feature = "host-port-exposure")]
+        repr.field("host_port_exposures", &self.host_port_exposures);
+
+        repr.field("ulimits", &self.ulimits)
             .field("privileged", &self.privileged)
             .field("cap_add", &self.cap_add)
             .field("cap_drop", &self.cap_drop)
