@@ -1,6 +1,6 @@
 use std::{fmt, path::PathBuf};
 
-use crate::compose::error::{ComposeError, Result};
+use crate::compose::error::Result;
 
 pub(super) mod containerised;
 pub(super) mod local;

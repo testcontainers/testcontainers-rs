@@ -256,11 +256,7 @@ mod tests {
             env!("CARGO_MANIFEST_DIR")
         ));
 
-        let mut compose = DockerCompose::with_local_client(&[path_to_compose.as_path()])
-            .with_wait_for_service(
-                "redis",
-                WaitFor::message_on_stdout("Ready to accept connections"),
-            );
+        let mut compose = DockerCompose::with_local_client(&[path_to_compose.as_path()]);
 
         compose.up().await?;
 
@@ -304,6 +300,37 @@ mod tests {
         assert!(redis.id().len() > 0, "Container ID should be set");
 
         compose.down().await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_compose_exec_and_logs() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
+        let path_to_compose = PathBuf::from(format!(
+            "{}/tests/test-compose.yml",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+
+        let mut compose = DockerCompose::with_local_client(&[path_to_compose.as_path()]);
+        compose.up().await?;
+
+        let redis = compose.service("redis").expect("Redis should exist");
+
+        redis
+            .exec(crate::core::ExecCommand::new(vec!["redis-cli", "PING"]))
+            .await?;
+
+        let logs = redis.stdout_to_vec().await?;
+        let logs_str = String::from_utf8_lossy(&logs);
+        assert!(
+            logs_str.contains("Ready to accept connections"),
+            "Logs should contain ready message"
+        );
+
+        let container_id = redis.id();
+        assert!(!container_id.is_empty(), "Container ID should not be empty");
 
         Ok(())
     }
