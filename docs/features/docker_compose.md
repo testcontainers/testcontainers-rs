@@ -2,7 +2,7 @@
 
 Testcontainers for Rust supports running multi-container applications defined in Docker Compose files. This is useful when your tests need multiple interconnected services or when you want to reuse existing docker-compose configurations from your development environment.
 
-> **Note:** Docker Compose support is currently only available for async runtimes (tokio). Synchronous/blocking support may be added in a future release.
+> **Note:** Docker Compose support is currently only available for async runtimes. Synchronous/blocking support may be added in a future release.
 
 ## Installation
 
@@ -349,7 +349,7 @@ services:
 By default, volumes are removed on cleanup but images are not. Adjust based on your needs:
 
 ```rust
-// Keep volumes for debugging
+// Keep volumes for debugging or to reuse data across test runs
 compose.with_remove_volumes(false);
 
 // Remove images to save disk space
@@ -382,36 +382,3 @@ If `up()` returns an error:
 2. Check compose file is valid: `docker compose -f your-file.yml config`
 3. Ensure all required images are available or can be pulled
 
-## Limitations
-
-### Synchronous API
-
-Docker Compose support is currently only available for async runtimes (tokio). If you need synchronous/blocking support, please open an issue on GitHub.
-
-### Containerised Client Environment Variables
-
-Environment variable support for the containerised client is not yet implemented. Use the local client if you need env vars.
-
-## Requirements
-
-Docker Compose support requires:
-
-1. **Feature flag:**
-   ```toml
-   [dev-dependencies]
-   testcontainers = { version = "0.25", features = ["docker-compose"] }
-   ```
-
-2. **Async runtime:** Currently only tokio is supported
-   ```toml
-   [dev-dependencies]
-   tokio = { version = "1", features = ["macros"] }
-   ```
-
-3. **Local Docker Compose CLI** (for local client mode):
-   ```bash
-   docker compose version
-   # Docker Compose version v2.20.0 or later
-   ```
-
-   Or use containerised client mode (no local installation needed)
