@@ -46,34 +46,40 @@ impl ContainerisedComposeCli {
 
 impl ComposeInterface for ContainerisedComposeCli {
     async fn up(&self, command: UpCommand) -> Result<()> {
-        let mut cmd = vec![
+        let mut cmd_parts = vec![];
+
+        for (key, value) in &command.env_vars {
+            cmd_parts.push(format!("{}={}", key, value));
+        }
+
+        cmd_parts.extend([
             "docker".to_string(),
             "compose".to_string(),
             "--project-name".to_string(),
             command.project_name.clone(),
-        ];
+        ]);
 
         for file in &self.compose_files_in_container {
-            cmd.push("-f".to_string());
-            cmd.push(file.to_string());
+            cmd_parts.push("-f".to_string());
+            cmd_parts.push(file.to_string());
         }
 
-        cmd.push("up".to_string());
+        cmd_parts.push("up".to_string());
 
         if command.build {
-            cmd.push("--build".to_string());
+            cmd_parts.push("--build".to_string());
         }
 
         if command.pull {
-            cmd.push("--pull".to_string());
-            cmd.push("always".to_string());
+            cmd_parts.push("--pull".to_string());
+            cmd_parts.push("always".to_string());
         }
 
-        cmd.push("--wait".to_string());
-        cmd.push("--wait-timeout".to_string());
-        cmd.push(command.wait_timeout.as_secs().to_string());
+        cmd_parts.push("--wait".to_string());
+        cmd_parts.push("--wait-timeout".to_string());
+        cmd_parts.push(command.wait_timeout.as_secs().to_string());
 
-        let exec = ExecCommand::new(cmd);
+        let exec = ExecCommand::new(cmd_parts);
         self.container.exec(exec).await?;
 
         Ok(())
