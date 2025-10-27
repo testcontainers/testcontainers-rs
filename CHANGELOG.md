@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.26.0] - 2025-10-27
+## [0.25.1] - 2025-10-27
 ### Details
 #### Bug Fixes
 - Replace tokio-tar with astral-tokio-tar ([#852](https://github.com/testcontainers/testcontainers-rs/pull/852))
