@@ -262,19 +262,22 @@ mod tests {
 
         println!("Services: {:?}", compose.services());
 
-        let _redis = compose
-            .service("redis")
-            .expect("Redis service should exist");
-        let web = compose.service("web1").expect("Web service should exist");
+        let hello1 = compose
+            .service("hello1")
+            .expect("hello1 service should exist");
+        let hello2 = compose
+            .service("hello2")
+            .expect("hello2 service should exist");
 
-        let web_port = web.get_host_port_ipv4(80).await?;
-        println!("Web service port: {}", web_port);
+        let port1 = hello1.get_host_port_ipv4(8080).await?;
+        let port2 = hello2.get_host_port_ipv4(8080).await?;
+        println!("Services on ports: {} and {}", port1, port2);
 
-        let response = reqwest::get(format!("http://localhost:{}", web_port))
+        let response = reqwest::get(format!("http://localhost:{}", port1))
             .await?
             .status();
 
-        assert!(response.is_success(), "Web service should respond");
+        assert!(response.is_success(), "Service should respond");
 
         Ok(())
     }
@@ -296,8 +299,8 @@ mod tests {
         println!("Services discovered: {:?}", compose.services());
         assert_eq!(compose.services().len(), 2, "Should have 2 services");
 
-        let redis = compose.service("redis").expect("Redis should exist");
-        assert!(redis.id().len() > 0, "Container ID should be set");
+        let hello1 = compose.service("hello1").expect("hello1 should exist");
+        assert!(!hello1.id().is_empty(), "Container ID should be set");
 
         compose.down().await?;
 
@@ -316,22 +319,86 @@ mod tests {
         let mut compose = DockerCompose::with_local_client(&[path_to_compose.as_path()]);
         compose.up().await?;
 
-        let redis = compose.service("redis").expect("Redis should exist");
+        let hello1 = compose.service("hello1").expect("hello1 should exist");
+        let hello2 = compose.service("hello2").expect("hello2 should exist");
 
-        redis
-            .exec(crate::core::ExecCommand::new(vec!["redis-cli", "PING"]))
-            .await?;
-
-        let logs = redis.stdout_to_vec().await?;
-        let logs_str = String::from_utf8_lossy(&logs);
-        assert!(
-            logs_str.contains("Ready to accept connections"),
-            "Logs should contain ready message"
-        );
-
-        let container_id = redis.id();
+        let container_id = hello1.id();
         assert!(!container_id.is_empty(), "Container ID should not be empty");
 
+        let port1 = hello1.get_host_port_ipv4(8080).await?;
+        let port2 = hello2.get_host_port_ipv4(8080).await?;
+
+        assert_ne!(port1, port2, "Services should have different host ports");
+
+        let response1 = reqwest::get(format!("http://localhost:{}", port1)).await?;
+        let response2 = reqwest::get(format!("http://localhost:{}", port2)).await?;
+
+        assert!(response1.status().is_success());
+        assert!(response2.status().is_success());
+
         Ok(())
+    }
+
+    async fn test_compose_client(mut compose: DockerCompose, mode: &str) -> anyhow::Result<()> {
+        compose.up().await?;
+
+        assert_eq!(
+            compose.services().len(),
+            2,
+            "{} mode: should have 2 services",
+            mode
+        );
+
+        let hello1 = compose
+            .service("hello1")
+            .unwrap_or_else(|| panic!("{} mode: hello1 service should exist", mode));
+        let hello2 = compose
+            .service("hello2")
+            .unwrap_or_else(|| panic!("{} mode: hello2 service should exist", mode));
+
+        let port1 = hello1.get_host_port_ipv4(8080).await?;
+        let port2 = hello2.get_host_port_ipv4(8080).await?;
+
+        println!("{} mode: hello1 on {}, hello2 on {}", mode, port1, port2);
+
+        let response = reqwest::get(format!("http://localhost:{}", port1))
+            .await?
+            .status();
+
+        assert!(
+            response.is_success(),
+            "{} mode: service should respond",
+            mode
+        );
+
+        compose.down().await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_local_client_mode() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
+        let path = PathBuf::from(format!(
+            "{}/tests/test-compose.yml",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+        let compose = DockerCompose::with_local_client(&[path.as_path()]);
+
+        test_compose_client(compose, "local").await
+    }
+
+    #[tokio::test]
+    async fn test_containerised_client_mode() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
+        let path = PathBuf::from(format!(
+            "{}/tests/test-compose.yml",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+        let compose = DockerCompose::with_containerised_client(&[path.as_path()]).await?;
+
+        test_compose_client(compose, "containerised").await
     }
 }

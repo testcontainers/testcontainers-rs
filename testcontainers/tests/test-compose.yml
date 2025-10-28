@@ -1,9 +1,10 @@
 services:
-  redis:
-    image: redis
+  hello1:
+    image: testcontainers/helloworld:1.3.0
     ports:
-      - "6383:6379"
-  web1:
-    image: simple_web_server
+      - "8080"
+  hello2:
+    image: testcontainers/helloworld:1.3.0
     ports:
-      - "8081:80"
+      - "8080"
+
