@@ -194,7 +194,7 @@ async fn host_port_exposure_is_scoped_per_container() -> Result<()> {
     let second_host_port = start_test_http_server("second-host-service")?;
 
     // Generate unique identifiers for network and containers to avoid conflicts
-    let suffix = ferroid::id::ULID::from_datetime(std::time::SystemTime::now()).encode();
+    let suffix = ULID::from_datetime(std::time::SystemTime::now()).encode();
     let network_name = format!("tc-host-port-net-{}", suffix.as_str());
     let first_container_name = format!("host-port-first-{}", suffix.as_str());
     let second_container_name = format!("host-port-second-{}", suffix.as_str());
