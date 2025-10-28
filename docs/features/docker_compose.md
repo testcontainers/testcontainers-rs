@@ -10,7 +10,7 @@ Add the `docker-compose` feature to your dependencies:
 
 ```toml
 [dev-dependencies]
-testcontainers = { version = "0.25", features = ["docker-compose"] }
+testcontainers = { version = "x.y.z", features = ["docker-compose"] }
 ```
 
 ## Minimal Example
