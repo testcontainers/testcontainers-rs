@@ -1,4 +1,8 @@
-use crate::{core::error::Result, runners::sync_runner::lazy_sync_runner, BuildableImage};
+use crate::{
+    core::{build::build_options::BuildImageOptions, error::Result},
+    runners::sync_runner::lazy_sync_runner,
+    BuildableImage,
+};
 
 /// Helper trait to build Docker images synchronously from [`BuildableImage`] instances.
 ///
@@ -25,6 +29,7 @@ use crate::{core::error::Result, runners::sync_runner::lazy_sync_runner, Buildab
 /// ```
 pub trait SyncBuilder<B: BuildableImage> {
     fn build_image(self) -> Result<B::Built>;
+    fn build_image_with(self, options: BuildImageOptions) -> Result<B::Built>;
 }
 
 impl<T> SyncBuilder<T> for T
@@ -32,8 +37,12 @@ where
     T: BuildableImage + Send,
 {
     fn build_image(self) -> Result<T::Built> {
+        self.build_image_with(BuildImageOptions::default())
+    }
+
+    fn build_image_with(self, options: BuildImageOptions) -> Result<T::Built> {
         let runtime = lazy_sync_runner()?;
-        runtime.block_on(super::AsyncBuilder::build_image(self))
+        runtime.block_on(super::AsyncBuilder::build_image_with(self, options))
     }
 }
 

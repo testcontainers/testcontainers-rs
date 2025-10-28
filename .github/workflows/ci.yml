@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - name: Get current MSRV from Cargo.toml
         id: current_msrv
@@ -32,7 +32,7 @@ jobs:
         with:
           tool: cargo-hack
       - name: Build
-        run: cargo hack build --feature-powerset --depth 2 --keep-going
+        run: cargo hack build --feature-powerset --depth 2 --clean-per-run
 
   test:
     name: Test
@@ -50,7 +50,7 @@ jobs:
           - 4/4
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -99,7 +99,7 @@ jobs:
           - nightly
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - uses: CondeNast/conventional-pull-request-action@v0.2.0

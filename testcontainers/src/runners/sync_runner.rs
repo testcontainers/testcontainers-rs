@@ -83,12 +83,12 @@ mod tests {
         sync::{Arc, OnceLock},
     };
 
-    use bollard_stubs::models::ContainerInspectResponse;
+    use bollard::models::ContainerInspectResponse;
     use tokio::runtime::Runtime;
 
     use super::*;
     use crate::{
-        core::{client::Client, mounts::Mount, IntoContainerPort, WaitFor},
+        core::{client::Client, mounts::Mount, BuildImageOptions, IntoContainerPort, WaitFor},
         images::generic::GenericImage,
         runners::SyncBuilder,
         GenericBuildableImage, ImageExt,
@@ -119,14 +119,14 @@ mod tests {
         runtime().block_on(client.network_exists(name)).unwrap()
     }
 
-    fn get_server_container() -> GenericImage {
+    fn get_server_image() -> GenericImage {
         let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
             // "Dockerfile" is included already, so adding the build context directory is all what is needed
             .with_file(
                 std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
                 ".",
             )
-            .build_image()
+            .build_image_with(BuildImageOptions::new())
             .unwrap();
         generic_image.with_wait_for(WaitFor::message_on_stdout("server is ready"))
     }
@@ -139,15 +139,15 @@ mod tests {
 
     impl Image for HelloWorld {
         fn name(&self) -> &str {
-            "hello-world"
+            "testcontainers/helloworld"
         }
 
         fn tag(&self) -> &str {
-            "latest"
+            "1.3.0"
         }
 
         fn ready_conditions(&self) -> Vec<WaitFor> {
-            vec![WaitFor::message_on_stdout("Hello from Docker!")]
+            vec![WaitFor::message_on_stderr("Ready, listening on")]
         }
 
         fn env_vars(
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn sync_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
     ) -> anyhow::Result<()> {
-        let container = GenericImage::new("hello-world", "latest").start()?;
+        let container = GenericImage::new("testcontainers/helloworld", "1.3.0").start()?;
 
         let container_details = inspect(container.id());
         let publish_ports = container_details
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_map_exposed_port() -> anyhow::Result<()> {
-        let image = get_server_container()
+        let image = get_server_image()
             .with_exposed_port(5000.tcp())
             .with_wait_for(WaitFor::seconds(1));
         let container = image.start()?;
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_mapped_port(124, 456.tcp())
             .with_mapped_port(556, 888.tcp())
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_include_network() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_network("sync-awesome-net-1").start()?;
 
         let container_details = inspect(container.id());
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn sync_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty(
     ) -> anyhow::Result<()> {
-        let web_server = get_server_container().with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_image().with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("bridge").start()?;
 
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn sync_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
-        let web_server = get_server_container().with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_image().with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("host").start()?;
 
@@ -258,7 +258,7 @@ mod tests {
     }
     #[test]
     fn sync_run_command_should_include_name() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_container_name("sync_hello_container").start()?;
 
         let container_details = inspect(container.id());
@@ -269,18 +269,18 @@ mod tests {
 
     #[test]
     fn sync_run_command_with_container_network_should_not_expose_ports() -> anyhow::Result<()> {
-        let _first_container = get_server_container()
+        let _first_container = get_server_image()
             .with_container_name("the_first_one")
             .start()?;
 
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         image.with_network("container:the_first_one").start()?;
         Ok(())
     }
 
     #[test]
     fn sync_run_command_should_include_privileged() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_privileged(true).start()?;
         let container_details = inspect(container.id());
 
@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_include_ulimits() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_ulimit("nofile", 123, Some(456)).start()?;
 
         let container_details = inspect(container.id());
@@ -315,7 +315,7 @@ mod tests {
 
     #[test]
     fn sync_run_command_should_set_shared_memory_size() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_shm_size(1_000_000).start()?;
 
         let container_details = inspect(container.id());

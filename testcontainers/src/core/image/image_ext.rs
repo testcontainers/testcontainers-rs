@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use bollard_stubs::models::ResourcesUlimits;
+#[cfg(feature = "device-requests")]
+use bollard::models::DeviceRequest;
+use bollard::models::ResourcesUlimits;
 
 use crate::{
     core::{
@@ -66,6 +68,20 @@ pub trait ImageExt<I: Image> {
     /// Sets the container name.
     fn with_container_name(self, name: impl Into<String>) -> ContainerRequest<I>;
 
+    /// Sets the platform the container will be run on.
+    ///
+    /// Platform in the format `os[/arch[/variant]]` used for image lookup.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag")
+    ///     .with_platform("linux/amd64");
+    /// ```
+    fn with_platform(self, platform: impl Into<String>) -> ContainerRequest<I>;
+
     /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I>;
 
@@ -93,6 +109,9 @@ pub trait ImageExt<I: Image> {
     /// Adds a host to the container.
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I>;
 
+    /// Configures hostname for the container.
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I>;
+
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
@@ -114,6 +133,14 @@ pub trait ImageExt<I: Image> {
     /// ```
     fn with_mapped_port(self, host_port: u16, container_port: ContainerPort)
         -> ContainerRequest<I>;
+
+    /// Declares a host port that should be reachable from inside the container.
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I>;
+
+    /// Declares multiple host ports that should be reachable from inside the container.
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_ports(self, ports: impl IntoIterator<Item = u16>) -> ContainerRequest<I>;
 
     /// Adds a resource ulimit to the container.
     ///
@@ -204,6 +231,35 @@ pub trait ImageExt<I: Image> {
     ///     );
     /// ```
     fn with_health_check(self, health_check: Healthcheck) -> ContainerRequest<I>;
+
+    /// Injects device requests into the container request.
+    ///
+    /// This allows, for instance, exposing the underlying host's GPU:
+    /// https://docs.docker.com/compose/how-tos/gpu-support/#example-of-a-compose-file-for-running-a-service-with-access-to-1-gpu-device
+    ///
+    /// This brings in 2 requirements:
+    ///
+    /// - The host must have [NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed.
+    /// - The image must have [NVIDIA drivers](https://www.nvidia.com/en-us/drivers/) installed.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt as _, bollard::models::DeviceRequest};
+    ///
+    /// let device_request = DeviceRequest {
+    ///     driver: Some(String::from("nvidia")),
+    ///     count: Some(-1), // expose all
+    ///     capabilities: Some(vec![vec![String::from("gpu")]]),
+    ///     device_ids: None,
+    ///     options: None,
+    /// };
+    ///
+    /// let image = GenericImage::new("ubuntu", "24.04")
+    ///     .with_device_requests(vec![device_request]);
+    /// ```
+    #[cfg(feature = "device-requests")]
+    fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -237,6 +293,15 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
 
         ContainerRequest {
             container_name: Some(name.into()),
+            ..container_req
+        }
+    }
+
+    fn with_platform(self, platform: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+
+        ContainerRequest {
+            platform: Some(platform.into()),
             ..container_req
         }
     }
@@ -288,6 +353,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         container_req
     }
 
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.hostname = Some(hostname.into());
+        container_req
+    }
+
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.mounts.push(mount.into());
@@ -320,6 +391,25 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             ports: Some(ports),
             ..container_req
         }
+    }
+
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I> {
+        self.with_exposed_host_ports([port])
+    }
+
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_ports(self, ports: impl IntoIterator<Item = u16>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        let exposures = container_req
+            .host_port_exposures
+            .get_or_insert_with(Vec::new);
+
+        exposures.extend(ports);
+        exposures.sort_unstable();
+        exposures.dedup();
+
+        container_req
     }
 
     fn with_ulimit(self, name: &str, soft: i64, hard: Option<i64>) -> ContainerRequest<I> {
@@ -455,5 +545,75 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.health_check = Some(health_check);
         container_req
+    }
+
+    #[cfg(feature = "device-requests")]
+    fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            device_requests: Some(device_requests),
+            ..container_req
+        }
+    }
+}
+
+#[cfg(all(test, feature = "host-port-exposure"))]
+mod tests {
+    use super::*;
+    use crate::images::generic::GenericImage;
+
+    #[test]
+    fn test_with_exposed_host_port_single() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_port(8080);
+
+        assert_eq!(request.host_port_exposures, Some(vec![8080]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_multiple() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([8080, 9090, 3000]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_deduplication() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([8080, 9090, 8080, 3000, 9090]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_empty() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_chaining() {
+        let image = GenericImage::new("test", "latest");
+        let request = image
+            .with_exposed_host_port(8080)
+            .with_exposed_host_ports([9090, 3000]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_preserves_existing() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_port(8080);
+
+        // The first call already set host_port_exposures to Some(vec![8080])
+        // Now we add more ports
+        let request = request.with_exposed_host_ports([9090, 3000]);
+
+        // The result should include all ports: 8080 (from first call), 9090, 3000 (from second call)
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
     }
 }

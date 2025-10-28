@@ -6,20 +6,20 @@ use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::LogWaitStrategy,
-        CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor,
+        BuildImageOptions, CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor,
     },
     runners::{SyncBuilder, SyncRunner},
     GenericBuildableImage, *,
 };
 
-fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
+fn get_server_image(msg: Option<WaitFor>) -> GenericImage {
     let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
         // "Dockerfile" is included already, so adding the build context directory is all what is needed
         .with_file(
             std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
             ".",
         )
-        .build_image()
+        .build_image_with(BuildImageOptions::new())
         .unwrap();
 
     let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
@@ -31,15 +31,15 @@ pub struct HelloWorld;
 
 impl Image for HelloWorld {
     fn name(&self) -> &str {
-        "hello-world"
+        "testcontainers/helloworld"
     }
 
     fn tag(&self) -> &str {
-        "latest"
+        "1.3.0"
     }
 
     fn ready_conditions(&self) -> Vec<WaitFor> {
-        vec![WaitFor::message_on_stdout("Hello from Docker!")]
+        vec![WaitFor::message_on_stderr("Ready, listening on")]
     }
 }
 
@@ -50,7 +50,7 @@ fn sync_can_run_hello_world() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "http_wait")]
+#[cfg(feature = "http_wait_plain")]
 #[test]
 fn sync_wait_for_http() -> anyhow::Result<()> {
     use crate::core::wait::HttpWaitStrategy;
@@ -61,14 +61,14 @@ fn sync_wait_for_http() -> anyhow::Result<()> {
     let waitfor_http_status =
         WaitFor::http(HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK));
 
-    let image = get_server_container(Some(waitfor_http_status)).with_exposed_port(80.tcp());
+    let image = get_server_image(Some(waitfor_http_status)).with_exposed_port(80.tcp());
     let _container = image.start()?;
     Ok(())
 }
 
 #[test]
 fn generic_image_with_custom_entrypoint() -> anyhow::Result<()> {
-    let generic = get_server_container(None);
+    let generic = get_server_image(None);
 
     let node = generic.start()?;
     let port = node.get_host_port_ipv4(80.tcp())?;
@@ -77,7 +77,7 @@ fn generic_image_with_custom_entrypoint() -> anyhow::Result<()> {
         reqwest::blocking::get(format!("http://{}:{port}", node.get_host()?))?.text()?
     );
 
-    let generic = get_server_container(None).with_entrypoint("./bar");
+    let generic = get_server_image(None).with_entrypoint("./bar");
 
     let node = generic.start()?;
     let port = node.get_host_port_ipv4(80.tcp())?;
@@ -115,7 +115,7 @@ fn generic_image_exposed_ports() -> anyhow::Result<()> {
 
 #[test]
 fn generic_image_running_with_extra_hosts_added() -> anyhow::Result<()> {
-    let server_1 = get_server_container(None);
+    let server_1 = get_server_image(None);
     let node = server_1.start()?;
     let port = node.get_host_port_ipv4(80.tcp())?;
 
@@ -158,7 +158,8 @@ fn generic_image_port_not_exposed() -> anyhow::Result<()> {
 fn start_multiple_containers() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
+    let image =
+        GenericImage::new("testcontainers/helloworld", "1.3.0").with_wait_for(WaitFor::seconds(2));
 
     let _container_1 = image.clone().start()?;
     let _container_2 = image.clone().start()?;
@@ -172,7 +173,7 @@ fn sync_run_exec() -> anyhow::Result<()> {
 
     let waitfor = WaitFor::log(LogWaitStrategy::stdout("server is ready").with_times(2));
 
-    let image = get_server_container(Some(waitfor)).with_wait_for(WaitFor::seconds(1));
+    let image = get_server_image(Some(waitfor)).with_wait_for(WaitFor::seconds(1));
     let container = image.start()?;
 
     // exit regardless of the code
@@ -244,7 +245,7 @@ fn sync_run_with_log_consumer() -> anyhow::Result<()> {
     let _container = HelloWorld
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()) == "Hello from Docker!\n" {
+            if String::from_utf8_lossy(frame.bytes()).contains("Ready") {
                 let _ = tx.send(());
             }
         })
@@ -324,7 +325,7 @@ fn sync_container_exit_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     // Container that should run until manually quit
-    let container = get_server_container(None).start()?;
+    let container = get_server_image(None).start()?;
 
     assert_eq!(container.exit_code()?, None);
 

@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     io::{self},
     str::FromStr,
+    sync::Arc,
 };
 
 use bollard::{
@@ -10,7 +11,10 @@ use bollard::{
     container::LogOutput,
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    models::{ContainerCreateBody, NetworkCreateRequest},
+    models::{
+        ContainerCreateBody, ContainerInspectResponse, ExecInspectResponse, Network,
+        NetworkCreateRequest,
+    },
     query_parameters::{
         BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
         CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
@@ -20,10 +24,9 @@ use bollard::{
     },
     Docker,
 };
-use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
-use ferroid::{Base32UlidExt, ULID};
+use ferroid::{base32::Base32UlidExt, id::ULID};
 use futures::{StreamExt, TryStreamExt};
-use tokio::sync::OnceCell;
+use tokio::sync::{Mutex, OnceCell};
 use url::Url;
 
 use crate::core::{
@@ -44,6 +47,20 @@ mod factory;
 pub use factory::docker_client_instance;
 
 static IN_A_CONTAINER: OnceCell<bool> = OnceCell::const_new();
+
+type BuildLockMap = Mutex<HashMap<String, Arc<Mutex<()>>>>;
+static BUILD_LOCKS: OnceCell<BuildLockMap> = OnceCell::const_new();
+
+async fn get_build_lock(descriptor: &str) -> Arc<Mutex<()>> {
+    let locks = BUILD_LOCKS
+        .get_or_init(|| async { Mutex::new(HashMap::new()) })
+        .await;
+
+    let mut map = locks.lock().await;
+    map.entry(descriptor.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
 
 // See https://github.com/docker/docker/blob/a9fa38b1edf30b23cae3eade0be48b3d4b1de14b/daemon/initlayer/setup_unix.go#L25
 // and Java impl: https://github.com/testcontainers/testcontainers-java/blob/994b385761dde7d832ab7b6c10bc62747fe4b340/core/src/main/java/org/testcontainers/dockerclient/DockerClientConfigUtils.java#L16C5-L17
@@ -121,8 +138,11 @@ pub(crate) struct Client {
 impl Client {
     async fn new() -> Result<Client, ClientError> {
         let config = env::Config::load::<env::Os>().await?;
-        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
+        Self::new_with_config(config)
+    }
 
+    pub(crate) fn new_with_config(config: env::Config) -> Result<Client, ClientError> {
+        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
         Ok(Client { config, bollard })
     }
 
@@ -403,6 +423,44 @@ impl Client {
         &self,
         descriptor: &str,
         build_context: &CopyToContainerCollection,
+        options: crate::core::build::build_options::BuildImageOptions,
+    ) -> Result<(), ClientError> {
+        if options.skip_if_exists {
+            let lock = get_build_lock(descriptor).await;
+            let _guard = lock.lock().await;
+
+            match self.bollard.inspect_image(descriptor).await {
+                Ok(_) => {
+                    log::info!("Image '{}' already exists, skipping build", descriptor);
+                    return Ok(());
+                }
+                Err(BollardError::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {
+                    log::info!("Image '{}' not found, proceeding with build", descriptor);
+                }
+                Err(err) => {
+                    log::warn!(
+                        "Failed to inspect image '{}': {:?}, proceeding with build",
+                        descriptor,
+                        err
+                    );
+                }
+            }
+
+            self.build_image_impl(descriptor, build_context, options)
+                .await
+        } else {
+            self.build_image_impl(descriptor, build_context, options)
+                .await
+        }
+    }
+
+    async fn build_image_impl(
+        &self,
+        descriptor: &str,
+        build_context: &CopyToContainerCollection,
+        options: crate::core::build::build_options::BuildImageOptions,
     ) -> Result<(), ClientError> {
         let tar = build_context
             .tar()
@@ -411,20 +469,25 @@ impl Client {
 
         let session = ULID::from_datetime(std::time::SystemTime::now()).encode();
 
-        let options = BuildImageOptionsBuilder::new()
+        let mut builder = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
             .t(descriptor)
             .rm(true)
-            .nocache(false)
+            .nocache(options.no_cache)
             .version(BuilderVersion::BuilderBuildKit)
-            .session(session.as_str())
-            .build();
+            .session(session.as_str());
+
+        if !options.build_args.is_empty() {
+            builder = builder.buildargs(&options.build_args);
+        }
+
+        let build_options = builder.build();
 
         let credentials = None;
 
-        let mut building = self
-            .bollard
-            .build_image(options, credentials, Some(body_full(tar)));
+        let mut building =
+            self.bollard
+                .build_image(build_options, credentials, Some(body_full(tar)));
 
         while let Some(result) = building.next().await {
             match result {
@@ -446,19 +509,65 @@ impl Client {
         Ok(())
     }
 
-    pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
+    pub(crate) async fn pull_image(
+        &self,
+        descriptor: &str,
+        platform: Option<String>,
+    ) -> Result<(), ClientError> {
         let pull_options = CreateImageOptionsBuilder::new()
             .from_image(descriptor)
+            .platform(
+                platform
+                    .as_deref()
+                    .unwrap_or_else(|| self.config.platform().unwrap_or_default()),
+            )
+            .build();
+
+        let credentials = self.credentials_for_image(descriptor).await;
+        let mut pulling = self
+            .bollard
+            .create_image(Some(pull_options), None, credentials);
+        while let Some(result) = pulling.next().await {
+            // if the image pull fails, try to pull the image for linux/amd64 platform instead
+            match result {
+                Ok(_) => {}
+                Err(BollardError::DockerResponseServerError {
+                    status_code: _,
+                    message: _,
+                }) if !matches!(platform.as_deref(), Some("linux/amd64")) => {
+                    self.pull_image_linux_amd64(descriptor).await?;
+                }
+                _ => {
+                    // if the linux/amd64 image pull also fails, return the initial error
+                    result.map_err(|err| ClientError::PullImage {
+                        descriptor: descriptor.to_string(),
+                        err,
+                    })?;
+                }
+            };
+        }
+        Ok(())
+    }
+
+    async fn pull_image_linux_amd64(&self, descriptor: &str) -> Result<(), ClientError> {
+        let pull_options = CreateImageOptionsBuilder::new()
+            .from_image(descriptor)
+            .platform("linux/amd64")
             .build();
         let credentials = self.credentials_for_image(descriptor).await;
         let mut pulling = self
             .bollard
             .create_image(Some(pull_options), None, credentials);
         while let Some(result) = pulling.next().await {
-            result.map_err(|err| ClientError::PullImage {
-                descriptor: descriptor.to_string(),
-                err,
-            })?;
+            match result {
+                Ok(_) => {}
+                Err(err) => {
+                    return Err(ClientError::PullImage {
+                        descriptor: descriptor.to_string(),
+                        err,
+                    });
+                }
+            };
         }
         Ok(())
     }
@@ -635,5 +744,82 @@ where
             })
             .boxed();
         LogStream::new(stream)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bollard::query_parameters::RemoveImageOptions;
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct OsEnvWithPlatformLinuxAmd64;
+
+    impl env::GetEnvValue for OsEnvWithPlatformLinuxAmd64 {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_DEFAULT_PLATFORM" => Some("linux/amd64".to_string()),
+                _ => env::Os::get_env_value(key),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct OsEnvWithPlatformLinux386;
+
+    impl env::GetEnvValue for OsEnvWithPlatformLinux386 {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_DEFAULT_PLATFORM" => Some("linux/386".to_string()),
+                _ => env::Os::get_env_value(key),
+            }
+        }
+    }
+
+    #[tokio::test]
+    // Tehcnically the test is racy if we would want to use image in other tests, but we don't use
+    // it usually, so no serial-tests or anything like that is used
+    async fn test_client_pull_image_with_platform() -> anyhow::Result<()> {
+        const IMAGE: &str = "hello-world:linux";
+
+        let config = env::Config::load::<OsEnvWithPlatformLinuxAmd64>().await?;
+        println!("Config platform: {:?}", config.platform());
+        let client = Client::new_with_config(config)?;
+
+        // remove image if exists (it may already have another platform variant)
+        let credentials = client.credentials_for_image(IMAGE).await;
+        let _ = client
+            .bollard
+            .remove_image(
+                IMAGE,
+                Option::<RemoveImageOptions>::None,
+                credentials.clone(),
+            )
+            .await;
+
+        client.pull_image(IMAGE, None).await?;
+
+        let image = client.bollard.inspect_image(IMAGE).await?;
+
+        assert_eq!(Some("linux".to_string()), image.os);
+        assert_eq!(Some("amd64".to_string()), image.architecture);
+
+        let config = env::Config::load::<OsEnvWithPlatformLinux386>().await?;
+        let client = Client::new_with_config(config)?;
+
+        client
+            .bollard
+            .remove_image(IMAGE, Option::<RemoveImageOptions>::None, credentials)
+            .await?;
+
+        client.pull_image(IMAGE, None).await?;
+
+        let image = client.bollard.inspect_image(IMAGE).await?;
+
+        assert_eq!(Some("linux".to_string()), image.os);
+        assert_eq!(Some("386".to_string()), image.architecture);
+
+        Ok(())
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "testcontainers"
-version = "0.25.0"
+version = "0.25.2"
 categories = ["development-tools::testing"]
 readme = "README.md"
 authors.workspace = true
@@ -17,8 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 async-trait = { version = "0.1" }
-bollard = { version = "0.19.1", features = ["buildkit"] }
-bollard-stubs = "=1.48.3-rc.28.0.4"
+bollard = { version = "0.19.3", features = ["buildkit_providerless"] }
 bytes = "1.6.0"
 conquer-once = { version = "0.4", optional = true }
 docker_credential = "1.3.1"
@@ -29,10 +28,8 @@ log = "0.4"
 memchr = "2.7.2"
 parse-display = "0.9.0"
 pin-project-lite = "0.2.14"
+russh = { version = "0.54.4", default-features = false, optional = true }
 reqwest = { version = "0.12.5", features = [
-    "rustls-tls",
-    "rustls-tls-native-roots",
-    "hickory-dns",
     "json",
     "charset",
     "http2",
@@ -45,9 +42,9 @@ signal-hook = { version = "0.3", optional = true }
 thiserror = "2.0.3"
 tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
 tokio-stream = "0.1.15"
-tokio-tar = "0.3.1"
+astral-tokio-tar = "0.5.6"
 tokio-util = { version = "0.7.10", features = ["io"] }
-ferroid = { version = "0.6.4", features = ["std", "ulid", "base32"] }
+ferroid = { version = "0.8.2", features = ["std", "ulid", "base32"] }
 url = { version = "2", features = ["serde"] }
 
 [features]
@@ -57,9 +54,12 @@ aws-lc-rs = ["bollard/aws-lc-rs"]
 ssl = ["bollard/ssl_providerless"]
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
-http_wait = ["reqwest"]
+http_wait = ["http_wait_plain", "reqwest/rustls-tls", "reqwest/rustls-tls-native-roots"]
+http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
+device-requests = []
+host-port-exposure = ["dep:russh", "russh/ring"]
 
 [dev-dependencies]
 anyhow = "1.0.86"
