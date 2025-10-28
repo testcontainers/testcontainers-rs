@@ -46,6 +46,7 @@ nav:
       - features/exec_commands.md
       - features/networking.md
       - features/building_images.md
+      - features/docker_compose.md
   - System Requirements:
       - system_requirements/docker.md
   - Contributing:

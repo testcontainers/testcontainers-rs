@@ -200,11 +200,11 @@ where
 
         // platform of the container
         if let Some(platform) = container_req.platform() {
-            let options = options_builder.unwrap_or(CreateContainerOptionsBuilder::new());
+            let options = options_builder.unwrap_or_default();
             options_builder = Some(options.platform(platform));
         } else {
             // set platform from global platform setting if available
-            let options = options_builder.unwrap_or(CreateContainerOptionsBuilder::new());
+            let options = options_builder.unwrap_or_default();
             options_builder = Some(options.platform(client.config.platform().unwrap_or_default()));
         }
 
