@@ -24,6 +24,7 @@ use bollard::{
     },
     Docker,
 };
+use ferroid::{base32::Base32UlidExt, id::ULID};
 use futures::{StreamExt, TryStreamExt};
 use tokio::sync::{Mutex, OnceCell};
 use url::Url;
@@ -466,7 +467,7 @@ impl Client {
             .await
             .map_err(ClientError::CopyToContainerError)?;
 
-        let session = ulid::Ulid::new().to_string();
+        let session = ULID::from_datetime(std::time::SystemTime::now()).encode();
 
         let mut builder = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
@@ -474,7 +475,7 @@ impl Client {
             .rm(true)
             .nocache(options.no_cache)
             .version(BuilderVersion::BuilderBuildKit)
-            .session(&session);
+            .session(session.as_str());
 
         if !options.build_args.is_empty() {
             builder = builder.buildargs(&options.build_args);

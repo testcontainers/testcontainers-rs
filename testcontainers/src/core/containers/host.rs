@@ -1,5 +1,6 @@
 use std::{convert::TryFrom, future, sync::Arc, time::Duration};
 
+use ferroid::{base32::Base32UlidExt, id::ULID};
 use log::{debug, trace};
 use russh::{client, Channel, Disconnect};
 use tokio::{
@@ -8,7 +9,6 @@ use tokio::{
     time::sleep,
 };
 use tokio_util::sync::CancellationToken;
-use ulid::Ulid;
 use url::Host as UrlHost;
 
 use super::async_container::ContainerAsync;
@@ -166,7 +166,8 @@ fn prepare_host_exposure<I: Image>(
         }
     }
 
-    let password = format!("tc-{}", Ulid::new());
+    let suffix = ULID::from_datetime(std::time::SystemTime::now()).encode();
+    let password = format!("tc-{}", suffix.as_str());
 
     Ok(Some(HostExposurePlan {
         requested_ports,
