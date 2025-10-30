@@ -1,5 +1,6 @@
 use std::{fmt, ops::Deref, sync::Arc};
 
+use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 
 #[cfg(feature = "host-port-exposure")]
