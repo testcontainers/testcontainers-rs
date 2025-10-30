@@ -7,11 +7,6 @@ name = "testcontainers"
 git_tag_name = "{{ version }}"
 changelog_path = "CHANGELOG.md"
 
-[[package]]
-name = "testimages"
-release = false
-changelog_update = false
-
 [changelog]
 tag_pattern = "[0-9].*"
 sort_commits = "oldest"

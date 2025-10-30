@@ -1,14 +1,17 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use bollard::Docker;
+use bollard::{
+    query_parameters::{ListImagesOptions, RemoveImageOptions},
+    Docker,
+};
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::{ExitWaitStrategy, LogWaitStrategy},
-        CmdWaitFor, ExecCommand, WaitFor,
+        BuildImageOptions, CmdWaitFor, ExecCommand, WaitFor,
     },
-    runners::AsyncRunner,
-    GenericImage, Image, ImageExt,
+    runners::{AsyncBuilder, AsyncRunner},
+    GenericBuildableImage, GenericImage, Image, ImageExt,
 };
 use tokio::io::AsyncReadExt;
 
@@ -32,6 +35,21 @@ impl Image for HelloWorld {
     }
 }
 
+async fn get_server_image(msg: Option<WaitFor>) -> GenericImage {
+    let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
+        // "Dockerfile" is included already, so adding the build context directory is all what is needed
+        .with_file(
+            std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
+            ".",
+        )
+        .build_image_with(BuildImageOptions::new())
+        .await
+        .unwrap();
+
+    let msg = msg.unwrap_or(WaitFor::message_on_stdout("server is ready"));
+    generic_image.with_wait_for(msg)
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn bollard_can_run_hello_world_with_multi_thread() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
@@ -45,14 +63,16 @@ async fn cleanup_hello_world_image() -> anyhow::Result<()> {
 
     futures::future::join_all(
         docker
-            .list_images::<String>(None)
+            .list_images(None::<ListImagesOptions>)
             .await?
             .into_iter()
             .flat_map(|image| image.repo_tags.into_iter())
             .filter(|tag| tag.starts_with("hello-world"))
             .map(|tag| async {
                 let tag_captured = tag;
-                docker.remove_image(&tag_captured, None, None).await
+                docker
+                    .remove_image(&tag_captured, None::<RemoveImageOptions>, None)
+                    .await
             }),
     )
     .await;
@@ -79,7 +99,12 @@ async fn explicit_call_to_pull_missing_image_hello_world() -> anyhow::Result<()>
 async fn start_containers_in_parallel() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
+    let image =
+        GenericImage::new("testcontainers/helloworld", "1.3.0").with_wait_for(WaitFor::seconds(2));
+
+    // Make sure the image is already pulled, since otherwise pulling it may cause the deadline
+    // below to be exceeded.
+    let _ = image.clone().pull_image().await?;
 
     let run_1 = image.clone().start();
     let run_2 = image.clone().start();
@@ -100,19 +125,37 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
 async fn async_run_exec() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(WaitFor::message_on_stderr("server will be listening to"))
-        .with_wait_for(WaitFor::log(
-            LogWaitStrategy::stdout("server is ready").with_times(2),
-        ))
-        .with_wait_for(WaitFor::seconds(1));
+    let image = get_server_image(Some(WaitFor::message_on_stderr(
+        "server will be listening to",
+    )))
+    .await
+    .with_wait_for(WaitFor::log(
+        LogWaitStrategy::stdout("server is ready").with_times(2),
+    ))
+    .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
 
-    // exit code, it waits for result
+    // exit regardless of the code
+    let before = Instant::now();
     let res = container
-        .exec(ExecCommand::new(["sleep", "3"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)))
+        .exec(ExecCommand::new(["sleep", "2"]).with_cmd_ready_condition(CmdWaitFor::exit()))
         .await?;
     assert_eq!(res.exit_code().await?, Some(0));
+    assert!(
+        before.elapsed().as_secs() > 1,
+        "should have waited for 2 seconds"
+    );
+
+    // exit code, it waits for result
+    let before = Instant::now();
+    let res = container
+        .exec(ExecCommand::new(["sleep", "2"]).with_cmd_ready_condition(CmdWaitFor::exit_code(0)))
+        .await?;
+    assert_eq!(res.exit_code().await?, Some(0));
+    assert!(
+        before.elapsed().as_secs() > 1,
+        "should have waited for 2 seconds"
+    );
 
     // stdout
     let mut res = container
@@ -144,7 +187,7 @@ async fn async_run_exec() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "http_wait")]
+#[cfg(feature = "http_wait_plain")]
 #[tokio::test]
 async fn async_wait_for_http() -> anyhow::Result<()> {
     use reqwest::StatusCode;
@@ -152,11 +195,12 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
 
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
-        .with_exposed_port(80.tcp())
-        .with_wait_for(WaitFor::http(
-            HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK),
-        ));
+    let waitfor_http_status =
+        WaitFor::http(HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK));
+
+    let image = get_server_image(Some(waitfor_http_status))
+        .await
+        .with_exposed_port(80.tcp());
     let _container = image.start().await?;
     Ok(())
 }
@@ -165,8 +209,8 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
 async fn async_run_exec_fails_due_to_unexpected_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("simple_web_server", "latest")
-        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+    let image = get_server_image(None)
+        .await
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
 
@@ -189,7 +233,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
     let _container = HelloWorld
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()) == "Hello from Docker!\n" {
+            if String::from_utf8_lossy(frame.bytes()).contains("Hello from Docker!") {
                 let _ = tx.send(());
             }
         })
@@ -244,6 +288,140 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
     println!("{}", out);
     assert!(out.contains("foofoofoo"));
     assert!(out.contains("barbarbar"));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_container_is_running() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run until manually quit
+    let container = GenericImage::new("simple_web_server", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        .start()
+        .await?;
+
+    assert!(container.is_running().await?);
+
+    container.stop().await?;
+
+    assert!(!container.is_running().await?);
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_container_exit_code() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // Container that should run until manually quit
+    let container = get_server_image(None).await.start().await?;
+
+    assert_eq!(container.exit_code().await?, None);
+
+    container.stop().await?;
+
+    assert_eq!(container.exit_code().await?, Some(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_with_size() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a container with tmpfs mount configured with size and mode
+    // This test verifies that containers can be created and run with tmpfs size configuration
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(
+            Mount::tmpfs_mount("/data")
+                .with_size("100m")
+                .with_mode(0o1777),
+        )
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'test data' > /data/test.txt && cat /data/test.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify we can write to and read from the tmpfs mount
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(
+        stdout.contains("test data"),
+        "Should be able to write to and read from tmpfs mount"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_without_size() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a container with basic tmpfs mount (no size configured)
+    // This verifies backward compatibility - tmpfs mounts work without explicit size
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(Mount::tmpfs_mount("/tmpdata"))
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'hello' > /tmpdata/file.txt && cat /tmpdata/file.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify tmpfs mount is functional
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(
+        stdout.contains("hello"),
+        "Basic tmpfs mount should work without explicit size"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_with_multiple_sizes() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Test that we can create multiple tmpfs mounts with different sizes
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(Mount::tmpfs_mount("/data1").with_size("50m"))
+        .with_mount(Mount::tmpfs_mount("/data2").with_size("100m"))
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'data1' > /data1/test.txt && echo 'data2' > /data2/test.txt && cat /data1/test.txt /data2/test.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify both tmpfs mounts are functional
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(stdout.contains("data1"), "First tmpfs mount should work");
+    assert!(stdout.contains("data2"), "Second tmpfs mount should work");
 
     Ok(())
 }

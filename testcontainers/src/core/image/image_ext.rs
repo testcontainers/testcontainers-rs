@@ -1,15 +1,38 @@
 use std::time::Duration;
 
-use bollard_stubs::models::ResourcesUlimits;
+#[cfg(feature = "device-requests")]
+use bollard::models::DeviceRequest;
+use bollard::models::ResourcesUlimits;
 
 use crate::{
     core::{
         copy::{CopyDataSource, CopyToContainer},
+        healthcheck::Healthcheck,
         logs::consumer::LogConsumer,
-        CgroupnsMode, ContainerPort, Host, Mount, PortMapping,
+        CgroupnsMode, ContainerPort, Host, Mount, PortMapping, WaitFor,
     },
     ContainerRequest, Image,
 };
+
+#[cfg(feature = "reusable-containers")]
+#[derive(Eq, Copy, Clone, Debug, Default, PartialEq)]
+pub enum ReuseDirective {
+    #[default]
+    Never,
+    Always,
+    CurrentSession,
+}
+
+#[cfg(feature = "reusable-containers")]
+impl std::fmt::Display for ReuseDirective {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Never => "never",
+            Self::Always => "always",
+            Self::CurrentSession => "current-session",
+        })
+    }
+}
 
 /// Represents an extension for the [`Image`] trait.
 /// Allows to override image defaults and container configuration.
@@ -45,8 +68,39 @@ pub trait ImageExt<I: Image> {
     /// Sets the container name.
     fn with_container_name(self, name: impl Into<String>) -> ContainerRequest<I>;
 
+    /// Sets the platform the container will be run on.
+    ///
+    /// Platform in the format `os[/arch[/variant]]` used for image lookup.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag")
+    ///     .with_platform("linux/amd64");
+    /// ```
+    fn with_platform(self, platform: impl Into<String>) -> ContainerRequest<I>;
+
     /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Adds the specified label to the container.
+    ///
+    /// **Note**: all keys in the `org.testcontainers.*` namespace should be regarded
+    /// as reserved by `testcontainers` internally, and should not be expected or relied
+    /// upon to be applied correctly if supplied as a value for `key`.
+    fn with_label(self, key: impl Into<String>, value: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Adds the specified labels to the container.
+    ///
+    /// **Note**: all keys in the `org.testcontainers.*` namespace should be regarded
+    /// as reserved by `testcontainers` internally, and should not be expected or relied
+    /// upon to be applied correctly if they are included in `labels`.
+    fn with_labels(
+        self,
+        labels: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> ContainerRequest<I>;
 
     /// Adds an environment variable to the container.
     fn with_env_var(self, name: impl Into<String>, value: impl Into<String>)
@@ -54,6 +108,9 @@ pub trait ImageExt<I: Image> {
 
     /// Adds a host to the container.
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I>;
+
+    /// Configures hostname for the container.
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I>;
 
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
@@ -77,6 +134,14 @@ pub trait ImageExt<I: Image> {
     fn with_mapped_port(self, host_port: u16, container_port: ContainerPort)
         -> ContainerRequest<I>;
 
+    /// Declares a host port that should be reachable from inside the container.
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I>;
+
+    /// Declares multiple host ports that should be reachable from inside the container.
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_ports(self, ports: impl IntoIterator<Item = u16>) -> ContainerRequest<I>;
+
     /// Adds a resource ulimit to the container.
     ///
     /// # Examples
@@ -89,6 +154,12 @@ pub trait ImageExt<I: Image> {
 
     /// Sets the container to run in privileged mode.
     fn with_privileged(self, privileged: bool) -> ContainerRequest<I>;
+
+    /// Adds the capabilities to the container
+    fn with_cap_add(self, capability: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Drops the capabilities from the container's capabilities
+    fn with_cap_drop(self, capability: impl Into<String>) -> ContainerRequest<I>;
 
     /// cgroup namespace mode for the container. Possible values are:
     /// - [`CgroupnsMode::Private`]: the container runs in its own private cgroup namespace
@@ -113,6 +184,82 @@ pub trait ImageExt<I: Image> {
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
+
+    /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
+    /// indicating that the container should be kept running, and that executions with the same configuration
+    /// reuse it instead of starting a "fresh" container instance.
+    ///
+    /// **NOTE:** Reusable Containers is an experimental feature, and its behavior is therefore subject
+    /// to change. Containers marked as `reuse` **_will not_** be stopped or cleaned up when their associated
+    /// `Container` or `ContainerAsync` is dropped.
+    #[cfg(feature = "reusable-containers")]
+    fn with_reuse(self, reuse: ReuseDirective) -> ContainerRequest<I>;
+
+    /// Sets the user that commands are run as inside the container.
+    fn with_user(self, user: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Sets the container's root filesystem to be mounted as read-only
+    fn with_readonly_rootfs(self, readonly_rootfs: bool) -> ContainerRequest<I>;
+
+    /// Sets security options for the container
+    fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I>;
+
+    /// Overrides ready conditions.
+    ///
+    /// There is no guarantee that the specified ready conditions for an image would result
+    /// in a running container. Users of this API are advised to use this at their own risk.
+    fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I>;
+
+    /// Sets a custom health check for the container.
+    ///
+    /// This will override any `HEALTHCHECK` instruction defined in the image.
+    /// See [`Healthcheck`] for more details on how to build a health check.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{core::{Healthcheck, WaitFor}, GenericImage, ImageExt};
+    /// use std::time::Duration;
+    ///
+    /// let image = GenericImage::new("mysql", "8.0")
+    ///     .with_wait_for(WaitFor::healthcheck())
+    ///     .with_health_check(
+    ///         Healthcheck::cmd(["mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"])
+    ///             .with_interval(Duration::from_secs(2))
+    ///             .with_timeout(Duration::from_secs(1))
+    ///             .with_retries(5)
+    ///     );
+    /// ```
+    fn with_health_check(self, health_check: Healthcheck) -> ContainerRequest<I>;
+
+    /// Injects device requests into the container request.
+    ///
+    /// This allows, for instance, exposing the underlying host's GPU:
+    /// https://docs.docker.com/compose/how-tos/gpu-support/#example-of-a-compose-file-for-running-a-service-with-access-to-1-gpu-device
+    ///
+    /// This brings in 2 requirements:
+    ///
+    /// - The host must have [NVIDIA container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) installed.
+    /// - The image must have [NVIDIA drivers](https://www.nvidia.com/en-us/drivers/) installed.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt as _, bollard::models::DeviceRequest};
+    ///
+    /// let device_request = DeviceRequest {
+    ///     driver: Some(String::from("nvidia")),
+    ///     count: Some(-1), // expose all
+    ///     capabilities: Some(vec![vec![String::from("gpu")]]),
+    ///     device_ids: None,
+    ///     options: None,
+    /// };
+    ///
+    /// let image = GenericImage::new("ubuntu", "24.04")
+    ///     .with_device_requests(vec![device_request]);
+    /// ```
+    #[cfg(feature = "device-requests")]
+    fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -150,12 +297,44 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
+    fn with_platform(self, platform: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+
+        ContainerRequest {
+            platform: Some(platform.into()),
+            ..container_req
+        }
+    }
+
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I> {
         let container_req = self.into();
         ContainerRequest {
             network: Some(network.into()),
             ..container_req
         }
+    }
+
+    fn with_label(self, key: impl Into<String>, value: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+
+        container_req.labels.insert(key.into(), value.into());
+
+        container_req
+    }
+
+    fn with_labels(
+        self,
+        labels: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+
+        container_req.labels.extend(
+            labels
+                .into_iter()
+                .map(|(key, value)| (key.into(), value.into())),
+        );
+
+        container_req
     }
 
     fn with_env_var(
@@ -171,6 +350,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     fn with_host(self, key: impl Into<String>, value: impl Into<Host>) -> ContainerRequest<I> {
         let mut container_req = self.into();
         container_req.hosts.insert(key.into(), value.into());
+        container_req
+    }
+
+    fn with_hostname(self, hostname: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.hostname = Some(hostname.into());
         container_req
     }
 
@@ -208,6 +393,25 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         }
     }
 
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_port(self, port: u16) -> ContainerRequest<I> {
+        self.with_exposed_host_ports([port])
+    }
+
+    #[cfg(feature = "host-port-exposure")]
+    fn with_exposed_host_ports(self, ports: impl IntoIterator<Item = u16>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        let exposures = container_req
+            .host_port_exposures
+            .get_or_insert_with(Vec::new);
+
+        exposures.extend(ports);
+        exposures.sort_unstable();
+        exposures.dedup();
+
+        container_req
+    }
+
     fn with_ulimit(self, name: &str, soft: i64, hard: Option<i64>) -> ContainerRequest<I> {
         let container_req = self.into();
         let mut ulimits = container_req.ulimits.unwrap_or_default();
@@ -229,6 +433,26 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             privileged,
             ..container_req
         }
+    }
+
+    fn with_cap_add(self, capability: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req
+            .cap_add
+            .get_or_insert_with(Vec::new)
+            .push(capability.into());
+
+        container_req
+    }
+
+    fn with_cap_drop(self, capability: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req
+            .cap_drop
+            .get_or_insert_with(Vec::new)
+            .push(capability.into());
+
+        container_req
     }
 
     fn with_cgroupns_mode(self, cgroupns_mode: CgroupnsMode) -> ContainerRequest<I> {
@@ -275,5 +499,121 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.log_consumers.push(Box::new(log_consumer));
         container_req
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    fn with_reuse(self, reuse: ReuseDirective) -> ContainerRequest<I> {
+        ContainerRequest {
+            reuse,
+            ..self.into()
+        }
+    }
+
+    fn with_user(self, user: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            user: Some(user.into()),
+            ..container_req
+        }
+    }
+
+    fn with_readonly_rootfs(self, readonly_rootfs: bool) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            readonly_rootfs,
+            ..container_req
+        }
+    }
+
+    fn with_security_opt(self, security_opt: impl Into<String>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req
+            .security_opts
+            .get_or_insert_with(Vec::new)
+            .push(security_opt.into());
+
+        container_req
+    }
+
+    fn with_ready_conditions(self, ready_conditions: Vec<WaitFor>) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.ready_conditions = Some(ready_conditions);
+        container_req
+    }
+
+    fn with_health_check(self, health_check: Healthcheck) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.health_check = Some(health_check);
+        container_req
+    }
+
+    #[cfg(feature = "device-requests")]
+    fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            device_requests: Some(device_requests),
+            ..container_req
+        }
+    }
+}
+
+#[cfg(all(test, feature = "host-port-exposure"))]
+mod tests {
+    use super::*;
+    use crate::images::generic::GenericImage;
+
+    #[test]
+    fn test_with_exposed_host_port_single() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_port(8080);
+
+        assert_eq!(request.host_port_exposures, Some(vec![8080]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_multiple() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([8080, 9090, 3000]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_deduplication() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([8080, 9090, 8080, 3000, 9090]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_empty() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_ports([]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_chaining() {
+        let image = GenericImage::new("test", "latest");
+        let request = image
+            .with_exposed_host_port(8080)
+            .with_exposed_host_ports([9090, 3000]);
+
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+
+    #[test]
+    fn test_with_exposed_host_ports_preserves_existing() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_exposed_host_port(8080);
+
+        // The first call already set host_port_exposures to Some(vec![8080])
+        // Now we add more ports
+        let request = request.with_exposed_host_ports([9090, 3000]);
+
+        // The result should include all ports: 8080 (from first call), 9090, 3000 (from second call)
+        assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
     }
 }

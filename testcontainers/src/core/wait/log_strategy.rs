@@ -1,13 +1,11 @@
 use bytes::Bytes;
 
-use crate::{
-    core::{
-        client::Client,
-        error::WaitContainerError,
-        logs::{LogSource, WaitingStreamWrapper},
-        wait::WaitStrategy,
-    },
-    ContainerAsync, Image,
+use super::RawContainer;
+use crate::core::{
+    client::Client,
+    error::WaitContainerError,
+    logs::{LogSource, WaitingStreamWrapper},
+    wait::WaitStrategy,
 };
 
 #[derive(Debug, Clone)]
@@ -30,6 +28,13 @@ impl LogWaitStrategy {
         Self::new(LogSource::StdErr, message)
     }
 
+    /// Create a new [`LogWaitStrategy`] that waits for the given message to appear in either
+    /// standard output logs or standard error logs.
+    /// Shortcut for `LogWaitStrategy::new(LogSource::BothStd, message)`.
+    pub fn stdout_or_stderr(message: impl AsRef<[u8]>) -> Self {
+        Self::new(LogSource::BothStd, message)
+    }
+
     /// Create a new `LogWaitStrategy` with the given log source and message.
     /// The message is expected to appear in the logs exactly once by default.
     pub fn new(source: LogSource, message: impl AsRef<[u8]>) -> Self {
@@ -48,14 +53,15 @@ impl LogWaitStrategy {
 }
 
 impl WaitStrategy for LogWaitStrategy {
-    async fn wait_until_ready<I: Image>(
+    async fn wait_until_ready(
         self,
         client: &Client,
-        container: &ContainerAsync<I>,
+        container: &RawContainer,
     ) -> crate::core::error::Result<()> {
         let log_stream = match self.source {
             LogSource::StdOut => client.stdout_logs(container.id(), true),
             LogSource::StdErr => client.stderr_logs(container.id(), true),
+            LogSource::BothStd => client.both_std_logs(container.id(), true),
         };
 
         WaitingStreamWrapper::new(log_stream)

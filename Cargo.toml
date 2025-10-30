@@ -1,18 +1,20 @@
 [workspace]
 resolver = "2"
-members = [
-    "testcontainers",
-    "testimages",
-]
+members = ["testcontainers"]
+exclude = ["testimages/no_expose_port", "testimages/simple-web-server"]
 
 [workspace.package]
-authors = ["Thomas Eizinger", "Artem Medvedev <i@ddtkey.com>", "Mervyn McCreight"]
+authors = [
+    "Thomas Eizinger",
+    "Artem Medvedev <i@ddtkey.com>",
+    "Mervyn McCreight",
+]
 edition = "2021"
-keywords = ["docker", "testcontainers"]
+keywords = ["docker", "testcontainers", "docker-compose"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/testcontainers/testcontainers-rs"
-rust-version = "1.75"
+rust-version = "1.88"
 
-[workspace.dependencies]
-testimages = { path = "testimages" }
+[patch.crates-io]
+bollard = { git = "https://github.com/DDtKey/bollard.git", branch = "fix/providerless-session" }

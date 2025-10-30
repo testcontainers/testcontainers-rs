@@ -2,11 +2,14 @@ use std::{collections::HashMap, time::Duration};
 
 use async_trait::async_trait;
 use bollard::{
-    container::{Config, CreateContainerOptions},
-    models::{HostConfig, PortBinding},
+    models::{
+        ContainerCreateBody, HostConfig, HostConfigCgroupnsModeEnum, PortBinding, ResourcesUlimits,
+    },
+    query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
 };
-use bollard_stubs::models::{HostConfigCgroupnsModeEnum, ResourcesUlimits};
 
+#[cfg(feature = "host-port-exposure")]
+use crate::core::containers::host::HostPortExposure;
 use crate::{
     core::{
         client::{Client, ClientError},
@@ -20,6 +23,27 @@ use crate::{
 };
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+#[cfg(feature = "reusable-containers")]
+static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ferroid::id::ULID> =
+    std::sync::OnceLock::new();
+
+#[doc(hidden)]
+/// A unique identifier for the currently "active" `testcontainers` "session".
+///
+/// This identifier is used to ensure that the current "session" does not confuse
+/// containers it creates with those created by previous runs of a test suite.
+///
+/// For reference: without a unique-per-session identifier, containers created by
+/// previous test sessions that were marked `reuse`, (or where the test suite was
+/// run with the `TESTCONTAINERS_COMMAND` environment variable set to `keep`), that
+/// *haven't* been manually cleaned up could be incorrectly returned from methods
+/// like [`Client::get_running_container_id`](Client::get_running_container_id),
+/// as the container name, labels, and network would all still match.
+#[cfg(feature = "reusable-containers")]
+pub(crate) fn session_id() -> &'static ferroid::id::ULID {
+    TESTCONTAINERS_SESSION_ID
+        .get_or_init(|| ferroid::id::ULID::from_datetime(std::time::SystemTime::now()))
+}
 
 #[async_trait]
 /// Helper trait to start containers asynchronously.
@@ -53,26 +77,96 @@ where
     I: Image,
 {
     async fn start(self) -> Result<ContainerAsync<I>> {
-        let container_req = self.into();
+        #[allow(unused_mut)]
+        let mut container_req = self.into();
+
+        #[cfg(feature = "host-port-exposure")]
+        let host_port_exposure = HostPortExposure::setup(&mut container_req).await?;
 
         let client = Client::lazy_client().await?;
-        let mut create_options: Option<CreateContainerOptions<String>> = None;
+        let mut create_options: Option<CreateContainerOptions> = None;
 
         let extra_hosts: Vec<_> = container_req
             .hosts()
             .map(|(key, value)| format!("{key}:{value}"))
             .collect();
 
-        let mut config: Config<String> = Config {
+        let labels = HashMap::<String, String>::from_iter(
+            container_req
+                .labels()
+                .iter()
+                .map(|(key, value)| (key.into(), value.into()))
+                .chain([
+                    (
+                        "org.testcontainers.managed-by".into(),
+                        "testcontainers".into(),
+                    ),
+                    #[cfg(feature = "reusable-containers")]
+                    {
+                        if container_req.reuse() != crate::ReuseDirective::CurrentSession {
+                            Default::default()
+                        } else {
+                            (
+                                "org.testcontainers.session-id".to_string(),
+                                session_id().to_string(),
+                            )
+                        }
+                    },
+                ])
+                .filter(|(_, value): &(_, String)| !value.is_empty()),
+        );
+
+        #[cfg(feature = "reusable-containers")]
+        {
+            use crate::ReuseDirective::{Always, CurrentSession};
+
+            if matches!(container_req.reuse(), Always | CurrentSession) {
+                if let Some(container_id) = client
+                    .get_running_container_id(
+                        container_req.container_name().as_deref(),
+                        container_req.network().as_deref(),
+                        &labels,
+                    )
+                    .await?
+                {
+                    let network = if let Some(network) = container_req.network() {
+                        Network::new(network, client.clone()).await?
+                    } else {
+                        None
+                    };
+
+                    return Ok(ContainerAsync::construct(
+                        container_id,
+                        client,
+                        container_req,
+                        network,
+                        #[cfg(feature = "host-port-exposure")]
+                        host_port_exposure,
+                    ));
+                }
+            }
+        }
+
+        let mut config = ContainerCreateBody {
             image: Some(container_req.descriptor()),
+            labels: Some(labels),
+            hostname: container_req.hostname().map(|h| h.to_string()),
             host_config: Some(HostConfig {
                 privileged: Some(container_req.privileged()),
                 extra_hosts: Some(extra_hosts),
                 cgroupns_mode: container_req.cgroupns_mode().map(|mode| mode.into()),
                 userns_mode: container_req.userns_mode().map(|v| v.to_string()),
+                cap_add: container_req.cap_add().cloned(),
+                cap_drop: container_req.cap_drop().cloned(),
+                readonly_rootfs: Some(container_req.readonly_rootfs()),
+                security_opt: container_req.security_opts().cloned(),
                 ..Default::default()
             }),
             working_dir: container_req.working_dir().map(|dir| dir.to_string()),
+            user: container_req.user().map(|user| user.to_string()),
+            healthcheck: container_req
+                .health_check()
+                .map(|hc| hc.clone().into_health_config()),
             ..Default::default()
         };
 
@@ -95,12 +189,27 @@ where
             None
         };
 
+        let mut options_builder: Option<CreateContainerOptionsBuilder> = None;
+
         // name of the container
         if let Some(name) = container_req.container_name() {
-            create_options = Some(CreateContainerOptions {
-                name: name.to_owned(),
-                platform: None,
-            })
+            let options = CreateContainerOptionsBuilder::new().name(name);
+
+            options_builder = Some(options);
+        }
+
+        // platform of the container
+        if let Some(platform) = container_req.platform() {
+            let options = options_builder.unwrap_or_default();
+            options_builder = Some(options.platform(platform));
+        } else {
+            // set platform from global platform setting if available
+            let options = options_builder.unwrap_or_default();
+            options_builder = Some(options.platform(client.config.platform().unwrap_or_default()));
+        }
+
+        if let Some(options) = options_builder {
+            create_options = Some(options.build());
         }
 
         // handle environment variables
@@ -191,6 +300,17 @@ where
             });
         }
 
+        #[cfg(feature = "device-requests")]
+        {
+            // device requests
+            if let Some(device_requests) = &container_req.device_requests {
+                config.host_config = config.host_config.map(|mut host_config| {
+                    host_config.device_requests = Some(device_requests.clone());
+                    host_config
+                });
+            }
+        }
+
         let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
         if !cmd.is_empty() {
             config.cmd = Some(cmd);
@@ -207,14 +327,18 @@ where
                     status_code: 404, ..
                 },
             )) => {
-                client.pull_image(&container_req.descriptor()).await?;
+                client
+                    .pull_image(
+                        &container_req.descriptor(),
+                        container_req.platform().clone(),
+                    )
+                    .await?;
                 client.create_container(create_options, config).await
             }
             res => res,
         }?;
 
-        let copy_to_sources: Vec<&CopyToContainer> =
-            container_req.copy_to_sources().map(Into::into).collect();
+        let copy_to_sources: Vec<&CopyToContainer> = container_req.copy_to_sources().collect();
 
         for copy_to_source in copy_to_sources {
             client
@@ -234,10 +358,17 @@ where
         tokio::time::timeout(startup_timeout, async {
             client.start_container(&container_id).await?;
 
-            let container =
-                ContainerAsync::new(container_id, client.clone(), container_req, network).await?;
+            let container = ContainerAsync::new(
+                container_id,
+                client.clone(),
+                container_req,
+                network,
+                #[cfg(feature = "host-port-exposure")]
+                host_port_exposure,
+            )
+            .await?;
 
-            let state = ContainerState::new(container.id(), container.ports().await?);
+            let state = ContainerState::from_container(&container).await?;
             for cmd in container.image().exec_after_start(state)? {
                 container.exec(cmd).await?;
             }
@@ -251,7 +382,12 @@ where
     async fn pull_image(self) -> Result<ContainerRequest<I>> {
         let container_req = self.into();
         let client = Client::lazy_client().await?;
-        client.pull_image(&container_req.descriptor()).await?;
+        client
+            .pull_image(
+                &container_req.descriptor(),
+                container_req.platform().clone(),
+            )
+            .await?;
 
         Ok(container_req)
     }
@@ -272,6 +408,13 @@ impl From<&Mount> for bollard::models::Mount {
             source: mount.source().map(str::to_string),
             typ: Some(mount_type),
             read_only: Some(is_read_only),
+            tmpfs_options: mount
+                .tmpfs_options()
+                .map(|opts| bollard::models::MountTmpfsOptions {
+                    size_bytes: opts.size_bytes,
+                    mode: opts.mode,
+                    options: None,
+                }),
             ..Default::default()
         }
     }
@@ -290,16 +433,96 @@ impl From<CgroupnsMode> for HostConfigCgroupnsModeEnum {
 mod tests {
     use super::*;
     use crate::{
-        core::{IntoContainerPort, WaitFor},
+        core::{BuildImageOptions, IntoContainerPort, WaitFor},
         images::generic::GenericImage,
-        ImageExt,
+        runners::AsyncBuilder,
+        GenericBuildableImage, ImageExt,
     };
+
+    async fn get_server_image() -> GenericImage {
+        let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
+            // "Dockerfile" is included already, so adding the build context directory is all what is needed
+            .with_file(
+                std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
+                ".",
+            )
+            .build_image_with(BuildImageOptions::new())
+            .await
+            .unwrap();
+        generic_image.with_wait_for(WaitFor::message_on_stdout("server is ready"))
+    }
+
+    /// Test that all user-supplied labels are added to containers started by `AsyncRunner::start`
+    #[tokio::test]
+    async fn async_start_should_apply_expected_labels() -> anyhow::Result<()> {
+        let mut labels = HashMap::from([
+            ("foo".to_string(), "bar".to_string()),
+            ("baz".to_string(), "qux".to_string()),
+            // include a `managed-by` value to guard against future changes
+            // inadvertently allowing users to override keys we rely on to
+            // internally ensure sane and correct behavior
+            (
+                "org.testcontainers.managed-by".to_string(),
+                "the-time-wizard".to_string(),
+            ),
+        ]);
+
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0").with_labels(&labels);
+
+        let container = {
+            #[cfg(not(feature = "reusable-containers"))]
+            {
+                image
+            }
+            #[cfg(feature = "reusable-containers")]
+            {
+                image.with_reuse(crate::ReuseDirective::CurrentSession)
+            }
+        }
+        .start()
+        .await?;
+
+        let client = Client::lazy_client().await?;
+
+        let container_labels = client
+            .inspect(container.id())
+            .await?
+            .config
+            .unwrap_or_default()
+            .labels
+            .unwrap_or_default();
+
+        // the created labels and container labels shouldn't actually be identical, as the
+        // `org.testcontainers.managed-by: testcontainers` label is always unconditionally
+        // applied to all containers by `AsyncRunner::start`, with the value `testcontainers`
+        // being applied *last* explicitly so that even user-supplied values of the
+        // `org.testcontainers.managed-by` key will be overwritten
+        assert_ne!(&labels, &container_labels);
+
+        // If we add the expected `managed-by` value though, they should then match
+        labels.insert(
+            "org.testcontainers.managed-by".to_string(),
+            "testcontainers".to_string(),
+        );
+
+        #[cfg(feature = "reusable-containers")]
+        labels.extend([(
+            "org.testcontainers.session-id".to_string(),
+            session_id().to_string(),
+        )]);
+
+        assert_eq!(labels, container_labels);
+
+        container.rm().await.map_err(anyhow::Error::from)
+    }
 
     #[tokio::test]
     async fn async_run_command_should_expose_all_ports_if_no_explicit_mapping_requested(
     ) -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let container = GenericImage::new("hello-world", "latest").start().await?;
+        let container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .start()
+            .await?;
 
         let container_details = client.inspect(container.id()).await?;
         let publish_ports = container_details
@@ -313,15 +536,77 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_map_exposed_port() -> anyhow::Result<()> {
-        let image = GenericImage::new("simple_web_server", "latest")
-            .with_exposed_port(5000.tcp())
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-            .with_wait_for(WaitFor::seconds(1));
+        let _ = pretty_env_logger::try_init();
+        let image = get_server_image().await.with_exposed_port(5000.tcp());
         let container = image.start().await?;
         container
-            .get_host_port_ipv4(5000)
+            .get_host_port_ipv4(5000.tcp())
             .await
             .expect("Port should be mapped");
+        Ok(())
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "device-requests")]
+    async fn async_run_command_should_request_gpu() -> anyhow::Result<()> {
+        use anyhow::Context as _;
+        use tokio::io::AsyncReadExt as _;
+
+        let _ = pretty_env_logger::try_init();
+
+        // PRECONDITION: the host has GPU and NVIDIA drivers
+        let host_has_gpu = std::process::Command::new("nvidia-smi")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+        if !host_has_gpu {
+            log::warn!("Host does not have GPU or NVIDIA drivers, context: https://www.nvidia.com/en-us/drivers/");
+            return Ok(());
+        }
+
+        // PRECONDITION: Docker on host has NVIDIA runtime
+        let client = bollard::Docker::connect_with_defaults()?;
+        let info = client.info().await?;
+        let has_nvidia_runtimes = info
+            .runtimes
+            .context("No runtimes found")?
+            .iter()
+            .any(|(key, _runtime)| key.contains("nvidia"));
+        if !has_nvidia_runtimes {
+            log::warn!("No Docker NVIDIA runtime installed, context: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html");
+            return Ok(());
+        }
+
+        // GIVEN: a container with a device request for GPU
+        let device_request = bollard::models::DeviceRequest {
+            driver: Some(String::from("nvidia")),
+            count: Some(-1), // expose all
+            capabilities: Some(vec![vec![String::from("gpu")]]),
+            device_ids: None,
+            options: None,
+        };
+
+        // The image must have nvidia drivers installed, so we don't use the simple server here
+        let image = GenericImage::new("ubuntu", "24.04")
+            .with_device_requests(vec![device_request])
+            .with_cmd(["sleep", "infinity"]); // keep the container running to have time to run the command
+        let container = image.start().await?;
+
+        // WHEN: `nvidia-smi` command is executed
+        let mut result = container
+            .exec(crate::core::ExecCommand::new(["nvidia-smi"]))
+            .await?;
+
+        // THEN: the output contains the expected "NVIDIA-SMI" string
+        let mut output: String = String::new();
+        let mut stdout = result.stdout();
+        stdout.read_to_string(&mut output).await?;
+
+        assert!(
+            output.contains("NVIDIA-SMI"),
+            "Could not access NVIDIA System Management Interface"
+        );
+
         Ok(())
     }
 
@@ -331,18 +616,16 @@ mod tests {
         let client = Client::lazy_client().await?;
         let _ = pretty_env_logger::try_init();
 
-        let udp_port = 1000;
-        let sctp_port = 2000;
+        let udp_port = 1000.udp();
+        let sctp_port = 2000.sctp();
 
-        let generic_server = GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
+        let generic_server = get_server_image()
+            .await
             // Explicitly expose the port, which otherwise would not be available.
-            .with_exposed_port(udp_port.udp())
-            .with_exposed_port(sctp_port.sctp());
+            .with_exposed_port(udp_port)
+            .with_exposed_port(sctp_port);
 
         let container = generic_server.start().await?;
-        container.get_host_port_ipv4(udp_port.udp()).await?;
-        container.get_host_port_ipv4(sctp_port.sctp()).await?;
 
         let container_details = client.inspect(container.id()).await?;
 
@@ -366,7 +649,12 @@ mod tests {
         expected_ports.push(sctp_expected_port);
         expected_ports.push(tcp_expected_port);
 
-        assert_eq!(current_ports, expected_ports);
+        assert!(
+            expected_ports
+                .iter()
+                .all(|port| current_ports.contains(port)),
+            "exposed ports: {current_ports:?} doesn't contain all expected ports: {expected_ports:?}"
+        );
 
         Ok(())
     }
@@ -374,7 +662,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_expose_only_requested_ports() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_mapped_port(123, 456.tcp())
             .with_mapped_port(555, 888.tcp())
@@ -408,7 +696,7 @@ mod tests {
         let udp_port = 1000;
         let sctp_port = 2000;
 
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_mapped_port(123, udp_port.udp())
             .with_mapped_port(555, sctp_port.sctp())
@@ -443,7 +731,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_include_network() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_network("awesome-net-1").start().await?;
 
         let container_details = client.inspect(container.id()).await?;
@@ -463,7 +751,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_include_name() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_container_name("async_hello_container")
             .start()
@@ -478,7 +766,7 @@ mod tests {
     #[tokio::test]
     async fn async_should_create_network_if_image_needs_it_and_drop_it_in_the_end(
     ) -> anyhow::Result<()> {
-        let hello_world = GenericImage::new("hello-world", "latest");
+        let hello_world = GenericImage::new("testcontainers/helloworld", "1.3.0");
 
         {
             let client = Client::lazy_client().await?;
@@ -498,7 +786,7 @@ mod tests {
         }
 
         // containers have been dropped, should clean up networks
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
         let client = Client::lazy_client().await?;
         assert!(!client.network_exists("awesome-net-2").await?);
         Ok(())
@@ -507,9 +795,7 @@ mod tests {
     #[tokio::test]
     async fn async_should_rely_on_network_mode_when_network_is_provided_and_settings_bridge_empty(
     ) -> anyhow::Result<()> {
-        let web_server = GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-            .with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_image().await.with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("bridge").start().await?;
 
@@ -526,9 +812,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_should_return_error_when_non_bridged_network_selected() -> anyhow::Result<()> {
-        let web_server = GenericImage::new("simple_web_server", "latest")
-            .with_wait_for(WaitFor::message_on_stdout("server is ready"))
-            .with_wait_for(WaitFor::seconds(1));
+        let web_server = get_server_image().await.with_wait_for(WaitFor::seconds(1));
 
         let container = web_server.clone().with_network("host").start().await?;
 
@@ -543,7 +827,7 @@ mod tests {
     #[tokio::test]
     async fn async_run_command_should_set_shared_memory_size() -> anyhow::Result<()> {
         let client = Client::lazy_client().await?;
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_shm_size(1_000_000).start().await?;
 
         let container_details = client.inspect(container.id()).await?;
@@ -559,7 +843,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_include_privileged() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_privileged(true).start().await?;
 
         let client = Client::lazy_client().await?;
@@ -575,8 +859,62 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn async_run_command_should_have_cap_add() -> anyhow::Result<()> {
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
+        let expected_capability = "NET_ADMIN";
+        let container = image
+            .with_cap_add(expected_capability.to_string())
+            .start()
+            .await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let capabilities = container_details
+            .host_config
+            .expect("HostConfig")
+            .cap_add
+            .expect("CapAdd");
+
+        assert_eq!(
+            expected_capability,
+            capabilities.first().expect("No capabilities added"),
+            "cap_add must contain {expected_capability}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_cap_drop() -> anyhow::Result<()> {
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
+        let expected_capability = "AUDIT_WRITE";
+        let container = image
+            .with_cap_drop(expected_capability.to_string())
+            .start()
+            .await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let capabilities = container_details
+            .host_config
+            .expect("HostConfig")
+            .cap_drop
+            .expect("CapAdd");
+
+        assert_eq!(
+            expected_capability,
+            capabilities.first().expect("No capabilities dropped"),
+            "cap_drop must contain {expected_capability}"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn async_run_command_should_include_ulimits() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_ulimit("nofile", 123, Some(456)).start().await?;
 
         let client = Client::lazy_client().await?;
@@ -597,7 +935,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_host_cgroupns_mode() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_cgroupns_mode(CgroupnsMode::Host).start().await?;
 
         let client = Client::lazy_client().await?;
@@ -619,7 +957,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_private_cgroupns_mode() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image
             .with_cgroupns_mode(CgroupnsMode::Private)
             .start()
@@ -644,7 +982,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_host_userns_mode() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.with_userns_mode("host").start().await?;
 
         let client = Client::lazy_client().await?;
@@ -661,7 +999,7 @@ mod tests {
 
     #[tokio::test]
     async fn async_run_command_should_have_working_dir() -> anyhow::Result<()> {
-        let image = GenericImage::new("hello-world", "latest");
+        let image = GenericImage::new("testcontainers/helloworld", "1.2.0");
         let expected_working_dir = "/foo";
         let container = image.with_working_dir(expected_working_dir).start().await?;
 
@@ -677,6 +1015,24 @@ mod tests {
             expected_working_dir, &working_dir,
             "working dir must be `foo`"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_have_user() -> anyhow::Result<()> {
+        let image = get_server_image().await;
+        let expected_user = "root";
+        let container = image.with_user(expected_user).start().await?;
+
+        let client = Client::lazy_client().await?;
+        let container_details = client.inspect(container.id()).await?;
+
+        let user = container_details
+            .config
+            .expect("ContainerConfig")
+            .user
+            .expect("User");
+        assert_eq!(expected_user, &user, "user must be `root`");
         Ok(())
     }
 }
