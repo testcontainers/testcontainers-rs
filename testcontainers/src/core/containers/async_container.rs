@@ -258,7 +258,7 @@ where
                 match command {
                     env::Command::Remove => {
                         if let Some(handle) = log_handler {
-                            if let Err(e) = client.stop(&id).await {
+                            if let Err(e) = client.stop(&id, None).await {
                                 log::error!("Failed to stop container on drop: {e}")
                             }
                             if let Err(e) = handle.await {
