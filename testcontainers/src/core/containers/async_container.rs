@@ -82,7 +82,7 @@ where
         let reuse = container_req.reuse();
 
         let log_consumers = std::mem::take(&mut container_req.log_consumers);
-        let container = ContainerAsync {
+        let mut container = ContainerAsync {
             raw: raw::RawContainer::new(id, docker_client),
             image: container_req,
             network,
