@@ -23,7 +23,7 @@ conquer-once = { version = "0.4", optional = true }
 docker-compose-types = { version = "0.22", optional = true }
 docker_credential = "1.3.1"
 either = "1.12.0"
-etcetera = "0.10.0"
+etcetera = "0.11.0"
 futures = "0.3"
 itertools = "0.14"
 log = "0.4"
