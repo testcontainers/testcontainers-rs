@@ -26,8 +26,6 @@ pub enum CopyFromContainerError {
     Io(#[from] std::io::Error),
     #[error("archive did not contain any regular files")]
     EmptyArchive,
-    #[error("archive contained multiple files, but only one was expected")]
-    MultipleFilesInArchive,
     #[error("requested container path is a directory")]
     IsDirectory,
     #[error("archive entry type '{0:?}' is not supported for requested target")]

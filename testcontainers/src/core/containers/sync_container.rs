@@ -136,6 +136,7 @@ where
     ///
     /// # Behavior
     /// - Regular files are streamed directly into the target (e.g. `PathBuf`, `Vec<u8>`).
+    /// - Additional archive entries (metadata or other files) are skipped after the first regular file.
     /// - If `container_path` resolves to a directory, an error is returned and no data is written.
     /// - Symlink handling follows Docker's `GET /containers/{id}/archive` endpoint behavior without extra processing.
     pub fn copy_file_from<T>(

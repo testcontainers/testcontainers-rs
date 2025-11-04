@@ -46,8 +46,7 @@ async fn copy_example() -> anyhow::Result<()> {
 }
 ```
 
-- `copy_file_from` streams the sole regular-file entry produced by Docker into any destination implementing `CopyFileFromContainer` (for example `&Path`, `PathBuf`, `Vec<u8>`, or `&mut Vec<u8>`).  
-  It verifies that **exactly one** file exists and returns an error (e.g., `CopyFileError::UnexpectedDirectory`) when the path resolves to a directory or an unsupported TAR record.
+- `copy_file_from` streams file contents into any destination implementing `CopyFileFromContainer` (for example `&Path` or `&mut Vec<u8>`). When the requested path is not a regular file you’ll receive a `CopyFromContainerError`.
 - Targets like `Vec<u8>` and filesystem paths overwrite existing data: vectors are cleared before writing, and files are truncated or recreated if they already exist.
 - To capture the contents in memory:
   ```rust

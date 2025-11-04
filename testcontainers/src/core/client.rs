@@ -445,34 +445,28 @@ impl Client {
         let mut archive = AsyncTarArchive::new(reader);
         let entries = archive.entries().map_err(CopyFromContainerError::Io)?;
 
-        let files =
-            entries
-                .map_err(CopyFromContainerError::Io)
-                .try_filter_map(move |entry| async move {
-                    match entry.header().entry_type() {
-                        EntryType::GNULongName
-                        | EntryType::GNULongLink
-                        | EntryType::XGlobalHeader
-                        | EntryType::XHeader
-                        | EntryType::GNUSparse => Ok(None), // skip metadata entries
-                        EntryType::Directory => Err(CopyFromContainerError::IsDirectory),
-                        EntryType::Regular | EntryType::Continuous => return Ok(Some(entry)),
-                        et @ _ => Err(CopyFromContainerError::UnsupportedEntry(et)),
-                    }
-                });
+        pin_mut!(entries);
 
-        pin_mut!(files);
-
-        let first_file = files
+        while let Some(entry) = entries
             .try_next()
-            .await?
-            .ok_or(CopyFromContainerError::EmptyArchive)?;
-
-        if files.try_next().await?.is_some() {
-            return Err(CopyFromContainerError::MultipleFilesInArchive);
+            .await
+            .map_err(CopyFromContainerError::Io)?
+        {
+            match entry.header().entry_type() {
+                EntryType::GNULongName
+                | EntryType::GNULongLink
+                | EntryType::XGlobalHeader
+                | EntryType::XHeader
+                | EntryType::GNUSparse => continue, // skip metadata entries
+                EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
+                EntryType::Regular | EntryType::Continuous => {
+                    return target.copy_from_reader(entry).await
+                }
+                et @ _ => return Err(CopyFromContainerError::UnsupportedEntry(et)),
+            }
         }
 
-        target.copy_from_reader(first_file).await
+        Err(CopyFromContainerError::EmptyArchive)
     }
 
     pub(crate) async fn container_is_running(
