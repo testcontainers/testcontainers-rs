@@ -66,8 +66,14 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
       - name: Tests
-        run: cargo hack test --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }}
+        run: cargo hack nextest run --feature-powerset --depth 2 --clean-per-run --partition ${{ matrix.partition }}
+      - name: Doc tests
+        if: matrix.toolchain == 'stable' && matrix.partition == '1/4'
+        run: cargo test --doc --workspace --all-features
 
   fmt:
     name: Rustfmt check
