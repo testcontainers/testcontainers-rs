@@ -1,0 +1,4 @@
+ [profile.default]
+ # Enable automatic retries for flaky tests with exponential backoff.
+ retries = { attempts = 2, backoff = "exponential" }
+
