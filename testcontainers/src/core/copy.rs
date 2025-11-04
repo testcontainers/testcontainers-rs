@@ -36,14 +36,16 @@ pub enum CopyFromContainerError {
 
 /// Abstraction for materializing the bytes read from a source into a concrete destination.
 ///
-/// Implementors typically persist the incoming bytes to disk or buffer them in memory and then
-/// return a value that callers can work with (for example, the path that was written or the
-/// collected bytes). Implementations must consume the provided reader until EOF or return an error.
+/// Implementors typically persist the incoming bytes to disk or buffer them in memory. Some return
+/// a value that callers can work with (for example, the collected bytes), while others simply
+/// report success with `()`. Implementations must consume the provided reader until EOF or return
+/// an error. Destinations are allowed to discard any existing data to make room for the incoming
+/// bytes.
 #[async_trait(?Send)]
 pub trait CopyFileFromContainer {
     type Output;
 
-    /// Writes all bytes from the reader into `self`, returning a value that represents the completed operation.
+    /// Writes all bytes from the reader into `self`, returning a value that represents the completed operation (or `()` for sinks that only confirm success).
     ///
     /// Implementations may mutate `self` and must propagate I/O errors via [`CopyFromContainerError`].
     async fn copy_from_reader<R>(self, reader: R) -> Result<Self::Output, CopyFromContainerError>
