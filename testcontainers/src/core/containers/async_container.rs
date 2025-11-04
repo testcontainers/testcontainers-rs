@@ -5,7 +5,10 @@ use tokio_stream::StreamExt;
 #[cfg(feature = "host-port-exposure")]
 use super::host::HostPortExposure;
 use crate::{
-    core::{async_drop, client::Client, env, error::Result, network::Network, ContainerState},
+    core::{
+        async_drop, client::Client, copy::CopyFileFromContainer, env, error::Result,
+        network::Network, ContainerState,
+    },
     ContainerRequest, Image,
 };
 
@@ -177,6 +180,24 @@ where
     pub async fn exit_code(&self) -> Result<Option<i64>> {
         let exit_code = self.docker_client().container_exit_code(self.id()).await?;
         Ok(exit_code)
+    }
+
+    /// Copies a single file from the container into an arbitrary target implementing [`CopyFileFromContainer`].
+    ///
+    /// # Behavior
+    /// - Regular files are streamed directly into the target (e.g. `PathBuf`, `Vec<u8>`).
+    /// - If `container_path` resolves to a directory, an error is returned and no data is written.
+    /// - Symlink handling follows Docker's `GET /containers/{id}/archive` endpoint behavior without extra processing.
+    pub async fn copy_file_from<T>(
+        &self,
+        container_path: impl Into<String>,
+        target: T,
+    ) -> Result<T::Output>
+    where
+        T: CopyFileFromContainer,
+    {
+        let container_path = container_path.into();
+        self.raw.copy_file_from(container_path, target).await
     }
 
     /// Removes the container.

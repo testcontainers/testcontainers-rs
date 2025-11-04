@@ -304,6 +304,40 @@ fn sync_copy_files_to_container() -> anyhow::Result<()> {
 }
 
 #[test]
+fn sync_copy_file_from_container_to_path() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo 'sync path' > /tmp/result.txt && sleep 30"])
+        .start()?;
+
+    let destination_dir = tempfile::tempdir()?;
+    let destination = destination_dir.path().join("result.txt");
+
+    container.copy_file_from("/tmp/result.txt", destination.as_path())?;
+
+    let copied = std::fs::read_to_string(&destination)?;
+    assert_eq!(copied, "sync path\n");
+
+    container.stop()?;
+    Ok(())
+}
+
+#[test]
+fn sync_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo 'sync vec' > /tmp/result.txt && sleep 30"])
+        .start()?;
+
+    let mut buffer = Vec::new();
+    container.copy_file_from("/tmp/result.txt", &mut buffer)?;
+    assert_eq!(buffer, b"sync vec\n");
+
+    container.stop()?;
+    Ok(())
+}
+
+#[test]
 fn sync_container_is_running() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 

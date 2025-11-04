@@ -293,6 +293,46 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn async_copy_file_from_container_to_path() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo '42' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let destination_dir = tempfile::tempdir()?;
+    let destination = destination_dir.path().join("result.txt");
+
+    container
+        .copy_file_from("/tmp/result.txt", destination.as_path())
+        .await?;
+
+    let copied = tokio::fs::read_to_string(&destination).await?;
+    assert_eq!(copied, "42\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo 'buffer' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let mut buffer = Vec::new();
+    container
+        .copy_file_from("/tmp/result.txt", &mut buffer)
+        .await?;
+    assert_eq!(buffer, b"buffer\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn async_container_is_running() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 

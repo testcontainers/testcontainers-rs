@@ -1,7 +1,8 @@
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
+
+use async_trait::async_trait;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio_tar::EntryType;
 
 #[derive(Debug, Clone)]
 pub struct CopyToContainerCollection(Vec<CopyToContainer>);
@@ -18,10 +19,123 @@ pub enum CopyDataSource {
     Data(Vec<u8>),
 }
 
+/// Errors that can occur while materializing data copied from a container.
+#[derive(Debug, thiserror::Error)]
+pub enum CopyFromContainerError {
+    #[error("io failed with error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("archive did not contain any regular files")]
+    EmptyArchive,
+    #[error("archive contained multiple files, but only one was expected")]
+    MultipleFilesInArchive,
+    #[error("requested container path is a directory")]
+    IsDirectory,
+    #[error("archive entry type '{0:?}' is not supported for requested target")]
+    UnsupportedEntry(EntryType),
+}
+
+/// Abstraction for materializing the bytes read from a source into a concrete destination.
+///
+/// Implementors typically persist the incoming bytes to disk or buffer them in memory and then
+/// return a value that callers can work with (for example, the path that was written or the
+/// collected bytes). Implementations must consume the provided reader until EOF or return an error.
+#[async_trait(?Send)]
+pub trait CopyFileFromContainer {
+    type Output;
+
+    /// Writes all bytes from the reader into `self`, returning a value that represents the completed operation.
+    ///
+    /// Implementations may mutate `self` and must propagate I/O errors via [`CopyFromContainerError`].
+    async fn copy_from_reader<R>(self, reader: R) -> Result<Self::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin;
+}
+
+#[async_trait(?Send)]
+impl CopyFileFromContainer for Vec<u8> {
+    type Output = Vec<u8>;
+
+    async fn copy_from_reader<R>(
+        mut self,
+        reader: R,
+    ) -> Result<Self::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let mut_ref = &mut self;
+        mut_ref.copy_from_reader(reader).await?;
+        Ok(self)
+    }
+}
+
+#[async_trait(?Send)]
+impl<'a> CopyFileFromContainer for &'a mut Vec<u8> {
+    type Output = ();
+
+    async fn copy_from_reader<R>(
+        mut self,
+        mut reader: R,
+    ) -> Result<Self::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        self.clear();
+        reader
+            .read_to_end(&mut self)
+            .await
+            .map_err(CopyFromContainerError::Io)?;
+        Ok(())
+    }
+}
+
+#[async_trait(?Send)]
+impl CopyFileFromContainer for PathBuf {
+    type Output = ();
+
+    async fn copy_from_reader<R>(self, reader: R) -> Result<Self::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        self.as_path().copy_from_reader(reader).await
+    }
+}
+
+#[async_trait(?Send)]
+impl CopyFileFromContainer for &Path {
+    type Output = ();
+
+    async fn copy_from_reader<R>(
+        self,
+        mut reader: R,
+    ) -> Result<Self::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        if let Some(parent) = self.parent() {
+            if !parent.as_os_str().is_empty() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .map_err(CopyFromContainerError::Io)?;
+            }
+        }
+
+        let mut file = tokio::fs::File::create(self)
+            .await
+            .map_err(CopyFromContainerError::Io)?;
+
+        tokio::io::copy(&mut reader, &mut file)
+            .await
+            .map_err(CopyFromContainerError::Io)?;
+
+        file.flush().await.map_err(CopyFromContainerError::Io)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum CopyToContainerError {
     #[error("io failed with error: {0}")]
-    IoError(io::Error),
+    IoError(std::io::Error),
     #[error("failed to get the path name: {0}")]
     PathNameError(String),
 }
@@ -85,6 +199,7 @@ impl From<&Path> for CopyDataSource {
         CopyDataSource::File(value.to_path_buf())
     }
 }
+
 impl From<PathBuf> for CopyDataSource {
     fn from(value: PathBuf) -> Self {
         CopyDataSource::File(value)
@@ -224,7 +339,7 @@ mod tests {
 
         assert!(result.is_err());
         if let Err(CopyToContainerError::IoError(err)) = result {
-            assert_eq!(err.kind(), io::ErrorKind::NotFound);
+            assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
         } else {
             panic!("Expected IoError");
         }
