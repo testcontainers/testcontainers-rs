@@ -6,9 +6,11 @@ use bollard::{
 };
 use testcontainers::{
     core::{
+        client::ClientError,
+        error::TestcontainersError,
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::{ExitWaitStrategy, LogWaitStrategy},
-        BuildImageOptions, CmdWaitFor, ExecCommand, WaitFor,
+        BuildImageOptions, CmdWaitFor, CopyFromContainerError, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
     GenericBuildableImage, GenericImage, Image, ImageExt,
@@ -327,6 +329,30 @@ async fn async_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
         .copy_file_from("/tmp/result.txt", &mut buffer)
         .await?;
     assert_eq!(buffer, b"buffer\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_directory_errors() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "mkdir -p /tmp/result_dir && sleep 10"])
+        .start()
+        .await?;
+
+    let err = container
+        .copy_file_from("/tmp/result_dir", Vec::<u8>::new())
+        .await
+        .expect_err("expected directory copy to fail");
+
+    match err {
+        TestcontainersError::Client(ClientError::CopyFromContainerError(
+            CopyFromContainerError::IsDirectory,
+        )) => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
 
     container.stop().await?;
     Ok(())

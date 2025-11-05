@@ -4,9 +4,12 @@ use std::time::Instant;
 
 use testcontainers::{
     core::{
+        client::ClientError,
+        error::TestcontainersError,
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::LogWaitStrategy,
-        BuildImageOptions, CmdWaitFor, ExecCommand, Host, IntoContainerPort, WaitFor,
+        BuildImageOptions, CmdWaitFor, CopyFromContainerError, ExecCommand, Host,
+        IntoContainerPort, WaitFor,
     },
     runners::{SyncBuilder, SyncRunner},
     GenericBuildableImage, *,
@@ -332,6 +335,28 @@ fn sync_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
     let mut buffer = Vec::new();
     container.copy_file_from("/tmp/result.txt", &mut buffer)?;
     assert_eq!(buffer, b"sync vec\n");
+
+    container.stop()?;
+    Ok(())
+}
+
+#[test]
+fn sync_copy_file_from_container_directory_errors() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "mkdir -p /tmp/result_dir && sleep 30"])
+        .start()?;
+
+    let err = container
+        .copy_file_from("/tmp/result_dir", Vec::<u8>::new())
+        .expect_err("expected directory copy to fail");
+
+    match err {
+        TestcontainersError::Client(ClientError::CopyFromContainerError(
+            CopyFromContainerError::IsDirectory,
+        )) => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
 
     container.stop()?;
     Ok(())
