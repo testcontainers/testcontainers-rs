@@ -115,7 +115,25 @@ pub trait ImageExt<I: Image> {
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
-    /// Copies some source into the container as file
+    /// Copies data or a file/dir into the container.
+    ///
+    /// The simplest form mirrors existing behavior:
+    /// ```rust
+    /// image.with_copy_to("/app/config.toml", "./config.toml");
+    /// ```
+    ///
+    /// By default the target mode is derived from the source file's mode on Unix,
+    /// and falls back to `0o644` on non-Unix platforms.
+    ///
+    /// To override the mode (or add more target options), wrap the target with
+    /// [`CopyTargetOptions`]:
+    /// ```rust
+    /// use testcontainers::CopyTargetOptions;
+    /// image.with_copy_to(
+    ///     CopyTargetOptions::new("/app/config.toml").with_mode(0o600),
+    ///     "./config.toml",
+    /// );
+    /// ```
     fn with_copy_to(
         self,
         target: impl Into<CopyTargetOptions>,
