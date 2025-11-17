@@ -4,6 +4,7 @@ use bollard::{
     query_parameters::{ListImagesOptions, RemoveImageOptions},
     Docker,
 };
+use tempfile;
 use testcontainers::{
     core::{
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
@@ -11,7 +12,7 @@ use testcontainers::{
         BuildImageOptions, CmdWaitFor, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
-    GenericBuildableImage, GenericImage, Image, ImageExt,
+    CopyTargetOptions, GenericBuildableImage, GenericImage, Image, ImageExt,
 };
 use tokio::io::AsyncReadExt;
 
@@ -184,6 +185,40 @@ async fn async_run_exec() -> anyhow::Result<()> {
     let mut stderr = String::new();
     res.stderr().read_to_string(&mut stderr).await?;
     assert_eq!(stderr, "stderr 1\nstderr 2\n");
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_sets_mode_inside_container() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    let temp = tempfile::NamedTempFile::new()?;
+    std::fs::write(&temp, "secret".as_bytes())?;
+
+    let image = GenericImage::new("alpine", "3.20").with_wait_for(WaitFor::seconds(1));
+
+    // Launch a sleeping alpine, copy file in with custom mode, then inspect via stat inside.
+    let container = image
+        .clone()
+        .with_cmd(["sleep", "60"])
+        .with_copy_to(
+            CopyTargetOptions::new("/tmp/secret.txt").with_mode(0o600),
+            temp.path(),
+        )
+        .start()
+        .await?;
+
+    let mut res = container
+        .exec(ExecCommand::new([
+            "sh",
+            "-c",
+            "stat -c '%a' /tmp/secret.txt",
+        ]))
+        .await?;
+
+    let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
+    assert_eq!(stdout.trim(), "600");
+
     Ok(())
 }
 
