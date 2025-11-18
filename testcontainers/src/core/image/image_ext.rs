@@ -118,8 +118,12 @@ pub trait ImageExt<I: Image> {
     /// Copies data or a file/dir into the container.
     ///
     /// The simplest form mirrors existing behavior:
-    /// ```rust
-    /// image.with_copy_to("/app/config.toml", "./config.toml");
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag");
+    /// image.with_copy_to("/app/config.toml", Path::new("./config.toml"));
     /// ```
     ///
     /// By default the target mode is derived from the source file's mode on Unix,
@@ -127,11 +131,14 @@ pub trait ImageExt<I: Image> {
     ///
     /// To override the mode (or add more target options), wrap the target with
     /// [`CopyTargetOptions`]:
-    /// ```rust
-    /// use testcontainers::CopyTargetOptions;
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use testcontainers::{CopyTargetOptions, GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag");
     /// image.with_copy_to(
     ///     CopyTargetOptions::new("/app/config.toml").with_mode(0o600),
-    ///     "./config.toml",
+    ///     Path::new("./config.toml"),
     /// );
     /// ```
     fn with_copy_to(
