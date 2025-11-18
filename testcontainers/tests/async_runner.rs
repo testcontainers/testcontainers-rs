@@ -189,25 +189,50 @@ async fn async_run_exec() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn async_copy_sets_mode_inside_container() -> anyhow::Result<()> {
+async fn copy_sets_mode_multiple_sources() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let temp = tempfile::NamedTempFile::new()?;
-    std::fs::write(&temp, "secret".as_bytes())?;
+    // file source with explicit mode override
+    let temp_file = tempfile::NamedTempFile::new()?;
+    tokio::fs::write(temp_file.path(), "secret".as_bytes()).await?;
+
+    // directory source inherits permissions from host file (or default fallback on non-unix)
+    let temp_dir = tempfile::tempdir()?;
+    let source_dir = temp_dir.path().join("secrets");
+    tokio::fs::create_dir_all(&source_dir).await?;
+
+    let secret_file = source_dir.join("secret.txt");
+    tokio::fs::write(&secret_file, "top secret".as_bytes()).await?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = tokio::fs::metadata(&secret_file).await?.permissions();
+        perms.set_mode(0o700);
+        tokio::fs::set_permissions(&secret_file, perms).await?;
+    }
+
+    // bytes source with explicit mode override
+    let data = b"bytes-secret".to_vec();
 
     let image = GenericImage::new("alpine", "3.20").with_wait_for(WaitFor::seconds(1));
 
-    // Launch a sleeping alpine, copy file in with custom mode, then inspect via stat inside.
     let container = image
         .clone()
         .with_cmd(["sleep", "60"])
         .with_copy_to(
             CopyTargetOptions::new("/tmp/secret.txt").with_mode(0o600),
-            temp.path(),
+            temp_file.path(),
+        )
+        .with_copy_to(CopyTargetOptions::new("/tmp/secrets"), source_dir.as_path())
+        .with_copy_to(
+            CopyTargetOptions::new("/tmp/secret.bin").with_mode(0o640),
+            data,
         )
         .start()
         .await?;
 
+    // assert file mode
     let mut res = container
         .exec(ExecCommand::new([
             "sh",
@@ -215,9 +240,33 @@ async fn async_copy_sets_mode_inside_container() -> anyhow::Result<()> {
             "stat -c '%a' /tmp/secret.txt",
         ]))
         .await?;
-
     let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
     assert_eq!(stdout.trim(), "600");
+
+    // assert dir file mode
+    let mut res = container
+        .exec(ExecCommand::new([
+            "sh",
+            "-c",
+            "stat -c '%a' /tmp/secrets/secret.txt",
+        ]))
+        .await?;
+    let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
+    #[cfg(unix)]
+    assert_eq!(stdout.trim(), "700");
+    #[cfg(not(unix))]
+    assert_eq!(stdout.trim(), "644");
+
+    // assert bytes mode
+    let mut res = container
+        .exec(ExecCommand::new([
+            "sh",
+            "-c",
+            "stat -c '%a' /tmp/secret.bin",
+        ]))
+        .await?;
+    let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
+    assert_eq!(stdout.trim(), "640");
 
     Ok(())
 }
