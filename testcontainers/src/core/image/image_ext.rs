@@ -6,7 +6,7 @@ use bollard::models::ResourcesUlimits;
 
 use crate::{
     core::{
-        copy::{CopyDataSource, CopyToContainer},
+        copy::{CopyDataSource, CopyTargetOptions, CopyToContainer},
         healthcheck::Healthcheck,
         logs::consumer::LogConsumer,
         CgroupnsMode, ContainerPort, Host, Mount, PortMapping, WaitFor,
@@ -115,10 +115,35 @@ pub trait ImageExt<I: Image> {
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
-    /// Copies some source into the container as file
+    /// Copies data or a file/dir into the container.
+    ///
+    /// The simplest form mirrors existing behavior:
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag");
+    /// image.with_copy_to("/app/config.toml", Path::new("./config.toml"));
+    /// ```
+    ///
+    /// By default the target mode is derived from the source file's mode on Unix,
+    /// and falls back to `0o644` on non-Unix platforms.
+    ///
+    /// To override the mode (or add more target options), wrap the target with
+    /// [`CopyTargetOptions`]:
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use testcontainers::{CopyTargetOptions, GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag");
+    /// image.with_copy_to(
+    ///     CopyTargetOptions::new("/app/config.toml").with_mode(0o600),
+    ///     Path::new("./config.toml"),
+    /// );
+    /// ```
     fn with_copy_to(
         self,
-        target: impl Into<String>,
+        target: impl Into<CopyTargetOptions>,
         source: impl Into<CopyDataSource>,
     ) -> ContainerRequest<I>;
 
@@ -367,11 +392,11 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
 
     fn with_copy_to(
         self,
-        target: impl Into<String>,
+        target: impl Into<CopyTargetOptions>,
         source: impl Into<CopyDataSource>,
     ) -> ContainerRequest<I> {
         let mut container_req = self.into();
-        let target: String = target.into();
+        let target = target.into();
         container_req
             .copy_to_sources
             .push(CopyToContainer::new(source, target));
