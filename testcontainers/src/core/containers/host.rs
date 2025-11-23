@@ -166,7 +166,7 @@ fn prepare_host_exposure<I: Image>(
         }
     }
 
-    let suffix = ULID::from_datetime(std::time::SystemTime::now()).encode();
+    let suffix = ULID::now().encode();
     let password = format!("tc-{}", suffix.as_str());
 
     Ok(Some(HostExposurePlan {
