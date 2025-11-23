@@ -215,10 +215,8 @@ async fn copy_sets_mode_multiple_sources() -> anyhow::Result<()> {
     // bytes source with explicit mode override
     let data = b"bytes-secret".to_vec();
 
-    let image = GenericImage::new("alpine", "3.20").with_wait_for(WaitFor::seconds(1));
-
-    let container = image
-        .clone()
+    let container = GenericImage::new("alpine", "3.20")
+        .with_wait_for(WaitFor::seconds(1))
         .with_cmd(["sleep", "60"])
         .with_copy_to(
             CopyTargetOptions::new("/tmp/secret.txt").with_mode(0o600),
@@ -232,41 +230,40 @@ async fn copy_sets_mode_multiple_sources() -> anyhow::Result<()> {
         .start()
         .await?;
 
-    // assert file mode
-    let mut res = container
-        .exec(ExecCommand::new([
-            "sh",
-            "-c",
-            "stat -c '%a' /tmp/secret.txt",
-        ]))
-        .await?;
-    let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
-    assert_eq!(stdout.trim(), "600");
+    #[derive(Copy, Clone)]
+    struct ModeExpectation {
+        path: &'static str,
+        expected_mode: &'static str,
+    }
 
-    // assert dir file mode
-    let mut res = container
-        .exec(ExecCommand::new([
-            "sh",
-            "-c",
-            "stat -c '%a' /tmp/secrets/secret.txt",
-        ]))
-        .await?;
-    let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
-    #[cfg(unix)]
-    assert_eq!(stdout.trim(), "700");
-    #[cfg(not(unix))]
-    assert_eq!(stdout.trim(), "644");
+    let expectations = vec![
+        ModeExpectation {
+            path: "/tmp/secret.txt",
+            expected_mode: "600",
+        },
+        ModeExpectation {
+            path: "/tmp/secret.bin",
+            expected_mode: "640",
+        },
+        ModeExpectation {
+            path: "/tmp/secrets/secret.txt",
+            expected_mode: if cfg!(unix) { "700" } else { "644" },
+        },
+    ];
 
-    // assert bytes mode
-    let mut res = container
-        .exec(ExecCommand::new([
-            "sh",
-            "-c",
-            "stat -c '%a' /tmp/secret.bin",
-        ]))
-        .await?;
-    let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
-    assert_eq!(stdout.trim(), "640");
+    for expectation in expectations {
+        let command = format!("stat -c '%a' {}", expectation.path);
+        let mut res = container
+            .exec(ExecCommand::new(["sh", "-c", command.as_str()]))
+            .await?;
+        let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
+        assert_eq!(
+            stdout.trim(),
+            expectation.expected_mode,
+            "unexpected mode for {}",
+            expectation.path
+        );
+    }
 
     Ok(())
 }
