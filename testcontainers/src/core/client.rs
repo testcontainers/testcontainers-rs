@@ -186,6 +186,29 @@ impl Client {
             .map_err(ClientError::InspectContainer)
     }
 
+    // It's used under a feature, but feature gate doesn't make a lot of sense here.
+    #[allow(dead_code)]
+    pub(crate) async fn list_containers_by_label(
+        &self,
+        label_key: &str,
+        label_value: &str,
+    ) -> Result<Vec<bollard::models::ContainerSummary>, ClientError> {
+        let filters = HashMap::from([(
+            "label".to_string(),
+            vec![format!("{}={}", label_key, label_value)],
+        )]);
+
+        let options = ListContainersOptionsBuilder::new()
+            .all(true)
+            .filters(&filters)
+            .build();
+
+        self.bollard
+            .list_containers(Some(options))
+            .await
+            .map_err(ClientError::ListContainers)
+    }
+
     pub(crate) async fn rm(&self, id: &str) -> Result<(), ClientError> {
         self.bollard
             .remove_container(

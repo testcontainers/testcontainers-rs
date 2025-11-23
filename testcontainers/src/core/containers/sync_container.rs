@@ -41,7 +41,10 @@ where
             .field("id", &self.id())
             .field("image", &self.image())
             .field("ports", &self.ports())
-            .field("command", &self.async_impl().docker_client.config.command())
+            .field(
+                "command",
+                &self.async_impl().docker_client().config.command(),
+            )
             .finish()
     }
 }
@@ -234,7 +237,7 @@ impl<I: Image> Drop for Container<I> {
     fn drop(&mut self) {
         if let Some(active) = self.inner.take() {
             active.runtime.block_on(async {
-                match active.async_impl.docker_client.config.command() {
+                match active.async_impl.docker_client().config.command() {
                     env::Command::Remove => {
                         if let Err(e) = active.async_impl.rm().await {
                             log::error!("Failed to remove container on drop: {}", e);
@@ -293,9 +296,12 @@ mod test {
             .with_ready_conditions(vec![WaitFor::healthcheck()])
             .start()?;
 
-        let inspect_info = container
-            .rt()
-            .block_on(container.async_impl().docker_client.inspect(container.id()))?;
+        let inspect_info = container.rt().block_on(
+            container
+                .async_impl()
+                .docker_client()
+                .inspect(container.id()),
+        )?;
 
         assert!(inspect_info.config.is_some());
         let config = inspect_info
