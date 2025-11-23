@@ -17,13 +17,15 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 async-trait = { version = "0.1" }
-bollard = { version = "0.19.3", features = ["buildkit_providerless"] }
+bollard = { version = "0.19.4", features = ["buildkit_providerless"] }
 bytes = "1.6.0"
 conquer-once = { version = "0.4", optional = true }
+docker-compose-types = { version = "0.22", optional = true }
 docker_credential = "1.3.1"
 either = "1.12.0"
 etcetera = "0.10.0"
 futures = "0.3"
+itertools = "0.14"
 log = "0.4"
 memchr = "2.7.2"
 parse-display = "0.9.0"
@@ -40,12 +42,13 @@ serde_json = "1"
 serde_with = "3.7.0"
 signal-hook = { version = "0.3", optional = true }
 thiserror = "2.0.3"
-tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread", "process"] }
 tokio-stream = "0.1.15"
 astral-tokio-tar = "0.5.6"
 tokio-util = { version = "0.7.10", features = ["io"] }
 ferroid = { version = "0.8.2", features = ["std", "ulid", "base32"] }
 url = { version = "2", features = ["serde"] }
+uuid = { version = "1.8.0", features = ["v4"], optional = true }
 
 [features]
 default = ["ring"]
@@ -60,6 +63,7 @@ properties-config = ["serde-java-properties"]
 reusable-containers = []
 device-requests = []
 host-port-exposure = ["dep:russh", "russh/ring"]
+docker-compose = ["dep:docker-compose-types", "dep:uuid"]
 
 [dev-dependencies]
 anyhow = "1.0.86"

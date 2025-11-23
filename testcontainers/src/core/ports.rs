@@ -76,6 +76,18 @@ impl Ports {
     pub fn map_to_host_port_ipv6(&self, container_port: impl Into<ContainerPort>) -> Option<u16> {
         self.ipv6_mapping.get(&container_port.into()).cloned()
     }
+
+    // It's used under a feature, but feature gate doesn't make a lot of sense here.
+    #[allow(dead_code)]
+    pub(crate) fn ipv4_mapping(&self) -> &HashMap<ContainerPort, u16> {
+        &self.ipv4_mapping
+    }
+
+    // It's used under a feature, but feature gate doesn't make a lot of sense here.
+    #[allow(dead_code)]
+    pub(crate) fn ipv6_mapping(&self) -> &HashMap<ContainerPort, u16> {
+        &self.ipv6_mapping
+    }
 }
 
 impl TryFrom<PortMap> for Ports {
