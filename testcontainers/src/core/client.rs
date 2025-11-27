@@ -555,7 +555,7 @@ impl Client {
             .await
             .map_err(ClientError::CopyToContainerError)?;
 
-        let session = ULID::from_datetime(std::time::SystemTime::now()).encode();
+        let session = ULID::now().encode();
 
         let mut builder = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
