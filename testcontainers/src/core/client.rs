@@ -462,7 +462,7 @@ impl Client {
                 EntryType::Regular | EntryType::Continuous => {
                     return target.copy_from_reader(entry).await
                 }
-                et @ _ => return Err(CopyFromContainerError::UnsupportedEntry(et)),
+                et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
             }
         }
 
