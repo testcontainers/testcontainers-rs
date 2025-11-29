@@ -7,9 +7,11 @@ use bollard::{
 use tempfile;
 use testcontainers::{
     core::{
+        client::ClientError,
+        error::TestcontainersError,
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::{ExitWaitStrategy, LogWaitStrategy},
-        BuildImageOptions, CmdWaitFor, ExecCommand, WaitFor,
+        BuildImageOptions, CmdWaitFor, CopyFromContainerError, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
     CopyTargetOptions, GenericBuildableImage, GenericImage, Image, ImageExt,
@@ -370,6 +372,70 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
     assert!(out.contains("foofoofoo"));
     assert!(out.contains("barbarbar"));
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_to_path() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo '42' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let destination_dir = tempfile::tempdir()?;
+    let destination = destination_dir.path().join("result.txt");
+
+    container
+        .copy_file_from("/tmp/result.txt", destination.as_path())
+        .await?;
+
+    let copied = tokio::fs::read_to_string(&destination).await?;
+    assert_eq!(copied, "42\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo 'buffer' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let mut buffer = Vec::new();
+    container
+        .copy_file_from("/tmp/result.txt", &mut buffer)
+        .await?;
+    assert_eq!(buffer, b"buffer\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_directory_errors() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "mkdir -p /tmp/result_dir && sleep 10"])
+        .start()
+        .await?;
+
+    let err = container
+        .copy_file_from("/tmp/result_dir", Vec::<u8>::new())
+        .await
+        .expect_err("expected directory copy to fail");
+
+    match err {
+        TestcontainersError::Client(ClientError::CopyFromContainerError(
+            CopyFromContainerError::IsDirectory,
+        )) => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
+
+    container.stop().await?;
     Ok(())
 }
 

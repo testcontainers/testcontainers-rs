@@ -5,6 +5,7 @@ use tokio::io::{AsyncBufRead, AsyncReadExt};
 use super::{exec, Client};
 use crate::{
     core::{
+        copy::CopyFileFromContainer,
         error::{ContainerMissingInfo, ExecError, Result},
         ports::Ports,
         wait::WaitStrategy,
@@ -36,6 +37,21 @@ impl RawContainer {
 
     pub async fn ports(&self) -> Result<Ports> {
         self.docker_client.ports(&self.id).await.map_err(Into::into)
+    }
+
+    pub(crate) async fn copy_file_from<T>(
+        &self,
+        container_path: impl Into<String>,
+        target: T,
+    ) -> Result<T::Output>
+    where
+        T: CopyFileFromContainer,
+    {
+        let container_path = container_path.into();
+        self.docker_client
+            .copy_file_from_container(self.id(), &container_path, target)
+            .await
+            .map_err(TestcontainersError::from)
     }
 
     /// Returns the mapped host port for an internal port of this docker container, on the host's

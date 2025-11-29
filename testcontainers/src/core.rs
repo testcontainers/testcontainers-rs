@@ -6,7 +6,10 @@ pub use self::{
         buildable::BuildableImage,
     },
     containers::*,
-    copy::{CopyDataSource, CopyToContainer, CopyToContainerCollection, CopyToContainerError},
+    copy::{
+        CopyDataSource, CopyFileFromContainer, CopyFromContainerError, CopyToContainer,
+        CopyToContainerCollection, CopyToContainerError,
+    },
     healthcheck::Healthcheck,
     image::{ContainerState, ExecCommand, Image, ImageExt},
     mounts::{AccessMode, Mount, MountTmpfsOptions, MountType},
