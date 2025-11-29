@@ -18,7 +18,23 @@ let image = GenericImage::new("alpine", "latest")
 ```
 
 Everything is packed into a TAR archive, preserving nested directories. The helper accepts either `Vec<u8>` or any path-like value implementing `CopyDataSource`.  
-Note: file permissions and symbolic links follow Docker’s default TAR handling.
+By default, the destination path inherits the mode of the source file on Unix hosts (or falls back to `0o644` elsewhere). Use `CopyTargetOptions` when you need to override per-copy metadata such as permissions:
+
+```rust
+use testcontainers::{CopyTargetOptions, GenericImage, ImageExt};
+
+let image = GenericImage::new("alpine", "latest")
+    .with_copy_to(
+        CopyTargetOptions::new("/opt/app/secret.yaml").with_mode(0o600),
+        "./fixtures/secret.yaml",
+    )
+    .with_copy_to(
+        CopyTargetOptions::new("/opt/app/blob.bin").with_mode(0o640),
+        br"raw bytes".to_vec(),
+    );
+```
+
+`CopyTargetOptions::new` wraps any path-like target and keeps backward compatibility with string literals—existing code continues to compile. Symbolic links still follow Docker’s TAR semantics; the `mode` override only applies to the final file entry recorded in the archive.
 
 ## Copying Files From Containers (After Execution)
 
