@@ -278,6 +278,7 @@ where
         } else if !is_container_networked {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.publish_all_ports = Some(true);
+                host_config.port_bindings = Some(HashMap::new());
                 host_config
             });
         }
