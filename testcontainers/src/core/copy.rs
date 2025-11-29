@@ -9,8 +9,14 @@ pub struct CopyToContainerCollection(Vec<CopyToContainer>);
 
 #[derive(Debug, Clone)]
 pub struct CopyToContainer {
-    target: String,
+    target: CopyTargetOptions,
     source: CopyDataSource,
+}
+
+#[derive(Debug, Clone)]
+pub struct CopyTargetOptions {
+    target: String,
+    mode: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -166,7 +172,7 @@ impl CopyToContainerCollection {
 }
 
 impl CopyToContainer {
-    pub fn new(source: impl Into<CopyDataSource>, target: impl Into<String>) -> Self {
+    pub fn new(source: impl Into<CopyDataSource>, target: impl Into<CopyTargetOptions>) -> Self {
         Self {
             source: source.into(),
             target: target.into(),
@@ -194,6 +200,37 @@ impl CopyToContainer {
     }
 }
 
+impl CopyTargetOptions {
+    pub fn new(target: impl Into<String>) -> Self {
+        Self {
+            target: target.into(),
+            mode: None,
+        }
+    }
+
+    pub fn with_mode(mut self, mode: u32) -> Self {
+        self.mode = Some(mode);
+        self
+    }
+
+    pub fn target(&self) -> &str {
+        &self.target
+    }
+
+    pub fn mode(&self) -> Option<u32> {
+        self.mode
+    }
+}
+
+impl<T> From<T> for CopyTargetOptions
+where
+    T: Into<String>,
+{
+    fn from(value: T) -> Self {
+        CopyTargetOptions::new(value.into())
+    }
+}
+
 impl From<&Path> for CopyDataSource {
     fn from(value: &Path) -> Self {
         CopyDataSource::File(value.to_path_buf())
@@ -215,13 +252,13 @@ impl CopyDataSource {
     pub(crate) async fn append_tar(
         &self,
         ar: &mut tokio_tar::Builder<Vec<u8>>,
-        target_path: impl Into<String>,
+        target: &CopyTargetOptions,
     ) -> Result<(), CopyToContainerError> {
-        let target_path: String = target_path.into();
+        let target_path = target.target();
 
         match self {
             CopyDataSource::File(source_file_path) => {
-                if let Err(e) = append_tar_file(ar, source_file_path, &target_path).await {
+                if let Err(e) = append_tar_file(ar, source_file_path, target).await {
                     log::error!(
                         "Could not append file/dir to tar: {source_file_path:?}:{target_path}"
                     );
@@ -229,7 +266,7 @@ impl CopyDataSource {
                 }
             }
             CopyDataSource::Data(data) => {
-                if let Err(e) = append_tar_bytes(ar, data, &target_path).await {
+                if let Err(e) = append_tar_bytes(ar, data, target).await {
                     log::error!("Could not append data to tar: {target_path}");
                     return Err(e);
                 }
@@ -243,9 +280,9 @@ impl CopyDataSource {
 async fn append_tar_file(
     ar: &mut tokio_tar::Builder<Vec<u8>>,
     source_file_path: &Path,
-    target_path: &str,
+    target: &CopyTargetOptions,
 ) -> Result<(), CopyToContainerError> {
-    let target_path = make_path_relative(target_path);
+    let target_path = make_path_relative(target.target());
     let meta = tokio::fs::metadata(source_file_path)
         .await
         .map_err(CopyToContainerError::IoError)?;
@@ -259,7 +296,25 @@ async fn append_tar_file(
             .await
             .map_err(CopyToContainerError::IoError)?;
 
-        ar.append_file(target_path, f)
+        let mut header = tokio_tar::Header::new_gnu();
+        header.set_size(meta.len());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = target.mode().unwrap_or_else(|| meta.permissions().mode());
+            header.set_mode(mode);
+        }
+
+        #[cfg(not(unix))]
+        {
+            let mode = target.mode().unwrap_or(0o644);
+            header.set_mode(mode);
+        }
+
+        header.set_cksum();
+
+        ar.append_data(&mut header, target_path, f)
             .await
             .map_err(CopyToContainerError::IoError)?;
     };
@@ -270,13 +325,13 @@ async fn append_tar_file(
 async fn append_tar_bytes(
     ar: &mut tokio_tar::Builder<Vec<u8>>,
     data: &Vec<u8>,
-    target_path: &str,
+    target: &CopyTargetOptions,
 ) -> Result<(), CopyToContainerError> {
-    let relative_target_path = make_path_relative(target_path);
+    let relative_target_path = make_path_relative(target.target());
 
     let mut header = tokio_tar::Header::new_gnu();
     header.set_size(data.len() as u64);
-    header.set_mode(0o0644);
+    header.set_mode(target.mode().unwrap_or(0o0644));
     header.set_cksum();
 
     ar.append_data(&mut header, relative_target_path, data.as_slice())
@@ -299,7 +354,9 @@ fn make_path_relative(path: &str) -> String {
 mod tests {
     use std::{fs::File, io::Write};
 
+    use futures::StreamExt;
     use tempfile::tempdir;
+    use tokio_tar::Archive;
 
     use super::*;
 
@@ -362,5 +419,37 @@ mod tests {
         assert!(result.is_ok());
         let bytes = result.unwrap();
         assert!(!bytes.is_empty());
+    }
+
+    #[tokio::test]
+    async fn tar_bytes_respects_custom_mode() {
+        let data = vec![1, 2, 3];
+        let target = CopyTargetOptions::new("data.bin").with_mode(0o600);
+        let copy_to_container = CopyToContainer::new(data, target);
+
+        let tar_bytes = copy_to_container.tar().await.unwrap();
+        let mut archive = Archive::new(std::io::Cursor::new(tar_bytes));
+        let mut entries = archive.entries().unwrap();
+        let entry = entries.next().await.unwrap().unwrap();
+
+        assert_eq!(entry.header().mode().unwrap(), 0o600);
+    }
+
+    #[tokio::test]
+    async fn tar_file_respects_custom_mode() {
+        let temp_dir = tempdir().unwrap();
+        let file_path = temp_dir.path().join("file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "TEST").unwrap();
+
+        let target = CopyTargetOptions::new("file.txt").with_mode(0o640);
+        let copy_to_container = CopyToContainer::new(file_path, target);
+
+        let tar_bytes = copy_to_container.tar().await.unwrap();
+        let mut archive = Archive::new(std::io::Cursor::new(tar_bytes));
+        let mut entries = archive.entries().unwrap();
+        let entry = entries.next().await.unwrap().unwrap();
+
+        assert_eq!(entry.header().mode().unwrap(), 0o640);
     }
 }
