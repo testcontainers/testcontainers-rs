@@ -1,9 +1,7 @@
 use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
-    core::{
-        copy::CopyFileFromContainer, env, error::Result, ports::Ports, ContainerPort, ExecCommand,
-    },
+    core::{copy::CopyFileFromContainer, error::Result, ports::Ports, ContainerPort, ExecCommand},
     ContainerAsync, Image,
 };
 
@@ -257,17 +255,12 @@ where
 
 impl<I: Image> Drop for Container<I> {
     fn drop(&mut self) {
-        if let Some(active) = self.inner.take() {
-            active.runtime.block_on(async {
-                match active.async_impl.docker_client().config.command() {
-                    env::Command::Remove => {
-                        if let Err(e) = active.async_impl.rm().await {
-                            log::error!("Failed to remove container on drop: {}", e);
-                        }
-                    }
-                    env::Command::Keep => {}
-                }
-            });
+        if let Some(ActiveContainer {
+            runtime,
+            async_impl,
+        }) = self.inner.take()
+        {
+            runtime.block_on(async { drop(async_impl) });
         }
     }
 }
