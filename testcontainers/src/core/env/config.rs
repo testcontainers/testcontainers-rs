@@ -18,8 +18,8 @@ pub enum ConfigurationError {
     #[error("failed to load testcontainers properties: {0}")]
     WrongPropertiesFormat(#[from] serde_java_properties::de::Error),
     #[cfg(feature = "reusable-containers")]
-    #[error("container name must be provided when reusing containers")]
-    MissingContainerName,
+    #[error("container name or labels must be provided when reusing containers")]
+    MissingContainerNameAndLabels,
 }
 
 /// The default path to the Docker configuration file.

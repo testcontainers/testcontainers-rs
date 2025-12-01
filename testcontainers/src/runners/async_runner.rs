@@ -124,16 +124,15 @@ where
             };
 
             if matches!(container_req.reuse(), Always | CurrentSession) {
-                let container_name =
-                    container_req.container_name().as_deref().ok_or_else(|| {
-                        TestcontainersError::Client(ClientError::Configuration(
-                            ConfigurationError::MissingContainerName,
-                        ))
-                    })?;
+                if labels.is_empty() && container_req.container_name().is_none() {
+                    return Err(TestcontainersError::Client(ClientError::Configuration(
+                        ConfigurationError::MissingContainerNameAndLabels,
+                    )));
+                }
 
                 if let Some(container_id) = client
                     .get_running_container_id(
-                        Some(container_name),
+                        container_req.container_name().as_deref(),
                         container_req.network().as_deref(),
                         &labels,
                     )
