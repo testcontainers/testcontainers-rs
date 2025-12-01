@@ -117,9 +117,11 @@ where
 
         #[cfg(feature = "reusable-containers")]
         {
-            use crate::core::env::ConfigurationError;
-            use crate::ReuseDirective::{Always, CurrentSession};
-            use crate::TestcontainersError;
+            use crate::{
+                core::env::ConfigurationError,
+                ReuseDirective::{Always, CurrentSession},
+                TestcontainersError,
+            };
 
             if matches!(container_req.reuse(), Always | CurrentSession) {
                 let container_name =
