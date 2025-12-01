@@ -90,7 +90,7 @@ pub use crate::core::Container;
 #[cfg(feature = "reusable-containers")]
 pub use crate::core::ReuseDirective;
 pub use crate::core::{
-    copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
+    copy::{CopyDataSource, CopyTargetOptions, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
     BuildableImage, ContainerAsync, ContainerRequest, Healthcheck, Image, ImageExt,
 };

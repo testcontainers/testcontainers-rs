@@ -24,8 +24,8 @@ use crate::{
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 #[cfg(feature = "reusable-containers")]
-static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ferroid::id::ULID> =
-    std::sync::OnceLock::new();
+static TESTCONTAINERS_SESSION_ID: std::sync::LazyLock<ferroid::id::ULID> =
+    std::sync::LazyLock::new(ferroid::id::ULID::now);
 
 #[doc(hidden)]
 /// A unique identifier for the currently "active" `testcontainers` "session".
@@ -41,8 +41,7 @@ static TESTCONTAINERS_SESSION_ID: std::sync::OnceLock<ferroid::id::ULID> =
 /// as the container name, labels, and network would all still match.
 #[cfg(feature = "reusable-containers")]
 pub(crate) fn session_id() -> &'static ferroid::id::ULID {
-    TESTCONTAINERS_SESSION_ID
-        .get_or_init(|| ferroid::id::ULID::from_datetime(std::time::SystemTime::now()))
+    &TESTCONTAINERS_SESSION_ID
 }
 
 #[async_trait]
@@ -279,6 +278,7 @@ where
         } else if !is_container_networked {
             config.host_config = config.host_config.map(|mut host_config| {
                 host_config.publish_all_ports = Some(true);
+                host_config.port_bindings = Some(HashMap::new());
                 host_config
             });
         }

@@ -44,6 +44,7 @@ nav:
       - features/configuration.md
       - features/wait_strategies.md
       - features/exec_commands.md
+      - features/files.md
       - features/networking.md
       - features/building_images.md
       - features/docker_compose.md

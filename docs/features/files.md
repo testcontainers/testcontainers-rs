@@ -1,0 +1,103 @@
+# Files and Mounts
+
+Rust Testcontainers lets you seed container filesystems before startup, collect artifacts produced inside containers, and bind host paths at runtime. The APIs deliver smooth ergonomics while staying idiomatic to Rust.
+
+## Copying Files Into Containers (Before Startup)
+
+Use `ImageExt::with_copy_to` to stage files or directories before the container starts. Content can come from raw bytes or host paths:
+
+```rust
+// Example: copying inline bytes and directories into a container
+use testcontainers::{GenericImage, WaitFor};
+
+let project_assets = std::path::Path::new("tests/fixtures/assets");
+let image = GenericImage::new("alpine", "latest")
+    .with_wait_for(WaitFor::seconds(1))
+    .with_copy_to("/opt/app/config.yaml", br#"mode = "test""#.to_vec())
+    .with_copy_to("/opt/app/assets", project_assets);
+```
+
+Everything is packed into a TAR archive, preserving nested directories. The helper accepts either `Vec<u8>` or any path-like value implementing `CopyDataSource`.  
+By default, the destination path inherits the mode of the source file on Unix hosts (or falls back to `0o644` elsewhere). Use `CopyTargetOptions` when you need to override per-copy metadata such as permissions:
+
+```rust
+use testcontainers::{CopyTargetOptions, GenericImage, ImageExt};
+
+let image = GenericImage::new("alpine", "latest")
+    .with_copy_to(
+        CopyTargetOptions::new("/opt/app/secret.yaml").with_mode(0o600),
+        "./fixtures/secret.yaml",
+    )
+    .with_copy_to(
+        CopyTargetOptions::new("/opt/app/blob.bin").with_mode(0o640),
+        br"raw bytes".to_vec(),
+    );
+```
+
+`CopyTargetOptions::new` wraps any path-like target and keeps backward compatibility with string literals—existing code continues to compile. Symbolic links still follow Docker’s TAR semantics; the `mode` override only applies to the final file entry recorded in the archive.
+
+## Copying Files From Containers (After Execution)
+
+Use `copy_file_from` to pull data produced inside the container:
+
+```rust
+// Example: copying a file from a running container to the host
+use tempfile::tempdir;
+use testcontainers::{GenericImage, WaitFor};
+
+#[tokio::test]
+async fn copy_example() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_cmd(["sh", "-c", "echo '42' > /tmp/result.txt && sleep 10"])
+        .with_wait_for(WaitFor::seconds(1))
+        .start()
+        .await?;
+
+    let destination = tempdir()?.path().join("result.txt");
+    container
+        .copy_file_from("/tmp/result.txt", destination.as_path())
+        .await?;
+    assert_eq!(tokio::fs::read_to_string(&destination).await?, "42\n");
+    Ok(())
+}
+```
+
+- `copy_file_from` streams file contents into any destination implementing `CopyFileFromContainer` (for example `&Path` or `&mut Vec<u8>`). When the requested path is not a regular file you’ll receive a `CopyFromContainerError`.
+- Targets like `Vec<u8>` and filesystem paths overwrite existing data: vectors are cleared before writing, and files are truncated or recreated if they already exist.
+- To capture the contents in memory:
+  ```rust
+  let mut bytes = Vec::new();
+  container.copy_file_from("/tmp/result.txt", &mut bytes).await?;
+  ```
+
+The blocking `Container` type provides the same `copy_file_from` API.
+
+## Using Mounts for Writable Workspaces
+
+When a bind or tmpfs mount fits better than copy semantics, use the `Mount` helpers:
+
+```rust
+// Example: mounting a host directory for read/write access
+use std::path::Path;
+use testcontainers::core::{mounts::Mount, AccessMode, MountType};
+
+let host_data = Path::new("/var/tmp/integration-data");
+let mount = Mount::bind(host_data, "/workspace")
+    .with_mode(AccessMode::ReadWrite)
+    .with_type(MountType::Bind);
+
+let image = GenericImage::new("python", "3.13")
+    .with_mount(mount)
+    .with_cmd(["python", "/workspace/run.py"]);
+```
+
+Bind mounts share host state directly. Tmpfs mounts create ephemeral in-memory storage useful for scratch data or caches.
+
+## Selecting an Approach
+
+- **Copy before startup** — for deterministic inputs.
+- **Copy from containers** — to capture build artifacts, logs, or test fixtures produced during a run.
+- **Use mounts** — when containers need to read/write large amounts of data efficiently without re-tarring.
+
+Mixing these tools keeps tests hermetic (isolated and reproducible) while letting you inspect outputs locally.  
+Document each choice in code so teammates know whether data is ephemeral (`tmpfs`), seeded once (`with_copy_to`), or captured for later assertions (`copy_file_from`).
