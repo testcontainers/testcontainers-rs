@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.0] - 2025-12-19
+### Details
+#### Bug Fixes
+- Reuse container requires name ([#887](https://github.com/testcontainers/testcontainers-rs/pull/887))
+- Respect `TESTCONTAINERS_COMMAND` ([#891](https://github.com/testcontainers/testcontainers-rs/pull/891))
+
+#### Miscellaneous Tasks
+- Update russh requirement from 0.54.4 to 0.55.0 ([#888](https://github.com/testcontainers/testcontainers-rs/pull/888))
+
 ## [0.26.0] - 2025-12-01
 ### Details
 #### Bug Fixes
