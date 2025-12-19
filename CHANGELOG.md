@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.27.0] - 2025-12-19
+## [0.26.1] - 2025-12-19
 ### Details
 #### Bug Fixes
 - Reuse container requires name ([#887](https://github.com/testcontainers/testcontainers-rs/pull/887))
