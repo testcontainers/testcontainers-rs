@@ -4,7 +4,6 @@ use bollard::{
     query_parameters::{ListImagesOptions, RemoveImageOptions},
     Docker,
 };
-use tempfile;
 use testcontainers::{
     core::{
         client::ClientError,

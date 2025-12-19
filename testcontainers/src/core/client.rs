@@ -427,7 +427,7 @@ impl Client {
         let stream = self
             .bollard
             .download_from_container(container_id, Some(options))
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+            .map_err(io::Error::other);
         let reader = StreamReader::new(stream);
         Self::extract_file_entry(reader, target)
             .await

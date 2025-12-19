@@ -3,7 +3,8 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use crate::{
     compose::client::ComposeInterface,
     core::{
-        async_container::raw::RawContainer, async_drop, client::Client, wait::WaitStrategy, WaitFor,
+        async_container::raw::RawContainer, async_drop, client::Client, env, wait::WaitStrategy,
+        WaitFor,
     },
 };
 
@@ -222,7 +223,17 @@ impl Drop for DockerCompose {
         let client = self.client.clone();
         let rmi = self.remove_images;
         let volumes = self.remove_volumes;
+        let command = self
+            .docker_client
+            .as_ref()
+            .map(|client| client.config.command())
+            .unwrap_or(env::Command::Remove);
+
         let drop_task = async move {
+            if command != env::Command::Remove {
+                return;
+            }
+
             let res = client
                 .down(client::DownCommand {
                     project_name,
