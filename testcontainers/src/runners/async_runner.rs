@@ -117,9 +117,19 @@ where
 
         #[cfg(feature = "reusable-containers")]
         {
-            use crate::ReuseDirective::{Always, CurrentSession};
+            use crate::{
+                core::env::ConfigurationError,
+                ReuseDirective::{Always, CurrentSession},
+                TestcontainersError,
+            };
 
             if matches!(container_req.reuse(), Always | CurrentSession) {
+                if labels.is_empty() && container_req.container_name().is_none() {
+                    return Err(TestcontainersError::Client(ClientError::Configuration(
+                        ConfigurationError::MissingContainerNameAndLabels,
+                    )));
+                }
+
                 if let Some(container_id) = client
                     .get_running_container_id(
                         container_req.container_name().as_deref(),
