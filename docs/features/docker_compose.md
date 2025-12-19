@@ -325,7 +325,12 @@ services:
 
 ### Use Unique Project Names
 
-Each test gets a unique project name automatically via UUID, preventing conflicts between parallel tests. No manual configuration needed.
+Each test gets a unique project name automatically via UUID, preventing conflicts between parallel tests. No manual configuration needed. If you need a stable name (for example, to reuse volumes across runs), override it explicitly:
+
+```rust
+let mut compose = DockerCompose::with_local_client(&["docker-compose.yml"])
+    .with_project_name("my-test-stack");
+```
 
 ### Rely on Compose's --wait Flag
 
@@ -381,4 +386,3 @@ If `up()` returns an error:
 1. Verify Docker Compose is installed: `docker compose version`
 2. Check compose file is valid: `docker compose -f your-file.yml config`
 3. Ensure all required images are available or can be pulled
-
