@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.2] - 2025-12-19
+### Details
+#### Features
+- Allow overriding project name ([#894](https://github.com/testcontainers/testcontainers-rs/pull/894))
+
 ## [0.26.1] - 2025-12-19
 ### Details
 #### Bug Fixes
