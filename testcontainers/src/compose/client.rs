@@ -7,7 +7,7 @@ pub(super) mod local;
 
 pub(super) enum ComposeClient {
     Local(local::LocalComposeCli),
-    Containerised(containerised::ContainerisedComposeCli),
+    Containerised(Box<containerised::ContainerisedComposeCli>),
 }
 
 impl ComposeClient {
@@ -16,9 +16,9 @@ impl ComposeClient {
     }
 
     pub(super) async fn new_containerised(compose_files: Vec<PathBuf>) -> Result<Self> {
-        Ok(ComposeClient::Containerised(
+        Ok(ComposeClient::Containerised(Box::new(
             containerised::ContainerisedComposeCli::new(compose_files).await?,
-        ))
+        )))
     }
 }
 

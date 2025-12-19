@@ -75,7 +75,7 @@ impl CopyFileFromContainer for Vec<u8> {
 }
 
 #[async_trait(?Send)]
-impl<'a> CopyFileFromContainer for &'a mut Vec<u8> {
+impl CopyFileFromContainer for &mut Vec<u8> {
     type Output = ();
 
     async fn copy_from_reader<R>(
