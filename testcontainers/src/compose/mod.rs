@@ -141,6 +141,12 @@ impl DockerCompose {
         self
     }
 
+    /// Override the docker compose project name (default: random UUID)
+    pub fn with_project_name(mut self, project_name: impl Into<String>) -> Self {
+        self.project_name = project_name.into();
+        self
+    }
+
     /// Explicitly stop and remove the compose stack
     ///
     /// Consumes the DockerCompose instance since the stack is no longer usable after teardown.
