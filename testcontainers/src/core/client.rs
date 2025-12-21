@@ -750,17 +750,16 @@ impl Client {
         Some(bollard_credentials)
     }
 
-    /// Get the `id` of the first running container whose `name`, `network`,
-    /// and `labels` match the supplied values
+    /// Get the `id` of the first container whose `name`, `network`,
+    /// and `labels` match the supplied values, regardless of status
     #[cfg_attr(not(feature = "reusable-containers"), allow(dead_code))]
-    pub(crate) async fn get_running_container_id(
+    pub(crate) async fn get_container_id(
         &self,
         name: Option<&str>,
         network: Option<&str>,
         labels: &HashMap<String, String>,
     ) -> Result<Option<String>, ClientError> {
         let filters = [
-            Some(("status".to_string(), vec!["running".to_string()])),
             name.map(|value| ("name".to_string(), vec![value.to_string()])),
             network.map(|value| ("network".to_string(), vec![value.to_string()])),
             Some((
@@ -776,7 +775,7 @@ impl Client {
         .collect::<HashMap<_, _>>();
 
         let options = ListContainersOptionsBuilder::new()
-            .all(false)
+            .all(true)
             .size(false)
             .filters(&filters)
             .build();

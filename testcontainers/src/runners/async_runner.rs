@@ -37,7 +37,7 @@ static TESTCONTAINERS_SESSION_ID: std::sync::LazyLock<ferroid::id::ULID> =
 /// previous test sessions that were marked `reuse`, (or where the test suite was
 /// run with the `TESTCONTAINERS_COMMAND` environment variable set to `keep`), that
 /// *haven't* been manually cleaned up could be incorrectly returned from methods
-/// like [`Client::get_running_container_id`](Client::get_running_container_id),
+/// like [`Client::get_container_id`](Client::get_container_id),
 /// as the container name, labels, and network would all still match.
 #[cfg(feature = "reusable-containers")]
 pub(crate) fn session_id() -> &'static ferroid::id::ULID {
@@ -131,13 +131,18 @@ where
                 }
 
                 if let Some(container_id) = client
-                    .get_running_container_id(
+                    .get_container_id(
                         container_req.container_name().as_deref(),
                         container_req.network().as_deref(),
                         &labels,
                     )
                     .await?
                 {
+                    // Check if container is running, and start it if not
+                    if !client.container_is_running(&container_id).await? {
+                        client.start_container(&container_id).await?;
+                    }
+
                     let network = if let Some(network) = container_req.network() {
                         Network::new(network, client.clone()).await?
                     } else {
@@ -1044,5 +1049,49 @@ mod tests {
             .expect("User");
         assert_eq!(expected_user, &user, "user must be `root`");
         Ok(())
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    #[tokio::test]
+    async fn async_start_should_reuse_stopped_container() -> anyhow::Result<()> {
+        use crate::ReuseDirective;
+
+        let client = Client::lazy_client().await?;
+        let container_name = format!("test-reuse-stopped-{}", std::process::id());
+
+        let container1 = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_container_name(&container_name)
+            .with_reuse(ReuseDirective::Always)
+            .start()
+            .await?;
+        let container_id_1 = container1.id().to_string();
+
+        assert!(
+            client.container_is_running(&container_id_1).await?,
+            "Container should be running after start"
+        );
+
+        container1.stop().await?;
+        assert!(
+            !client.container_is_running(&container_id_1).await?,
+            "Container should be stopped after stop()"
+        );
+
+        let container2 = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_container_name(&container_name)
+            .with_reuse(ReuseDirective::Always)
+            .start()
+            .await?;
+        let container_id_2 = container2.id().to_string();
+
+        assert_eq!(
+            container_id_1, container_id_2,
+            "Should reuse the same container ID"
+        );
+        assert!(
+            client.container_is_running(&container_id_2).await?,
+            "Container should be running after restart"
+        );
+        container2.rm().await.map_err(anyhow::Error::from)
     }
 }
