@@ -37,7 +37,7 @@ static TESTCONTAINERS_SESSION_ID: std::sync::LazyLock<ferroid::id::ULID> =
 /// previous test sessions that were marked `reuse`, (or where the test suite was
 /// run with the `TESTCONTAINERS_COMMAND` environment variable set to `keep`), that
 /// *haven't* been manually cleaned up could be incorrectly returned from methods
-/// like [`Client::get_container_id`](Client::get_container_id),
+/// like [`Client::get_container`](Client::get_container),
 /// as the container name, labels, and network would all still match.
 #[cfg(feature = "reusable-containers")]
 pub(crate) fn session_id() -> &'static ferroid::id::ULID {
@@ -130,8 +130,8 @@ where
                     )));
                 }
 
-                if let Some(container_id) = client
-                    .get_container_id(
+                if let Some(container_info) = client
+                    .get_container(
                         container_req.container_name().as_deref(),
                         container_req.network().as_deref(),
                         &labels,
@@ -139,8 +139,8 @@ where
                     .await?
                 {
                     // Check if container is running, and start it if not
-                    if !client.container_is_running(&container_id).await? {
-                        client.start_container(&container_id).await?;
+                    if !container_info.is_running {
+                        client.start_container(&container_info.id).await?;
                     }
 
                     let network = if let Some(network) = container_req.network() {
@@ -150,7 +150,7 @@ where
                     };
 
                     return Ok(ContainerAsync::construct(
-                        container_id,
+                        container_info.id,
                         client,
                         container_req,
                         network,

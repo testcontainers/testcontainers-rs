@@ -135,6 +135,14 @@ pub enum ClientError {
     CopyFromContainerError(CopyFromContainerError),
 }
 
+/// Information about a container returned from lookup operations.
+#[cfg(feature = "reusable-containers")]
+#[derive(Debug, Clone)]
+pub(crate) struct ContainerInfo {
+    pub id: String,
+    pub is_running: bool,
+}
+
 /// The internal client.
 pub(crate) struct Client {
     pub(crate) config: env::Config,
@@ -750,15 +758,15 @@ impl Client {
         Some(bollard_credentials)
     }
 
-    /// Get the `id` of the first container whose `name`, `network`,
-    /// and `labels` match the supplied values, regardless of status
-    #[cfg_attr(not(feature = "reusable-containers"), allow(dead_code))]
-    pub(crate) async fn get_container_id(
+    /// Get information about the first container whose `name`, `network`,
+    /// and `labels` match the supplied values, regardless of status.
+    #[cfg(feature = "reusable-containers")]
+    pub(crate) async fn get_container(
         &self,
         name: Option<&str>,
         network: Option<&str>,
         labels: &HashMap<String, String>,
-    ) -> Result<Option<String>, ClientError> {
+    ) -> Result<Option<ContainerInfo>, ClientError> {
         let filters = [
             name.map(|value| ("name".to_string(), vec![value.to_string()])),
             network.map(|value| ("network".to_string(), vec![value.to_string()])),
@@ -799,7 +807,13 @@ impl Client {
             // Use `max_by_key()` instead of `next()` to ensure we're
             // returning the id of most recently created container.
             .max_by_key(|container| container.created.unwrap_or(i64::MIN))
-            .and_then(|container| container.id))
+            .and_then(|container| {
+                container.id.map(|id| {
+                    let is_running =
+                        matches!(container.state, Some(ContainerSummaryStateEnum::RUNNING));
+                    ContainerInfo { id, is_running }
+                })
+            }))
     }
 }
 
