@@ -767,6 +767,7 @@ impl Client {
         network: Option<&str>,
         labels: &HashMap<String, String>,
     ) -> Result<Option<ContainerInfo>, ClientError> {
+        use bollard::models::ContainerSummaryStateEnum;
         let filters = [
             name.map(|value| ("name".to_string(), vec![value.to_string()])),
             network.map(|value| ("network".to_string(), vec![value.to_string()])),
