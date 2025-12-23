@@ -1,4 +1,9 @@
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::Arc,
+};
 
 use crate::{
     compose::client::ComposeInterface,
@@ -15,6 +20,119 @@ pub use error::{ComposeError, Result};
 
 const COMPOSE_PROJECT_LABEL: &str = "com.docker.compose.project";
 const COMPOSE_SERVICE_LABEL: &str = "com.docker.compose.service";
+
+/// Configuration for the local docker compose client.
+#[derive(Clone, Debug)]
+pub struct LocalComposeOptions {
+    compose_files: Vec<PathBuf>,
+}
+
+impl LocalComposeOptions {
+    pub fn new(compose_files: &[impl AsRef<Path>]) -> Self {
+        let compose_files = compose_files
+            .iter()
+            .map(|p| p.as_ref().to_path_buf())
+            .collect();
+
+        Self { compose_files }
+    }
+
+    pub(crate) fn into_parts(self) -> Vec<PathBuf> {
+        self.compose_files
+    }
+}
+
+/// Configuration for the containerised docker compose client.
+///
+/// The project directory is used by docker compose to resolve relative paths in compose files.
+/// For host-relative bind mounts, pass an absolute host path.
+#[derive(Clone, Debug)]
+pub struct ContainerisedComposeOptions {
+    compose_files: Vec<PathBuf>,
+    project_directory: Option<PathBuf>,
+}
+
+impl ContainerisedComposeOptions {
+    pub fn new(compose_files: &[impl AsRef<Path>]) -> Self {
+        let compose_files = compose_files
+            .iter()
+            .map(|p| p.as_ref().to_path_buf())
+            .collect();
+
+        Self {
+            compose_files,
+            project_directory: None,
+        }
+    }
+
+    pub fn with_project_directory(mut self, project_directory: impl AsRef<Path>) -> Self {
+        self.project_directory = Some(project_directory.as_ref().to_path_buf());
+        self
+    }
+
+    pub(crate) fn into_parts(self) -> (Vec<PathBuf>, Option<PathBuf>) {
+        (self.compose_files, self.project_directory)
+    }
+}
+
+/// Configuration for automatic docker compose client selection.
+#[derive(Clone, Debug)]
+pub struct AutoComposeOptions {
+    local: LocalComposeOptions,
+    containerised: ContainerisedComposeOptions,
+}
+
+impl AutoComposeOptions {
+    pub fn new(compose_files: &[impl AsRef<Path>]) -> Self {
+        let local = LocalComposeOptions::new(compose_files);
+        let containerised = ContainerisedComposeOptions::new(compose_files);
+
+        Self {
+            local,
+            containerised,
+        }
+    }
+
+    pub fn from_local(local: LocalComposeOptions) -> Self {
+        let containerised = ContainerisedComposeOptions {
+            compose_files: local.compose_files.clone(),
+            project_directory: None,
+        };
+
+        Self {
+            local,
+            containerised,
+        }
+    }
+
+    pub fn from_containerised(containerised: ContainerisedComposeOptions) -> Self {
+        let local = LocalComposeOptions {
+            compose_files: containerised.compose_files.clone(),
+        };
+
+        Self {
+            local,
+            containerised,
+        }
+    }
+
+    pub fn with_local_options(mut self, local: LocalComposeOptions) -> Self {
+        self.local = local;
+        self
+    }
+
+    pub fn with_containerised_options(
+        mut self,
+        containerised: ContainerisedComposeOptions,
+    ) -> Self {
+        self.containerised = containerised;
+        self
+    }
+
+    pub(crate) fn into_parts(self) -> (LocalComposeOptions, ContainerisedComposeOptions) {
+        (self.local, self.containerised)
+    }
+}
 
 pub struct DockerCompose {
     project_name: String,
@@ -45,29 +163,73 @@ impl std::fmt::Debug for DockerCompose {
 }
 
 impl DockerCompose {
-    /// Create a new docker compose with a local client (using docker-cli installed locally)
-    /// If you don't have docker-cli installed, you can use `with_containerised_client` instead
-    pub fn with_local_client(compose_files: &[impl AsRef<Path>]) -> Self {
-        let compose_files = compose_files
-            .iter()
-            .map(|p| p.as_ref().to_path_buf())
-            .collect();
-
-        let client = Arc::new(client::ComposeClient::new_local(compose_files));
+    /// Create a new docker compose with a local client (using docker-cli installed locally).
+    /// If you don't have docker-cli installed, you can use `with_containerised_client` instead.
+    ///
+    /// Accepts any iterable of paths (slices, arrays, vecs, iterators):
+    /// ```rust,no_run
+    /// use testcontainers::compose::DockerCompose;
+    ///
+    /// let compose = DockerCompose::with_local_client(&["docker-compose.yml"]);
+    /// let compose = DockerCompose::with_local_client(vec!["docker-compose.yml"]);
+    /// let compose = DockerCompose::with_local_client(std::iter::once("docker-compose.yml"));
+    /// ```
+    pub fn with_local_client(options: impl Into<LocalComposeOptions>) -> Self {
+        let options = options.into();
+        let client = Arc::new(client::ComposeClient::new_local(options.into_parts()));
 
         Self::new(client)
     }
 
-    /// Create a new docker compose with a containerised client (doesn't require docker-cli installed locally)
-    pub async fn with_containerised_client(compose_files: &[impl AsRef<Path>]) -> Result<Self> {
-        let compose_files = compose_files
-            .iter()
-            .map(|p| p.as_ref().to_path_buf())
-            .collect();
-
-        let client = Arc::new(client::ComposeClient::new_containerised(compose_files).await?);
+    /// Create a new docker compose with a containerised client (doesn't require docker-cli installed locally).
+    ///
+    /// Pass a slice of compose files for the default behavior, or provide
+    /// [`ContainerisedComposeOptions`] to set the project directory.
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::compose::{ContainerisedComposeOptions, DockerCompose};
+    ///
+    /// let compose = DockerCompose::with_containerised_client(&["docker-compose.yml"]).await?;
+    ///
+    /// let options = ContainerisedComposeOptions::new(&["/home/me/app/docker-compose.yml"])
+    ///     .with_project_directory("/home/me/app");
+    /// let compose = DockerCompose::with_containerised_client(options).await?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub async fn with_containerised_client(
+        options: impl Into<ContainerisedComposeOptions>,
+    ) -> Result<Self> {
+        let options = options.into();
+        let client = Arc::new(client::ComposeClient::new_containerised(options).await?);
 
         Ok(Self::new(client))
+    }
+
+    /// Create a new docker compose with automatic client selection.
+    ///
+    /// The local client is selected when `docker compose` is available, otherwise the
+    /// containerised client is used.
+    ///
+    /// ```rust,no_run
+    /// use testcontainers::compose::{AutoComposeOptions, ContainerisedComposeOptions, DockerCompose};
+    ///
+    /// let compose = DockerCompose::with_auto_client(&["docker-compose.yml"]).await?;
+    ///
+    /// let containerised = ContainerisedComposeOptions::new(&["docker-compose.yml"])
+    ///     .with_project_directory("/home/me/app");
+    /// let auto = AutoComposeOptions::from_containerised(containerised);
+    /// let compose = DockerCompose::with_auto_client(auto).await?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub async fn with_auto_client(options: impl Into<AutoComposeOptions>) -> Result<Self> {
+        let (local, containerised) = options.into().into_parts();
+        if local_compose_available().await {
+            let client = Arc::new(client::ComposeClient::new_local(local.into_parts()));
+            Ok(Self::new(client))
+        } else {
+            let client = Arc::new(client::ComposeClient::new_containerised(containerised).await?);
+            Ok(Self::new(client))
+        }
     }
 
     /// Start the docker compose and discover all services
@@ -255,6 +417,170 @@ impl Drop for DockerCompose {
         };
 
         async_drop::async_drop(drop_task);
+    }
+}
+
+async fn local_compose_available() -> bool {
+    let output = tokio::process::Command::new("docker")
+        .arg("compose")
+        .arg("version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .await;
+
+    matches!(output, Ok(output) if output.status.success())
+}
+
+impl<T> From<&[T]> for LocalComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: &[T]) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T> From<Vec<T>> for LocalComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: Vec<T>) -> Self {
+        let compose_files = value
+            .into_iter()
+            .map(|p| p.as_ref().to_path_buf())
+            .collect();
+
+        Self { compose_files }
+    }
+}
+
+impl<T, const N: usize> From<&[T; N]> for LocalComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: &[T; N]) -> Self {
+        Self::from(value.as_slice())
+    }
+}
+
+impl From<&LocalComposeOptions> for LocalComposeOptions {
+    fn from(value: &LocalComposeOptions) -> Self {
+        value.clone()
+    }
+}
+
+impl<T> From<&[T]> for ContainerisedComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: &[T]) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T> From<Vec<T>> for ContainerisedComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: Vec<T>) -> Self {
+        let compose_files = value
+            .into_iter()
+            .map(|p| p.as_ref().to_path_buf())
+            .collect();
+
+        Self {
+            compose_files,
+            project_directory: None,
+        }
+    }
+}
+
+impl<T, const N: usize> From<&[T; N]> for ContainerisedComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: &[T; N]) -> Self {
+        Self::from(value.as_slice())
+    }
+}
+
+impl From<&ContainerisedComposeOptions> for ContainerisedComposeOptions {
+    fn from(value: &ContainerisedComposeOptions) -> Self {
+        value.clone()
+    }
+}
+
+impl<T> From<&[T]> for AutoComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: &[T]) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<T> From<Vec<T>> for AutoComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: Vec<T>) -> Self {
+        let compose_files = value
+            .into_iter()
+            .map(|p| p.as_ref().to_path_buf())
+            .collect::<Vec<_>>();
+
+        let local = LocalComposeOptions {
+            compose_files: compose_files.clone(),
+        };
+        let containerised = ContainerisedComposeOptions {
+            compose_files,
+            project_directory: None,
+        };
+
+        Self {
+            local,
+            containerised,
+        }
+    }
+}
+
+impl<T, const N: usize> From<&[T; N]> for AutoComposeOptions
+where
+    T: AsRef<Path>,
+{
+    fn from(value: &[T; N]) -> Self {
+        Self::from(value.as_slice())
+    }
+}
+
+impl From<&AutoComposeOptions> for AutoComposeOptions {
+    fn from(value: &AutoComposeOptions) -> Self {
+        value.clone()
+    }
+}
+
+impl From<LocalComposeOptions> for AutoComposeOptions {
+    fn from(value: LocalComposeOptions) -> Self {
+        AutoComposeOptions::from_local(value)
+    }
+}
+
+impl From<&LocalComposeOptions> for AutoComposeOptions {
+    fn from(value: &LocalComposeOptions) -> Self {
+        AutoComposeOptions::from_local(value.clone())
+    }
+}
+
+impl From<ContainerisedComposeOptions> for AutoComposeOptions {
+    fn from(value: ContainerisedComposeOptions) -> Self {
+        AutoComposeOptions::from_containerised(value)
+    }
+}
+
+impl From<&ContainerisedComposeOptions> for AutoComposeOptions {
+    fn from(value: &ContainerisedComposeOptions) -> Self {
+        AutoComposeOptions::from_containerised(value.clone())
     }
 }
 

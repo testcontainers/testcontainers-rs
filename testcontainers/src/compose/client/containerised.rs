@@ -1,11 +1,10 @@
-use std::path::PathBuf;
-
 use crate::{
     compose::{
         client::{ComposeInterface, DownCommand, UpCommand},
         error::Result,
+        ContainerisedComposeOptions,
     },
-    core::{CmdWaitFor, ExecCommand, Mount},
+    core::{CmdWaitFor, ExecCommand},
     images::docker_cli::DockerCli,
     runners::AsyncRunner,
     ContainerAsync, ContainerRequest, ImageExt,
@@ -14,10 +13,12 @@ use crate::{
 pub(crate) struct ContainerisedComposeCli {
     container: ContainerAsync<DockerCli>,
     compose_files_in_container: Vec<String>,
+    project_directory: Option<String>,
 }
 
 impl ContainerisedComposeCli {
-    pub(super) async fn new(compose_files: Vec<PathBuf>) -> Result<Self> {
+    pub(super) async fn new(options: ContainerisedComposeOptions) -> Result<Self> {
+        let (compose_files, project_directory) = options.into_parts();
         let mut image = ContainerRequest::from(DockerCli::new("/var/run/docker.sock"));
 
         let compose_files_in_container: Vec<String> = compose_files
@@ -25,21 +26,20 @@ impl ContainerisedComposeCli {
             .enumerate()
             .map(|(i, _)| format!("/docker-compose-{i}.yml"))
             .collect();
-        let mounts: Vec<_> = compose_files
-            .iter()
+        for (path, file_name) in compose_files
+            .into_iter()
             .zip(compose_files_in_container.iter())
-            .filter_map(|(path, file_name)| path.to_str().map(|p| Mount::bind_mount(p, file_name)))
-            .collect();
-
-        for mount in mounts {
-            image = image.with_mount(mount);
+        {
+            image = image.with_copy_to(file_name, path);
         }
 
         let container = image.start().await?;
+        let project_directory = project_directory.map(|path| path.to_string_lossy().into_owned());
 
         Ok(Self {
             container,
             compose_files_in_container,
+            project_directory,
         })
     }
 }
@@ -52,12 +52,15 @@ impl ComposeInterface for ContainerisedComposeCli {
             cmd_parts.push(format!("{}={}", key, value));
         }
 
-        cmd_parts.extend([
-            "docker".to_string(),
-            "compose".to_string(),
-            "--project-name".to_string(),
-            command.project_name.clone(),
-        ]);
+        cmd_parts.extend(["docker".to_string(), "compose".to_string()]);
+
+        if let Some(project_directory) = &self.project_directory {
+            cmd_parts.push("--project-directory".to_string());
+            cmd_parts.push(project_directory.clone());
+        }
+
+        cmd_parts.push("--project-name".to_string());
+        cmd_parts.push(command.project_name.clone());
 
         for file in &self.compose_files_in_container {
             cmd_parts.push("-f".to_string());
@@ -87,13 +90,18 @@ impl ComposeInterface for ContainerisedComposeCli {
     }
 
     async fn down(&self, command: DownCommand) -> Result<()> {
-        let mut cmd = vec![
-            "docker".to_string(),
-            "compose".to_string(),
+        let mut cmd = vec!["docker".to_string(), "compose".to_string()];
+
+        if let Some(project_directory) = &self.project_directory {
+            cmd.push("--project-directory".to_string());
+            cmd.push(project_directory.clone());
+        }
+
+        cmd.extend([
             "--project-name".to_string(),
             command.project_name.clone(),
             "down".to_string(),
-        ];
+        ]);
 
         if command.volumes {
             cmd.push("--volumes".to_string());
