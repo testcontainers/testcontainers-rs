@@ -15,9 +15,7 @@ impl ComposeClient {
         ComposeClient::Local(local::LocalComposeCli::new(compose_files))
     }
 
-    pub(super) async fn new_containerised(
-        options: ContainerisedComposeOptions,
-    ) -> Result<Self> {
+    pub(super) async fn new_containerised(options: ContainerisedComposeOptions) -> Result<Self> {
         Ok(ComposeClient::Containerised(Box::new(
             containerised::ContainerisedComposeCli::new(options).await?,
         )))

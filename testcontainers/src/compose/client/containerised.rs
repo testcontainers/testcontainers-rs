@@ -52,10 +52,7 @@ impl ComposeInterface for ContainerisedComposeCli {
             cmd_parts.push(format!("{}={}", key, value));
         }
 
-        cmd_parts.extend([
-            "docker".to_string(),
-            "compose".to_string(),
-        ]);
+        cmd_parts.extend(["docker".to_string(), "compose".to_string()]);
 
         if let Some(project_directory) = &self.project_directory {
             cmd_parts.push("--project-directory".to_string());
@@ -93,10 +90,7 @@ impl ComposeInterface for ContainerisedComposeCli {
     }
 
     async fn down(&self, command: DownCommand) -> Result<()> {
-        let mut cmd = vec![
-            "docker".to_string(),
-            "compose".to_string(),
-        ];
+        let mut cmd = vec!["docker".to_string(), "compose".to_string()];
 
         if let Some(project_directory) = &self.project_directory {
             cmd.push("--project-directory".to_string());
