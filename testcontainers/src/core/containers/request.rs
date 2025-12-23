@@ -3,6 +3,7 @@ use std::{
     collections::BTreeMap,
     fmt::{Debug, Formatter},
     net::IpAddr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -17,6 +18,8 @@ use crate::{
     },
     Image, TestcontainersError,
 };
+
+pub(crate) type HostConfigModifier = Arc<dyn Fn(&mut HostConfig) + Send + Sync + 'static>;
 
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
@@ -49,7 +52,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
-    pub(crate) host_config_modifier: Option<Box<dyn Fn(&mut HostConfig) + Send + Sync + 'static>>,
+    pub(crate) host_config_modifier: Option<HostConfigModifier>,
     #[cfg(feature = "reusable-containers")]
     pub(crate) reuse: crate::ReuseDirective,
     pub(crate) user: Option<String>,
@@ -240,10 +243,8 @@ impl<I: Image> ContainerRequest<I> {
         self.health_check.as_ref()
     }
 
-    pub fn host_config_modifier(
-        &self,
-    ) -> Option<&(dyn Fn(&mut HostConfig) + Send + Sync + 'static)> {
-        self.host_config_modifier.as_deref()
+    pub fn host_config_modifier(&self) -> Option<&HostConfigModifier> {
+        self.host_config_modifier.as_ref()
     }
 
     #[cfg(feature = "device-requests")]

@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
@@ -541,7 +541,7 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
     ) -> ContainerRequest<I> {
         let container_req = self.into();
         ContainerRequest {
-            host_config_modifier: Some(Box::new(modifier)),
+            host_config_modifier: Some(Arc::new(modifier)),
             ..container_req
         }
     }
