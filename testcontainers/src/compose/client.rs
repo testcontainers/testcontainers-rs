@@ -1,6 +1,6 @@
 use std::{fmt, path::PathBuf};
 
-use crate::compose::error::Result;
+use crate::compose::{error::Result, ContainerisedComposeOptions};
 
 pub(super) mod containerised;
 pub(super) mod local;
@@ -15,9 +15,11 @@ impl ComposeClient {
         ComposeClient::Local(local::LocalComposeCli::new(compose_files))
     }
 
-    pub(super) async fn new_containerised(compose_files: Vec<PathBuf>) -> Result<Self> {
+    pub(super) async fn new_containerised(
+        options: ContainerisedComposeOptions,
+    ) -> Result<Self> {
         Ok(ComposeClient::Containerised(Box::new(
-            containerised::ContainerisedComposeCli::new(compose_files).await?,
+            containerised::ContainerisedComposeCli::new(options).await?,
         )))
     }
 }

@@ -151,6 +151,32 @@ compose.up().await?;
 - Consistent compose version across environments
 - Useful for CI/CD where Docker CLI might not be available
 
+If your compose files use relative paths for bind mounts, set an explicit project directory so
+docker compose resolves those paths against the host location:
+
+```rust
+use testcontainers::compose::{ContainerisedComposeOptions, DockerCompose};
+
+let options = ContainerisedComposeOptions::new(&["/home/me/app/docker-compose.yml"])
+    .with_project_directory("/home/me/app");
+
+let mut compose = DockerCompose::with_containerised_client(options).await?;
+compose.up().await?;
+```
+
+### Auto Client
+
+Tries the local `docker compose` CLI first and falls back to the containerised client:
+
+```rust
+use testcontainers::compose::{AutoComposeOptions, DockerCompose};
+
+let options = AutoComposeOptions::new(&["docker-compose.yml"]);
+
+let mut compose = DockerCompose::with_auto_client(options).await?;
+compose.up().await?;
+```
+
 ## Configuration Options
 
 ### Environment Variables
