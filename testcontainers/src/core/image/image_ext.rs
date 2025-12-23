@@ -2,7 +2,7 @@ use std::time::Duration;
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
-use bollard::models::ResourcesUlimits;
+use bollard::models::{HostConfig, ResourcesUlimits};
 
 use crate::{
     core::{
@@ -209,6 +209,15 @@ pub trait ImageExt<I: Image> {
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
+
+    /// Applies a custom modifier to the Docker `HostConfig` used for container creation.
+    ///
+    /// The modifier runs after `testcontainers` finishes applying its defaults and settings.
+    /// If called multiple times, the last modifier replaces the previous one.
+    fn with_host_config_modifier(
+        self,
+        modifier: impl Fn(&mut HostConfig) + Send + Sync + 'static,
+    ) -> ContainerRequest<I>;
 
     /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
     /// indicating that the container should be kept running, and that executions with the same configuration
@@ -524,6 +533,17 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.log_consumers.push(Box::new(log_consumer));
         container_req
+    }
+
+    fn with_host_config_modifier(
+        self,
+        modifier: impl Fn(&mut HostConfig) + Send + Sync + 'static,
+    ) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            host_config_modifier: Some(Box::new(modifier)),
+            ..container_req
+        }
     }
 
     #[cfg(feature = "reusable-containers")]

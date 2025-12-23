@@ -330,6 +330,24 @@ mod tests {
     }
 
     #[test]
+    fn sync_run_command_should_apply_host_config_modifier() -> anyhow::Result<()> {
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
+        let container = image
+            .with_host_config_modifier(|host_config| {
+                host_config.cpu_period = Some(100_000);
+                host_config.cpu_quota = Some(200_000);
+            })
+            .start()?;
+
+        let container_details = inspect(container.id());
+        let host_config = container_details.host_config.expect("HostConfig");
+
+        assert_eq!(host_config.cpu_period, Some(100_000));
+        assert_eq!(host_config.cpu_quota, Some(200_000));
+        Ok(())
+    }
+
+    #[test]
     fn sync_should_create_network_if_image_needs_it_and_drop_it_in_the_end() -> anyhow::Result<()> {
         {
             let client = docker_client();
