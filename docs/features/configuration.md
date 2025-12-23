@@ -32,22 +32,6 @@ Configuration is fetched in the following order:
 2. `DOCKER_CONFIG` environment variable, as an alternative path to the directory containing Docker `config.json` file.
 3. else it will load the default Docker config file, which lives in the user's home, e.g. `~/.docker/config.json`.
 
-## Advanced container configuration
-
-If you need to tweak Docker `HostConfig` fields that are not exposed by the high-level API, use
-`ImageExt::with_host_config_modifier` to apply a single callback just before container creation.
-The modifier runs after `testcontainers` fills in its defaults.
-
-```rust
-use testcontainers::{GenericImage, ImageExt};
-
-let image = GenericImage::new("testcontainers/helloworld", "1.3.0")
-    .with_host_config_modifier(|host_config| {
-        host_config.cpu_period = Some(100_000);
-        host_config.cpu_quota = Some(200_000);
-    });
-```
-
 ## bollard, rustls and SSL Cryptography providers
 
 `testcontainers` uses [`bollard`](https://docs.rs/bollard/latest/bollard/) to interact with the Docker API.
