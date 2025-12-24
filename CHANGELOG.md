@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.27.0] - 2025-12-24
+## [0.26.3] - 2025-12-24
 ### Details
 #### Features
 - Support for reusable containers that have been stopped ([#896](https://github.com/testcontainers/testcontainers-rs/pull/896))
