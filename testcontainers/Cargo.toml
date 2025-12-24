@@ -1,6 +1,6 @@
 [package]
 name = "testcontainers"
-version = "0.26.2"
+version = "0.26.3"
 categories = ["development-tools::testing"]
 readme = "README.md"
 authors.workspace = true

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.3] - 2025-12-24
+### Details
+#### Features
+- Support for reusable containers that have been stopped ([#896](https://github.com/testcontainers/testcontainers-rs/pull/896))
+- Support auto-detection of docker-compose client ([#898](https://github.com/testcontainers/testcontainers-rs/pull/898))
+- Allow customizations of host-config ([#899](https://github.com/testcontainers/testcontainers-rs/pull/899))
+
 ## [0.26.2] - 2025-12-19
 ### Details
 #### Features
