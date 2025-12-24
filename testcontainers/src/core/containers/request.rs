@@ -3,12 +3,13 @@ use std::{
     collections::BTreeMap,
     fmt::{Debug, Formatter},
     net::IpAddr,
+    sync::Arc,
     time::Duration,
 };
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
-use bollard::models::ResourcesUlimits;
+use bollard::models::{HostConfig, ResourcesUlimits};
 
 use crate::{
     core::{
@@ -17,6 +18,8 @@ use crate::{
     },
     Image, TestcontainersError,
 };
+
+pub(crate) type HostConfigModifier = Arc<dyn Fn(&mut HostConfig) + Send + Sync + 'static>;
 
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
@@ -49,6 +52,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
+    pub(crate) host_config_modifier: Option<HostConfigModifier>,
     #[cfg(feature = "reusable-containers")]
     pub(crate) reuse: crate::ReuseDirective,
     pub(crate) user: Option<String>,
@@ -239,6 +243,10 @@ impl<I: Image> ContainerRequest<I> {
         self.health_check.as_ref()
     }
 
+    pub fn host_config_modifier(&self) -> Option<&HostConfigModifier> {
+        self.host_config_modifier.as_ref()
+    }
+
     #[cfg(feature = "device-requests")]
     pub fn device_requests(&self) -> Option<&[DeviceRequest]> {
         self.device_requests.as_deref()
@@ -276,6 +284,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             startup_timeout: None,
             working_dir: None,
             log_consumers: vec![],
+            host_config_modifier: None,
             #[cfg(feature = "reusable-containers")]
             reuse: crate::ReuseDirective::Never,
             user: None,
@@ -336,7 +345,11 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("working_dir", &self.working_dir)
             .field("user", &self.user)
             .field("ready_conditions", &self.ready_conditions)
-            .field("health_check", &self.health_check);
+            .field("health_check", &self.health_check)
+            .field(
+                "has_host_config_modifier",
+                &self.host_config_modifier.is_some(),
+            );
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);

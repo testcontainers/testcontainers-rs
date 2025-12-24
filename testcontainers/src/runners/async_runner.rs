@@ -326,6 +326,13 @@ where
             }
         }
 
+        if let Some(modifier) = container_req.host_config_modifier() {
+            config.host_config = config.host_config.map(|mut host_config| {
+                modifier(&mut host_config);
+                host_config
+            });
+        }
+
         let cmd: Vec<_> = container_req.cmd().map(|v| v.to_string()).collect();
         if !cmd.is_empty() {
             config.cmd = Some(cmd);
