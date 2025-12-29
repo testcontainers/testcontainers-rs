@@ -40,7 +40,7 @@ serde = { version = "1", features = ["derive"] }
 serde-java-properties = { version = "0.2.0", optional = true }
 serde_json = "1"
 serde_with = "3.7.0"
-signal-hook = { version = "0.3", optional = true }
+signal-hook = { version = "0.4", optional = true }
 thiserror = "2.0.3"
 tokio = { version = "1", features = ["macros", "fs", "rt-multi-thread", "process"] }
 tokio-stream = "0.1.15"
