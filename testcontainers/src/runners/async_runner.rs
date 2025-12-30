@@ -181,6 +181,7 @@ where
             healthcheck: container_req
                 .health_check()
                 .map(|hc| hc.clone().into_health_config()),
+            open_stdin: container_req.open_stdin,
             ..Default::default()
         };
 
