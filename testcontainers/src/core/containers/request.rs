@@ -60,6 +60,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) health_check: Option<Healthcheck>,
     #[cfg(feature = "device-requests")]
     pub(crate) device_requests: Option<Vec<DeviceRequest>>,
+    pub(crate) open_stdin: Option<bool>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -251,6 +252,10 @@ impl<I: Image> ContainerRequest<I> {
     pub fn device_requests(&self) -> Option<&[DeviceRequest]> {
         self.device_requests.as_deref()
     }
+
+    pub fn open_stdin(&self) -> Option<bool> {
+        self.open_stdin
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -292,6 +297,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             health_check: None,
             #[cfg(feature = "device-requests")]
             device_requests: None,
+            open_stdin: None,
         }
     }
 }
@@ -356,6 +362,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
 
         #[cfg(feature = "device-requests")]
         repr.field("device_requests", &self.device_requests);
+
+        repr.field("open_stdin", &self.open_stdin);
 
         repr.finish()
     }
