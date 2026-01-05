@@ -31,7 +31,7 @@ memchr = "2.7.2"
 parse-display = "0.9.0"
 pin-project-lite = "0.2.14"
 russh = { version = "0.56.0", default-features = false, optional = true }
-reqwest = { version = "0.12.5", features = [
+reqwest = { version = "0.13.1", features = [
     "json",
     "charset",
     "http2",
@@ -68,7 +68,7 @@ docker-compose = ["dep:docker-compose-types", "dep:uuid"]
 [dev-dependencies]
 anyhow = "1.0.86"
 pretty_env_logger = "0.5"
-reqwest = { version = "0.12.4", features = [
+reqwest = { version = "0.13.1", features = [
     "blocking",
 ], default-features = false }
 temp-dir = "0.1"
