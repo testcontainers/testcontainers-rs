@@ -151,6 +151,32 @@ compose.up().await?;
 - Consistent compose version across environments
 - Useful for CI/CD where Docker CLI might not be available
 
+If your compose files use relative paths for bind mounts, set an explicit project directory so
+docker compose resolves those paths against the host location:
+
+```rust
+use testcontainers::compose::{ContainerisedComposeOptions, DockerCompose};
+
+let options = ContainerisedComposeOptions::new(&["/home/me/app/docker-compose.yml"])
+    .with_project_directory("/home/me/app");
+
+let mut compose = DockerCompose::with_containerised_client(options).await?;
+compose.up().await?;
+```
+
+### Auto Client
+
+Tries the local `docker compose` CLI first and falls back to the containerised client:
+
+```rust
+use testcontainers::compose::{AutoComposeOptions, DockerCompose};
+
+let options = AutoComposeOptions::new(&["docker-compose.yml"]);
+
+let mut compose = DockerCompose::with_auto_client(options).await?;
+compose.up().await?;
+```
+
 ## Configuration Options
 
 ### Environment Variables
@@ -325,7 +351,12 @@ services:
 
 ### Use Unique Project Names
 
-Each test gets a unique project name automatically via UUID, preventing conflicts between parallel tests. No manual configuration needed.
+Each test gets a unique project name automatically via UUID, preventing conflicts between parallel tests. No manual configuration needed. If you need a stable name (for example, to reuse volumes across runs), override it explicitly:
+
+```rust
+let mut compose = DockerCompose::with_local_client(&["docker-compose.yml"])
+    .with_project_name("my-test-stack");
+```
 
 ### Rely on Compose's --wait Flag
 
@@ -381,4 +412,3 @@ If `up()` returns an error:
 1. Verify Docker Compose is installed: `docker compose version`
 2. Check compose file is valid: `docker compose -f your-file.yml config`
 3. Ensure all required images are available or can be pulled
-

@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.3] - 2025-12-24
+### Details
+#### Features
+- Support for reusable containers that have been stopped ([#896](https://github.com/testcontainers/testcontainers-rs/pull/896))
+- Support auto-detection of docker-compose client ([#898](https://github.com/testcontainers/testcontainers-rs/pull/898))
+- Allow customizations of host-config ([#899](https://github.com/testcontainers/testcontainers-rs/pull/899))
+
+## [0.26.2] - 2025-12-19
+### Details
+#### Features
+- Allow overriding project name ([#894](https://github.com/testcontainers/testcontainers-rs/pull/894))
+
+## [0.26.1] - 2025-12-19
+### Details
+#### Bug Fixes
+- Reuse container requires name ([#887](https://github.com/testcontainers/testcontainers-rs/pull/887))
+- Respect `TESTCONTAINERS_COMMAND` ([#891](https://github.com/testcontainers/testcontainers-rs/pull/891))
+
+#### Miscellaneous Tasks
+- Update russh requirement from 0.54.4 to 0.55.0 ([#888](https://github.com/testcontainers/testcontainers-rs/pull/888))
+
+## [0.26.0] - 2025-12-01
+### Details
+#### Bug Fixes
+- Make port_bindings consistent with docker cli when publish_all_ports = true ([#885](https://github.com/testcontainers/testcontainers-rs/pull/885))
+
+#### Features
+- Support build options - `no_cache`, `skip_if_exists` and `buildargs` ([#856](https://github.com/testcontainers/testcontainers-rs/pull/856))
+- Support docker-compose ([#864](https://github.com/testcontainers/testcontainers-rs/pull/864))
+- Add target options with custom mode ([#878](https://github.com/testcontainers/testcontainers-rs/pull/878))
+- Support copying from containers ([#871](https://github.com/testcontainers/testcontainers-rs/pull/871))
+
+#### Miscellaneous Tasks
+- Use bollard 0.19.4 ([#870](https://github.com/testcontainers/testcontainers-rs/pull/870))
+- Update etcetera requirement from 0.10.0 to 0.11.0 ([#869](https://github.com/testcontainers/testcontainers-rs/pull/869))
+
+#### Performance
+- Replace `ulid` with `ferroid`'s ULID for better performance ([#829](https://github.com/testcontainers/testcontainers-rs/pull/829))
+- Update ferroid for better performance during encode/decode ([#879](https://github.com/testcontainers/testcontainers-rs/pull/879))
+
 ## [0.25.2] - 2025-10-27
 ### Details
 #### Features

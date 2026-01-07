@@ -6,12 +6,14 @@ use bollard::{
 };
 use testcontainers::{
     core::{
+        client::ClientError,
+        error::TestcontainersError,
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::{ExitWaitStrategy, LogWaitStrategy},
-        BuildImageOptions, CmdWaitFor, ExecCommand, WaitFor,
+        BuildImageOptions, CmdWaitFor, CopyFromContainerError, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
-    GenericBuildableImage, GenericImage, Image, ImageExt,
+    CopyTargetOptions, GenericBuildableImage, GenericImage, Image, ImageExt,
 };
 use tokio::io::AsyncReadExt;
 
@@ -187,6 +189,86 @@ async fn async_run_exec() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn copy_sets_mode_multiple_sources() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // file source with explicit mode override
+    let temp_file = tempfile::NamedTempFile::new()?;
+    tokio::fs::write(temp_file.path(), "secret".as_bytes()).await?;
+
+    // directory source inherits permissions from host file (or default fallback on non-unix)
+    let temp_dir = tempfile::tempdir()?;
+    let source_dir = temp_dir.path().join("secrets");
+    tokio::fs::create_dir_all(&source_dir).await?;
+
+    let secret_file = source_dir.join("secret.txt");
+    tokio::fs::write(&secret_file, "top secret".as_bytes()).await?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = tokio::fs::metadata(&secret_file).await?.permissions();
+        perms.set_mode(0o700);
+        tokio::fs::set_permissions(&secret_file, perms).await?;
+    }
+
+    // bytes source with explicit mode override
+    let data = b"bytes-secret".to_vec();
+
+    let container = GenericImage::new("alpine", "3.20")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sleep", "60"])
+        .with_copy_to(
+            CopyTargetOptions::new("/tmp/secret.txt").with_mode(0o600),
+            temp_file.path(),
+        )
+        .with_copy_to(CopyTargetOptions::new("/tmp/secrets"), source_dir.as_path())
+        .with_copy_to(
+            CopyTargetOptions::new("/tmp/secret.bin").with_mode(0o640),
+            data,
+        )
+        .start()
+        .await?;
+
+    #[derive(Copy, Clone)]
+    struct ModeExpectation {
+        path: &'static str,
+        expected_mode: &'static str,
+    }
+
+    let expectations = vec![
+        ModeExpectation {
+            path: "/tmp/secret.txt",
+            expected_mode: "600",
+        },
+        ModeExpectation {
+            path: "/tmp/secret.bin",
+            expected_mode: "640",
+        },
+        ModeExpectation {
+            path: "/tmp/secrets/secret.txt",
+            expected_mode: if cfg!(unix) { "700" } else { "644" },
+        },
+    ];
+
+    for expectation in expectations {
+        let command = format!("stat -c '%a' {}", expectation.path);
+        let mut res = container
+            .exec(ExecCommand::new(["sh", "-c", command.as_str()]))
+            .await?;
+        let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
+        assert_eq!(
+            stdout.trim(),
+            expectation.expected_mode,
+            "unexpected mode for {}",
+            expectation.path
+        );
+    }
+
+    Ok(())
+}
+
 #[cfg(feature = "http_wait_plain")]
 #[tokio::test]
 async fn async_wait_for_http() -> anyhow::Result<()> {
@@ -289,6 +371,70 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
     assert!(out.contains("foofoofoo"));
     assert!(out.contains("barbarbar"));
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_to_path() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo '42' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let destination_dir = tempfile::tempdir()?;
+    let destination = destination_dir.path().join("result.txt");
+
+    container
+        .copy_file_from("/tmp/result.txt", destination.as_path())
+        .await?;
+
+    let copied = tokio::fs::read_to_string(&destination).await?;
+    assert_eq!(copied, "42\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo 'buffer' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let mut buffer = Vec::new();
+    container
+        .copy_file_from("/tmp/result.txt", &mut buffer)
+        .await?;
+    assert_eq!(buffer, b"buffer\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_directory_errors() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "mkdir -p /tmp/result_dir && sleep 10"])
+        .start()
+        .await?;
+
+    let err = container
+        .copy_file_from("/tmp/result_dir", Vec::<u8>::new())
+        .await
+        .expect_err("expected directory copy to fail");
+
+    match err {
+        TestcontainersError::Client(ClientError::CopyFromContainerError(
+            CopyFromContainerError::IsDirectory,
+        )) => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
+
+    container.stop().await?;
     Ok(())
 }
 

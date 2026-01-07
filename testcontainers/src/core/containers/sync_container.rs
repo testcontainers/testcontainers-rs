@@ -1,7 +1,7 @@
 use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
-    core::{env, error::Result, ports::Ports, ContainerPort, ExecCommand},
+    core::{copy::CopyFileFromContainer, error::Result, ports::Ports, ContainerPort, ExecCommand},
     ContainerAsync, Image,
 };
 
@@ -130,6 +130,26 @@ where
         })
     }
 
+    /// Copies a single file from the container into an arbitrary target implementing [`CopyFileFromContainer`].
+    ///
+    /// # Behavior
+    /// - Regular files are streamed directly into the target (e.g. `PathBuf`, `Vec<u8>`).
+    /// - Additional archive entries (metadata or other files) are skipped after the first regular file.
+    /// - If `container_path` resolves to a directory, an error is returned and no data is written.
+    /// - Symlink handling follows Docker's `GET /containers/{id}/archive` endpoint behavior without extra processing.
+    pub fn copy_file_from<T>(
+        &self,
+        container_path: impl Into<String>,
+        target: T,
+    ) -> Result<T::Output>
+    where
+        T: CopyFileFromContainer,
+    {
+        let container_path = container_path.into();
+        self.rt()
+            .block_on(self.async_impl().copy_file_from(container_path, target))
+    }
+
     /// Stops the container (not the same with `pause`) using the default 10 second timeout.
     pub fn stop(&self) -> Result<()> {
         self.rt().block_on(self.async_impl().stop())
@@ -235,17 +255,12 @@ where
 
 impl<I: Image> Drop for Container<I> {
     fn drop(&mut self) {
-        if let Some(active) = self.inner.take() {
-            active.runtime.block_on(async {
-                match active.async_impl.docker_client().config.command() {
-                    env::Command::Remove => {
-                        if let Err(e) = active.async_impl.rm().await {
-                            log::error!("Failed to remove container on drop: {}", e);
-                        }
-                    }
-                    env::Command::Keep => {}
-                }
-            });
+        if let Some(ActiveContainer {
+            runtime,
+            async_impl,
+        }) = self.inner.take()
+        {
+            runtime.block_on(async { drop(async_impl) });
         }
     }
 }

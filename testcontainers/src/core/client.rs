@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{self},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{collections::HashMap, io, str::FromStr, sync::Arc};
 
 use bollard::{
     auth::DockerCredentials,
@@ -17,21 +12,30 @@ use bollard::{
     },
     query_parameters::{
         BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
-        CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
-        InspectNetworkOptions, InspectNetworkOptionsBuilder, ListContainersOptionsBuilder,
-        ListNetworksOptions, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
-        StartContainerOptions, StopContainerOptionsBuilder, UploadToContainerOptionsBuilder,
+        CreateImageOptionsBuilder, DownloadFromContainerOptionsBuilder, InspectContainerOptions,
+        InspectContainerOptionsBuilder, InspectNetworkOptions, InspectNetworkOptionsBuilder,
+        ListContainersOptionsBuilder, ListNetworksOptions, LogsOptionsBuilder,
+        RemoveContainerOptionsBuilder, StartContainerOptions, StopContainerOptionsBuilder,
+        UploadToContainerOptionsBuilder,
     },
     Docker,
 };
 use ferroid::{base32::Base32UlidExt, id::ULID};
-use futures::{StreamExt, TryStreamExt};
-use tokio::sync::{Mutex, OnceCell};
+use futures::{pin_mut, StreamExt, TryStreamExt};
+use tokio::{
+    io::AsyncRead,
+    sync::{Mutex, OnceCell},
+};
+use tokio_tar::{Archive as AsyncTarArchive, EntryType};
+use tokio_util::io::StreamReader;
 use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
-    copy::{CopyToContainer, CopyToContainerCollection, CopyToContainerError},
+    copy::{
+        CopyFileFromContainer, CopyFromContainerError, CopyToContainer, CopyToContainerCollection,
+        CopyToContainerError,
+    },
     env::{self, ConfigurationError},
     logs::{
         stream::{LogStream, RawLogStream},
@@ -127,6 +131,16 @@ pub enum ClientError {
     UploadToContainerError(BollardError),
     #[error("failed to prepare data for copy-to-container: {0}")]
     CopyToContainerError(CopyToContainerError),
+    #[error("failed to handle data copied from container: {0}")]
+    CopyFromContainerError(CopyFromContainerError),
+}
+
+/// Information about a container returned from lookup operations.
+#[cfg(feature = "reusable-containers")]
+#[derive(Debug, Clone)]
+pub(crate) struct ContainerInfo {
+    pub id: String,
+    pub is_running: bool,
 }
 
 /// The internal client.
@@ -404,6 +418,65 @@ impl Client {
             .map_err(ClientError::UploadToContainerError)
     }
 
+    pub(crate) async fn copy_file_from_container<T>(
+        &self,
+        container_id: impl AsRef<str>,
+        container_path: impl AsRef<str>,
+        target: T,
+    ) -> Result<T::Output, ClientError>
+    where
+        T: CopyFileFromContainer,
+    {
+        let container_id = container_id.as_ref();
+        let options = DownloadFromContainerOptionsBuilder::new()
+            .path(container_path.as_ref())
+            .build();
+
+        let stream = self
+            .bollard
+            .download_from_container(container_id, Some(options))
+            .map_err(io::Error::other);
+        let reader = StreamReader::new(stream);
+        Self::extract_file_entry(reader, target)
+            .await
+            .map_err(ClientError::CopyFromContainerError)
+    }
+
+    async fn extract_file_entry<R, T>(
+        reader: R,
+        target: T,
+    ) -> Result<T::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin,
+        T: CopyFileFromContainer,
+    {
+        let mut archive = AsyncTarArchive::new(reader);
+        let entries = archive.entries().map_err(CopyFromContainerError::Io)?;
+
+        pin_mut!(entries);
+
+        while let Some(entry) = entries
+            .try_next()
+            .await
+            .map_err(CopyFromContainerError::Io)?
+        {
+            match entry.header().entry_type() {
+                EntryType::GNULongName
+                | EntryType::GNULongLink
+                | EntryType::XGlobalHeader
+                | EntryType::XHeader
+                | EntryType::GNUSparse => continue, // skip metadata entries
+                EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
+                EntryType::Regular | EntryType::Continuous => {
+                    return target.copy_from_reader(entry).await
+                }
+                et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
+            }
+        }
+
+        Err(CopyFromContainerError::EmptyArchive)
+    }
+
     pub(crate) async fn container_is_running(
         &self,
         container_id: &str,
@@ -490,7 +563,7 @@ impl Client {
             .await
             .map_err(ClientError::CopyToContainerError)?;
 
-        let session = ULID::from_datetime(std::time::SystemTime::now()).encode();
+        let session = ULID::now().encode();
 
         let mut builder = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
@@ -685,17 +758,17 @@ impl Client {
         Some(bollard_credentials)
     }
 
-    /// Get the `id` of the first running container whose `name`, `network`,
-    /// and `labels` match the supplied values
-    #[cfg_attr(not(feature = "reusable-containers"), allow(dead_code))]
-    pub(crate) async fn get_running_container_id(
+    /// Get information about the first container whose `name`, `network`,
+    /// and `labels` match the supplied values, regardless of status.
+    #[cfg(feature = "reusable-containers")]
+    pub(crate) async fn get_container(
         &self,
         name: Option<&str>,
         network: Option<&str>,
         labels: &HashMap<String, String>,
-    ) -> Result<Option<String>, ClientError> {
+    ) -> Result<Option<ContainerInfo>, ClientError> {
+        use bollard::models::ContainerSummaryStateEnum;
         let filters = [
-            Some(("status".to_string(), vec!["running".to_string()])),
             name.map(|value| ("name".to_string(), vec![value.to_string()])),
             network.map(|value| ("network".to_string(), vec![value.to_string()])),
             Some((
@@ -711,7 +784,7 @@ impl Client {
         .collect::<HashMap<_, _>>();
 
         let options = ListContainersOptionsBuilder::new()
-            .all(false)
+            .all(true)
             .size(false)
             .filters(&filters)
             .build();
@@ -735,7 +808,13 @@ impl Client {
             // Use `max_by_key()` instead of `next()` to ensure we're
             // returning the id of most recently created container.
             .max_by_key(|container| container.created.unwrap_or(i64::MIN))
-            .and_then(|container| container.id))
+            .and_then(|container| {
+                container.id.map(|id| {
+                    let is_running =
+                        matches!(container.state, Some(ContainerSummaryStateEnum::RUNNING));
+                    ContainerInfo { id, is_running }
+                })
+            }))
     }
 }
 

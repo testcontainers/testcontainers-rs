@@ -1,12 +1,12 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "device-requests")]
 use bollard::models::DeviceRequest;
-use bollard::models::ResourcesUlimits;
+use bollard::models::{HostConfig, ResourcesUlimits};
 
 use crate::{
     core::{
-        copy::{CopyDataSource, CopyToContainer},
+        copy::{CopyDataSource, CopyTargetOptions, CopyToContainer},
         healthcheck::Healthcheck,
         logs::consumer::LogConsumer,
         CgroupnsMode, ContainerPort, Host, Mount, PortMapping, WaitFor,
@@ -115,10 +115,35 @@ pub trait ImageExt<I: Image> {
     /// Adds a mount to the container.
     fn with_mount(self, mount: impl Into<Mount>) -> ContainerRequest<I>;
 
-    /// Copies some source into the container as file
+    /// Copies data or a file/dir into the container.
+    ///
+    /// The simplest form mirrors existing behavior:
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag");
+    /// image.with_copy_to("/app/config.toml", Path::new("./config.toml"));
+    /// ```
+    ///
+    /// By default the target mode is derived from the source file's mode on Unix,
+    /// and falls back to `0o644` on non-Unix platforms.
+    ///
+    /// To override the mode (or add more target options), wrap the target with
+    /// [`CopyTargetOptions`]:
+    /// ```rust,no_run
+    /// use std::path::Path;
+    /// use testcontainers::{CopyTargetOptions, GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("image", "tag");
+    /// image.with_copy_to(
+    ///     CopyTargetOptions::new("/app/config.toml").with_mode(0o600),
+    ///     Path::new("./config.toml"),
+    /// );
+    /// ```
     fn with_copy_to(
         self,
-        target: impl Into<String>,
+        target: impl Into<CopyTargetOptions>,
         source: impl Into<CopyDataSource>,
     ) -> ContainerRequest<I>;
 
@@ -184,6 +209,15 @@ pub trait ImageExt<I: Image> {
     ///
     /// Allows to follow the container logs for the whole lifecycle of the container, starting from the creation.
     fn with_log_consumer(self, log_consumer: impl LogConsumer + 'static) -> ContainerRequest<I>;
+
+    /// Applies a custom modifier to the Docker `HostConfig` used for container creation.
+    ///
+    /// The modifier runs after `testcontainers` finishes applying its defaults and settings.
+    /// If called multiple times, the last modifier replaces the previous one.
+    fn with_host_config_modifier(
+        self,
+        modifier: impl Fn(&mut HostConfig) + Send + Sync + 'static,
+    ) -> ContainerRequest<I>;
 
     /// Flag the container as being exempt from the default `testcontainers` remove-on-drop lifecycle,
     /// indicating that the container should be kept running, and that executions with the same configuration
@@ -367,11 +401,11 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
 
     fn with_copy_to(
         self,
-        target: impl Into<String>,
+        target: impl Into<CopyTargetOptions>,
         source: impl Into<CopyDataSource>,
     ) -> ContainerRequest<I> {
         let mut container_req = self.into();
-        let target: String = target.into();
+        let target = target.into();
         container_req
             .copy_to_sources
             .push(CopyToContainer::new(source, target));
@@ -499,6 +533,17 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let mut container_req = self.into();
         container_req.log_consumers.push(Box::new(log_consumer));
         container_req
+    }
+
+    fn with_host_config_modifier(
+        self,
+        modifier: impl Fn(&mut HostConfig) + Send + Sync + 'static,
+    ) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            host_config_modifier: Some(Arc::new(modifier)),
+            ..container_req
+        }
     }
 
     #[cfg(feature = "reusable-containers")]

@@ -9,7 +9,7 @@ jobs:
   security_audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Generate Cargo.lock if doesn't exist
         run: |
           if [ ! -f Cargo.lock ]; then
