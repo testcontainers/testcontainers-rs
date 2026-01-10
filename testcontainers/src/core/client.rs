@@ -7,8 +7,8 @@ use bollard::{
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     models::{
-        ContainerCreateBody, ContainerInspectResponse, ExecInspectResponse, Network,
-        NetworkCreateRequest,
+        ContainerCreateBody, ContainerInspectResponse, ExecInspectResponse, NetworkCreateRequest,
+        NetworkInspect,
     },
     query_parameters::{
         BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
@@ -369,7 +369,7 @@ impl Client {
     }
 
     /// Inspects a network
-    pub(crate) async fn inspect_network(&self, name: &str) -> Result<Network, ClientError> {
+    pub(crate) async fn inspect_network(&self, name: &str) -> Result<NetworkInspect, ClientError> {
         self.bollard
             .inspect_network(name, Some(InspectNetworkOptionsBuilder::new().build()))
             .await

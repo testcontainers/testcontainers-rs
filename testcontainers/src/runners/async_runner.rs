@@ -266,7 +266,7 @@ where
                 .iter()
                 .copied()
                 .chain(mapped_ports)
-                .map(|p| (format!("{p}"), HashMap::new()))
+                .map(|p| format!("{p}"))
                 .collect();
 
             // exposed ports of the image + mapped ports
