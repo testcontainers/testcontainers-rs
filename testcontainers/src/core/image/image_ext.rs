@@ -294,6 +294,9 @@ pub trait ImageExt<I: Image> {
     /// ```
     #[cfg(feature = "device-requests")]
     fn with_device_requests(self, device_requests: Vec<DeviceRequest>) -> ContainerRequest<I>;
+
+    /// Sets whether to keep stdin open for the container.
+    fn with_open_stdin(self, open_stdin: bool) -> ContainerRequest<I>;
 }
 
 /// Implements the [`ImageExt`] trait for the every type that can be converted into a [`ContainerRequest`].
@@ -599,6 +602,12 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
             device_requests: Some(device_requests),
             ..container_req
         }
+    }
+
+    fn with_open_stdin(self, open_stdin: bool) -> ContainerRequest<I> {
+        let mut container_req = self.into();
+        container_req.open_stdin = Some(open_stdin);
+        container_req
     }
 }
 
