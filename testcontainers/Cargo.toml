@@ -32,7 +32,7 @@ memchr = "2.7.2"
 parse-display = "0.9.0"
 pin-project-lite = "0.2.14"
 russh = { version = "0.56.0", default-features = false, optional = true }
-reqwest = { version = "0.12.5", features = [
+reqwest = { version = "0.13.1", features = [
     "json",
     "charset",
     "http2",
@@ -58,7 +58,7 @@ aws-lc-rs = ["bollard/aws-lc-rs"]
 ssl = ["bollard/ssl_providerless"]
 blocking = []
 watchdog = ["signal-hook", "conquer-once"]
-http_wait = ["http_wait_plain", "reqwest/rustls-tls", "reqwest/rustls-tls-native-roots"]
+http_wait = ["http_wait_plain", "reqwest/rustls"]
 http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]
 reusable-containers = []
@@ -69,7 +69,7 @@ docker-compose = ["dep:docker-compose-types", "dep:uuid"]
 [dev-dependencies]
 anyhow = "1.0.86"
 pretty_env_logger = "0.5"
-reqwest = { version = "0.12.4", features = [
+reqwest = { version = "0.13.1", features = [
     "blocking",
 ], default-features = false }
 temp-dir = "0.1"
