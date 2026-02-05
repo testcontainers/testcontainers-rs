@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.4] - 2026-02-05
+### Details
+#### Features
+- Add User-Agent header 'tc-rust/<version>' to Docker API requests ([#897](https://github.com/testcontainers/testcontainers-rs/pull/897))
+
+#### Miscellaneous Tasks
+- Update russh requirement from 0.55.0 to 0.56.0 ([#902](https://github.com/testcontainers/testcontainers-rs/pull/902))
+- Update reqwest requirement from 0.12.5 to 0.13.1 ([#905](https://github.com/testcontainers/testcontainers-rs/pull/905))
+
 ## [0.26.3] - 2025-12-24
 ### Details
 #### Features
