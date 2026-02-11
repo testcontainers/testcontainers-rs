@@ -277,11 +277,24 @@ impl Client {
         &self,
         container_id: &str,
         cmd: Vec<String>,
+        env_vars: std::collections::HashMap<String, String>,
     ) -> Result<ExecResult, ClientError> {
+        let env = if env_vars.is_empty() {
+            None
+        } else {
+            Some(
+                env_vars
+                    .into_iter()
+                    .map(|(k, v)| format!("{k}={v}"))
+                    .collect(),
+            )
+        };
+
         let config = CreateExecOptions {
             cmd: Some(cmd),
             attach_stdout: Some(true),
             attach_stderr: Some(true),
+            env,
             ..Default::default()
         };
 
