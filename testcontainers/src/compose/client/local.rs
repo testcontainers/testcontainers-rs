@@ -51,9 +51,11 @@ impl ComposeInterface for LocalComposeCli {
             cmd.arg("--pull").arg("always");
         }
 
-        cmd.arg("--wait")
-            .arg("--wait-timeout")
-            .arg(command.wait_timeout.as_secs().to_string());
+        if command.wait {
+            cmd.arg("--wait")
+                .arg("--wait-timeout")
+                .arg(command.wait_timeout.as_secs().to_string());
+        }
 
         for (key, value) in &command.env_vars {
             cmd.env(key, value);

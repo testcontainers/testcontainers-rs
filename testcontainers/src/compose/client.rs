@@ -28,6 +28,7 @@ pub(super) struct UpCommand {
     pub(super) env_vars: std::collections::HashMap<String, String>,
     pub(super) build: bool,
     pub(super) pull: bool,
+    pub(super) wait: bool,
 }
 
 pub(super) struct DownCommand {
