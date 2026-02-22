@@ -166,13 +166,12 @@ impl DockerCompose {
     /// Create a new docker compose with a local client (using docker-cli installed locally).
     /// If you don't have docker-cli installed, you can use `with_containerised_client` instead.
     ///
-    /// Accepts any iterable of paths (slices, arrays, vecs, iterators):
+    /// Accepts slices, arrays, and vecs of paths:
     /// ```rust,no_run
     /// use testcontainers::compose::DockerCompose;
     ///
     /// let compose = DockerCompose::with_local_client(&["docker-compose.yml"]);
     /// let compose = DockerCompose::with_local_client(vec!["docker-compose.yml"]);
-    /// let compose = DockerCompose::with_local_client(std::iter::once("docker-compose.yml"));
     /// ```
     pub fn with_local_client(options: impl Into<LocalComposeOptions>) -> Self {
         let options = options.into();
@@ -187,6 +186,7 @@ impl DockerCompose {
     /// [`ContainerisedComposeOptions`] to set the project directory.
     ///
     /// ```rust,no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// use testcontainers::compose::{ContainerisedComposeOptions, DockerCompose};
     ///
     /// let compose = DockerCompose::with_containerised_client(&["docker-compose.yml"]).await?;
@@ -194,7 +194,8 @@ impl DockerCompose {
     /// let options = ContainerisedComposeOptions::new(&["/home/me/app/docker-compose.yml"])
     ///     .with_project_directory("/home/me/app");
     /// let compose = DockerCompose::with_containerised_client(options).await?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn with_containerised_client(
         options: impl Into<ContainerisedComposeOptions>,
@@ -211,6 +212,7 @@ impl DockerCompose {
     /// containerised client is used.
     ///
     /// ```rust,no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// use testcontainers::compose::{AutoComposeOptions, ContainerisedComposeOptions, DockerCompose};
     ///
     /// let compose = DockerCompose::with_auto_client(&["docker-compose.yml"]).await?;
@@ -219,7 +221,8 @@ impl DockerCompose {
     ///     .with_project_directory("/home/me/app");
     /// let auto = AutoComposeOptions::from_containerised(containerised);
     /// let compose = DockerCompose::with_auto_client(auto).await?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn with_auto_client(options: impl Into<AutoComposeOptions>) -> Result<Self> {
         let (local, containerised) = options.into().into_parts();

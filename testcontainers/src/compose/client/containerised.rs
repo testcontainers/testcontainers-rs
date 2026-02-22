@@ -46,13 +46,7 @@ impl ContainerisedComposeCli {
 
 impl ComposeInterface for ContainerisedComposeCli {
     async fn up(&self, command: UpCommand) -> Result<()> {
-        let mut cmd_parts = vec![];
-
-        for (key, value) in &command.env_vars {
-            cmd_parts.push(format!("{}={}", key, value));
-        }
-
-        cmd_parts.extend(["docker".to_string(), "compose".to_string()]);
+        let mut cmd_parts = vec!["docker".to_string(), "compose".to_string()];
 
         if let Some(project_directory) = &self.project_directory {
             cmd_parts.push("--project-directory".to_string());
@@ -83,7 +77,9 @@ impl ComposeInterface for ContainerisedComposeCli {
         cmd_parts.push("--wait-timeout".to_string());
         cmd_parts.push(command.wait_timeout.as_secs().to_string());
 
-        let exec = ExecCommand::new(cmd_parts).with_cmd_ready_condition(CmdWaitFor::exit_code(0));
+        let exec = ExecCommand::new(cmd_parts)
+            .with_cmd_ready_condition(CmdWaitFor::exit_code(0))
+            .with_env_vars(command.env_vars);
         self.container.exec(exec).await?;
 
         Ok(())

@@ -144,11 +144,12 @@ impl RawContainer {
             cmd,
             container_ready_conditions,
             cmd_ready_condition,
+            env_vars,
         } = cmd;
 
         log::debug!("Executing command {:?}", cmd);
 
-        let mut exec = self.docker_client.exec(&self.id, cmd).await?;
+        let mut exec = self.docker_client.exec(&self.id, cmd, env_vars).await?;
         self.block_until_ready(container_ready_conditions).await?;
 
         match cmd_ready_condition {
