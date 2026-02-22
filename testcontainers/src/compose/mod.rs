@@ -142,6 +142,7 @@ pub struct DockerCompose {
     remove_images: bool,
     build: bool,
     pull: bool,
+    wait: bool,
     services: HashMap<String, RawContainer>,
     env_vars: HashMap<String, String>,
     wait_strategies: HashMap<String, WaitFor>,
@@ -244,6 +245,7 @@ impl DockerCompose {
                 env_vars: self.env_vars.clone(),
                 build: self.build,
                 pull: self.pull,
+                wait: self.wait,
             })
             .await?;
 
@@ -353,6 +355,16 @@ impl DockerCompose {
         self
     }
 
+    /// Control whether docker compose waits for all services to be healthy before returning (default: true).
+    ///
+    /// Set to `false` when using one-shot containers (e.g., init or migration containers)
+    /// that exit after completing their task, as `--wait` would otherwise time out.
+    /// When disabled, use [`DockerCompose::with_wait_for_service`] for per-service readiness.
+    pub fn with_wait(mut self, wait: bool) -> Self {
+        self.wait = wait;
+        self
+    }
+
     /// Remove volumes when dropping the docker compose or not (removed by default)
     pub fn with_remove_volumes(&mut self, remove_volumes: bool) -> &mut Self {
         self.remove_volumes = remove_volumes;
@@ -376,6 +388,7 @@ impl DockerCompose {
             remove_images: false,
             build: false,
             pull: false,
+            wait: true,
             services: HashMap::new(),
             env_vars: HashMap::new(),
             wait_strategies: HashMap::new(),
@@ -746,5 +759,27 @@ mod tests {
         let compose = DockerCompose::with_containerised_client(&[path.as_path()]).await?;
 
         test_compose_client(compose, "containerised").await
+    }
+
+    #[tokio::test]
+    async fn test_compose_with_wait_disabled() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
+        let path = PathBuf::from(format!(
+            "{}/tests/test-compose.yml",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+
+        let mut compose = DockerCompose::with_local_client(&[path.as_path()]).with_wait(false);
+
+        compose.up().await?;
+
+        assert_eq!(compose.services().len(), 2, "Should have 2 services");
+        assert!(compose.service("hello1").is_some());
+        assert!(compose.service("hello2").is_some());
+
+        compose.down().await?;
+
+        Ok(())
     }
 }

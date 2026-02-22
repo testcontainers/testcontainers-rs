@@ -73,9 +73,11 @@ impl ComposeInterface for ContainerisedComposeCli {
             cmd_parts.push("always".to_string());
         }
 
-        cmd_parts.push("--wait".to_string());
-        cmd_parts.push("--wait-timeout".to_string());
-        cmd_parts.push(command.wait_timeout.as_secs().to_string());
+        if command.wait {
+            cmd_parts.push("--wait".to_string());
+            cmd_parts.push("--wait-timeout".to_string());
+            cmd_parts.push(command.wait_timeout.as_secs().to_string());
+        }
 
         let exec = ExecCommand::new(cmd_parts)
             .with_cmd_ready_condition(CmdWaitFor::exit_code(0))
