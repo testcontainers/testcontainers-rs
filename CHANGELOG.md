@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.1] - 2026-02-22
+### Details
+#### Bug Fixes
+- Pass env vars via Docker exec API instead of prepending to command ([#920](https://github.com/testcontainers/testcontainers-rs/pull/920))
+
+#### Features
+- Allow people to disable the default wait behavior  ([#922](https://github.com/testcontainers/testcontainers-rs/pull/922))
+
 ## [0.27.0] - 2026-02-06
 ### Details
 #### Features
