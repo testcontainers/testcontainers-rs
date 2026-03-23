@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.2] - 2026-03-23
+### Details
+#### Miscellaneous Tasks
+- Update astral-tokio-tar requirement from 0.5.6 to 0.6.0 ([#927](https://github.com/testcontainers/testcontainers-rs/pull/927))
+
 ## [0.27.1] - 2026-02-22
 ### Details
 #### Bug Fixes
