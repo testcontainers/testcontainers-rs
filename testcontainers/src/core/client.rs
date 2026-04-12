@@ -971,14 +971,8 @@ mod tests {
             resolve_registry("confluentinc/cp-kafka:6.1.1"),
             DOCKER_HUB_REGISTRY
         );
-        assert_eq!(
-            resolve_registry("library/postgres:16"),
-            DOCKER_HUB_REGISTRY
-        );
-        assert_eq!(
-            resolve_registry("minio/minio:latest"),
-            DOCKER_HUB_REGISTRY
-        );
+        assert_eq!(resolve_registry("library/postgres:16"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("minio/minio:latest"), DOCKER_HUB_REGISTRY);
     }
 
     #[test]
@@ -1001,9 +995,6 @@ mod tests {
             resolve_registry("postgres@sha256:abcdef1234567890"),
             DOCKER_HUB_REGISTRY
         );
-        assert_eq!(
-            resolve_registry("ghcr.io/org/img@sha256:abcdef"),
-            "ghcr.io"
-        );
+        assert_eq!(resolve_registry("ghcr.io/org/img@sha256:abcdef"), "ghcr.io");
     }
 }
