@@ -740,7 +740,7 @@ impl Client {
 
     async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
         let auth_config = self.config.docker_auth_config()?.to_string();
-        let (server, _) = descriptor.split_once('/')?;
+        let server = resolve_registry(descriptor);
 
         // `docker_credential` uses blocking API, thus we spawn blocking task to prevent executor from being blocked
         let cloned_server = server.to_string();
@@ -862,6 +862,25 @@ where
     }
 }
 
+/// Docker Hub's canonical registry hostname, used for credential lookups when
+/// an image descriptor has no explicit registry prefix (e.g. `postgres:16`).
+const DOCKER_HUB_REGISTRY: &str = "index.docker.io";
+
+/// Extracts the registry server from a Docker image descriptor.
+///
+/// Docker image descriptors follow the pattern `[registry/][namespace/]name[:tag]`.
+/// When no explicit registry is present, images are pulled from Docker Hub.
+///
+/// The first path component is treated as a registry hostname only if it contains
+/// a `.` or a `:` (port), matching the Docker CLI's resolution logic. Otherwise
+/// it is a Docker Hub namespace (e.g. `library`, `confluentinc`).
+fn resolve_registry(descriptor: &str) -> &str {
+    match descriptor.split_once('/') {
+        Some((first, _)) if first.contains('.') || first.contains(':') => first,
+        _ => DOCKER_HUB_REGISTRY,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bollard::query_parameters::RemoveImageOptions;
@@ -936,5 +955,46 @@ mod tests {
         assert_eq!(Some("386".to_string()), image.architecture);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_resolve_registry_docker_hub_library_image() {
+        assert_eq!(resolve_registry("postgres:16"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("redis:7-alpine"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("hello-world:linux"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("ubuntu"), DOCKER_HUB_REGISTRY);
+    }
+
+    #[test]
+    fn test_resolve_registry_docker_hub_namespaced_image() {
+        assert_eq!(
+            resolve_registry("confluentinc/cp-kafka:6.1.1"),
+            DOCKER_HUB_REGISTRY
+        );
+        assert_eq!(resolve_registry("library/postgres:16"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("minio/minio:latest"), DOCKER_HUB_REGISTRY);
+    }
+
+    #[test]
+    fn test_resolve_registry_private_registry() {
+        assert_eq!(resolve_registry("ghcr.io/myorg/myimage:latest"), "ghcr.io");
+        assert_eq!(resolve_registry("quay.io/lakekeeper/catalog:v1"), "quay.io");
+        assert_eq!(
+            resolve_registry("registry.example.com/app:1.0"),
+            "registry.example.com"
+        );
+        assert_eq!(
+            resolve_registry("my-registry.io:5000/image:tag"),
+            "my-registry.io:5000"
+        );
+    }
+
+    #[test]
+    fn test_resolve_registry_with_digest() {
+        assert_eq!(
+            resolve_registry("postgres@sha256:abcdef1234567890"),
+            DOCKER_HUB_REGISTRY
+        );
+        assert_eq!(resolve_registry("ghcr.io/org/img@sha256:abcdef"), "ghcr.io");
     }
 }
