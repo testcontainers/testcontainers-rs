@@ -97,6 +97,10 @@ where
                 .map(|(key, value)| (key.into(), value.into()))
                 .chain([
                     (
+                        "org.testcontainers".into(),
+                        "true".into(),
+                    ),
+                    (
                         "org.testcontainers.managed-by".into(),
                         "testcontainers".into(),
                     ),
@@ -522,7 +526,11 @@ mod tests {
         // `org.testcontainers.managed-by` key will be overwritten
         assert_ne!(&labels, &container_labels);
 
-        // If we add the expected `managed-by` value though, they should then match
+        // If we add the expected labels though, they should then match
+        labels.insert(
+            "org.testcontainers".to_string(),
+            "true".to_string(),
+        );
         labels.insert(
             "org.testcontainers.managed-by".to_string(),
             "testcontainers".to_string(),
