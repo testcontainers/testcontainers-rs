@@ -142,6 +142,7 @@ pub struct DockerCompose {
     remove_images: bool,
     build: bool,
     pull: bool,
+    wait: bool,
     services: HashMap<String, RawContainer>,
     env_vars: HashMap<String, String>,
     wait_strategies: HashMap<String, WaitFor>,
@@ -166,13 +167,12 @@ impl DockerCompose {
     /// Create a new docker compose with a local client (using docker-cli installed locally).
     /// If you don't have docker-cli installed, you can use `with_containerised_client` instead.
     ///
-    /// Accepts any iterable of paths (slices, arrays, vecs, iterators):
+    /// Accepts slices, arrays, and vecs of paths:
     /// ```rust,no_run
     /// use testcontainers::compose::DockerCompose;
     ///
     /// let compose = DockerCompose::with_local_client(&["docker-compose.yml"]);
     /// let compose = DockerCompose::with_local_client(vec!["docker-compose.yml"]);
-    /// let compose = DockerCompose::with_local_client(std::iter::once("docker-compose.yml"));
     /// ```
     pub fn with_local_client(options: impl Into<LocalComposeOptions>) -> Self {
         let options = options.into();
@@ -187,6 +187,7 @@ impl DockerCompose {
     /// [`ContainerisedComposeOptions`] to set the project directory.
     ///
     /// ```rust,no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// use testcontainers::compose::{ContainerisedComposeOptions, DockerCompose};
     ///
     /// let compose = DockerCompose::with_containerised_client(&["docker-compose.yml"]).await?;
@@ -194,7 +195,8 @@ impl DockerCompose {
     /// let options = ContainerisedComposeOptions::new(&["/home/me/app/docker-compose.yml"])
     ///     .with_project_directory("/home/me/app");
     /// let compose = DockerCompose::with_containerised_client(options).await?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn with_containerised_client(
         options: impl Into<ContainerisedComposeOptions>,
@@ -211,6 +213,7 @@ impl DockerCompose {
     /// containerised client is used.
     ///
     /// ```rust,no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
     /// use testcontainers::compose::{AutoComposeOptions, ContainerisedComposeOptions, DockerCompose};
     ///
     /// let compose = DockerCompose::with_auto_client(&["docker-compose.yml"]).await?;
@@ -219,7 +222,8 @@ impl DockerCompose {
     ///     .with_project_directory("/home/me/app");
     /// let auto = AutoComposeOptions::from_containerised(containerised);
     /// let compose = DockerCompose::with_auto_client(auto).await?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     pub async fn with_auto_client(options: impl Into<AutoComposeOptions>) -> Result<Self> {
         let (local, containerised) = options.into().into_parts();
@@ -241,6 +245,7 @@ impl DockerCompose {
                 env_vars: self.env_vars.clone(),
                 build: self.build,
                 pull: self.pull,
+                wait: self.wait,
             })
             .await?;
 
@@ -350,6 +355,16 @@ impl DockerCompose {
         self
     }
 
+    /// Control whether docker compose waits for all services to be healthy before returning (default: true).
+    ///
+    /// Set to `false` when using one-shot containers (e.g., init or migration containers)
+    /// that exit after completing their task, as `--wait` would otherwise time out.
+    /// When disabled, use [`DockerCompose::with_wait_for_service`] for per-service readiness.
+    pub fn with_wait(mut self, wait: bool) -> Self {
+        self.wait = wait;
+        self
+    }
+
     /// Remove volumes when dropping the docker compose or not (removed by default)
     pub fn with_remove_volumes(&mut self, remove_volumes: bool) -> &mut Self {
         self.remove_volumes = remove_volumes;
@@ -373,6 +388,7 @@ impl DockerCompose {
             remove_images: false,
             build: false,
             pull: false,
+            wait: true,
             services: HashMap::new(),
             env_vars: HashMap::new(),
             wait_strategies: HashMap::new(),
@@ -743,5 +759,27 @@ mod tests {
         let compose = DockerCompose::with_containerised_client(&[path.as_path()]).await?;
 
         test_compose_client(compose, "containerised").await
+    }
+
+    #[tokio::test]
+    async fn test_compose_with_wait_disabled() -> anyhow::Result<()> {
+        let _ = pretty_env_logger::try_init();
+
+        let path = PathBuf::from(format!(
+            "{}/tests/test-compose.yml",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+
+        let mut compose = DockerCompose::with_local_client(&[path.as_path()]).with_wait(false);
+
+        compose.up().await?;
+
+        assert_eq!(compose.services().len(), 2, "Should have 2 services");
+        assert!(compose.service("hello1").is_some());
+        assert!(compose.service("hello2").is_some());
+
+        compose.down().await?;
+
+        Ok(())
     }
 }
