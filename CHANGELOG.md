@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.3] - 2026-04-15
+### Details
+#### Bug Fixes
+- Pass Docker Hub credentials for images without a registry prefix ([#935](https://github.com/testcontainers/testcontainers-rs/pull/935))
+
+#### Miscellaneous Tasks
+- Update docker-compose-types requirement from 0.22 to 0.23 ([#931](https://github.com/testcontainers/testcontainers-rs/pull/931))
+- Update ferroid requirement from 0.8.7 to 2.0.0 ([#929](https://github.com/testcontainers/testcontainers-rs/pull/929))
+- Update russh requirement from 0.56.0 to 0.60.0 ([#933](https://github.com/testcontainers/testcontainers-rs/pull/933))
+- Update signal-hook requirement from 0.3 to 0.4 ([#934](https://github.com/testcontainers/testcontainers-rs/pull/934))
+- Update temp-dir requirement from 0.1 to 0.2 ([#921](https://github.com/testcontainers/testcontainers-rs/pull/921))
+
 ## [0.27.2] - 2026-03-23
 ### Details
 #### Miscellaneous Tasks
