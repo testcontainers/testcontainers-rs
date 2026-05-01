@@ -252,6 +252,24 @@ impl From<Vec<u8>> for CopyDataSource {
     }
 }
 
+impl From<String> for CopyDataSource {
+    fn from(value: String) -> Self {
+        CopyDataSource::Data(Cow::Owned(value.into_bytes()))
+    }
+}
+
+impl From<&'static [u8]> for CopyDataSource {
+    fn from(value: &'static [u8]) -> Self {
+        CopyDataSource::Data(Cow::Borrowed(value))
+    }
+}
+
+impl From<&'static str> for CopyDataSource {
+    fn from(value: &'static str) -> Self {
+        CopyDataSource::Data(Cow::Borrowed(value.as_bytes()))
+    }
+}
+
 impl CopyDataSource {
     pub(crate) async fn append_tar(
         &self,
