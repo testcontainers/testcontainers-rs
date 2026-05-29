@@ -10,6 +10,8 @@ use bollard::{
 
 #[cfg(feature = "host-port-exposure")]
 use crate::core::containers::host::HostPortExposure;
+use crate::GenericImage;
+use crate::ImageExt;
 use crate::{
     core::{
         client::{Client, ClientError},
@@ -17,10 +19,11 @@ use crate::{
         error::{Result, WaitContainerError},
         mounts::{AccessMode, Mount, MountType},
         network::Network,
-        CgroupnsMode, ContainerState,
+        CgroupnsMode, ContainerState, WaitFor,
     },
     ContainerAsync, ContainerRequest, Image,
 };
+use std::io::{Read, Write};
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
 #[cfg(feature = "reusable-containers")]
@@ -378,11 +381,14 @@ where
             .startup_timeout()
             .unwrap_or(DEFAULT_STARTUP_TIMEOUT);
 
-        tokio::time::timeout(startup_timeout, async {
+        let seconds_formatted = format!("{}s", container_req.reaper_ttl_seconds.to_string());
+        let reaper = container_req.reaper;
+
+        let container = tokio::time::timeout(startup_timeout, async {
             client.start_container(&container_id).await?;
 
             let container = ContainerAsync::new(
-                container_id,
+                container_id.clone(),
                 client.clone(),
                 container_req,
                 network,
@@ -399,7 +405,56 @@ where
             Ok(container)
         })
         .await
-        .map_err(|_| WaitContainerError::StartupTimeout)?
+        .map_err(|_| WaitContainerError::StartupTimeout)?;
+
+        if reaper {
+            let docker_socket_path = url::Url::parse(&client.config.docker_host())
+                .ok()
+                .filter(|u| u.scheme() == "unix")
+                .map(|u| u.path().to_string())
+                .unwrap_or_else(|| "/var/run/docker.sock".to_string());
+
+            let reaper_image = GenericImage::new(
+                "testcontainers/ryuk",
+                "0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0",
+            )
+            .with_reaper(false) // no reaper for the reaper
+            .with_exposed_port(crate::core::ContainerPort::Tcp(8080))
+            .with_wait_for(WaitFor::message_on_stdout("msg=Started"))
+            .with_mount(Mount::bind_mount(
+                docker_socket_path,
+                "/var/run/docker.sock",
+            ))
+            .with_env_var("RYUK_CONNECTION_TIMEOUT", seconds_formatted.clone())
+            .with_env_var("RYUK_RECONNECTION_TIMEOUT", seconds_formatted.clone());
+
+            let mut reaper_container = reaper_image.start().await?;
+
+            reaper_container.no_drop = true;
+
+            let reaper_host = reaper_container.get_host().await?;
+            let host_port = match &reaper_host {
+                url::Host::Ipv6(_) => reaper_container.get_host_port_ipv6(8080).await?,
+                _ => reaper_container.get_host_port_ipv4(8080).await?,
+            };
+
+            let mut stream =
+                std::net::TcpStream::connect(format!("{}:{}", reaper_host, host_port))?;
+
+            let message = format!("id={}\n", container_id.clone());
+            stream.write_all(message.as_bytes()).unwrap();
+            stream.flush()?;
+
+            let mut buffer = [0; 1024];
+            stream.read(&mut buffer)?;
+
+            let response = String::from_utf8_lossy(&buffer);
+            if !response.starts_with("ACK\n") {
+                panic!("unexpected response from server: {}", response); // should not happen
+            }
+        }
+
+        container
     }
 
     async fn pull_image(self) -> Result<ContainerRequest<I>> {
@@ -461,6 +516,7 @@ mod tests {
         runners::AsyncBuilder,
         GenericBuildableImage, ImageExt,
     };
+    use futures::stream::StreamExt;
 
     async fn get_server_image() -> GenericImage {
         let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
@@ -1101,5 +1157,214 @@ mod tests {
             "Container should be running after restart"
         );
         container2.rm().await.map_err(anyhow::Error::from)
+    }
+
+    #[tokio::test]
+    async fn async_reaper_configured_to_stop_associated_container() -> anyhow::Result<()> {
+        let r: f32 = rand::random_range(0.0..=1e9);
+        let random_name = format!("hello-world-{}", r);
+
+        let client = Client::lazy_client().await?;
+        let docker_client = crate::core::client::docker_client_instance().await?;
+
+        let container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_reaper(true)
+            .with_container_name(random_name.clone())
+            .start()
+            .await?;
+
+        let (hello_world_running, reaper_running) = reaper_and_test_container_running(
+            client,
+            docker_client,
+            container.id().to_string(),
+            random_name,
+        )
+        .await;
+
+        assert!(
+            hello_world_running && reaper_running,
+            "could not find reaper or test container"
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_reaper_stops_associated_container_after_timeout() -> anyhow::Result<()> {
+        let r: f32 = rand::random_range(0.0..=1e9);
+        let random_name = format!("hello-world-{}", r);
+
+        let client = Client::lazy_client().await?;
+        let docker_client = crate::core::client::docker_client_instance().await?;
+
+        let container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_reaper(true)
+            .with_reaper_ttl_seconds(3) // both containers should stop after 3 seconds
+            .with_container_name(random_name.clone())
+            .start()
+            .await?;
+
+        let (mut hello_world_running, mut reaper_running) = reaper_and_test_container_running(
+            client.clone(),
+            docker_client.clone(),
+            container.id().to_string(),
+            random_name.clone(),
+        )
+        .await;
+        assert!(
+            hello_world_running && reaper_running,
+            "could not find reaper or test container"
+        );
+
+        // wait > 3 seconds for the containers to be stopped by the reaper
+        std::thread::sleep(std::time::Duration::from_millis(5 * 1000));
+
+        (hello_world_running, reaper_running) = reaper_and_test_container_running(
+            client.clone(),
+            docker_client.clone(),
+            container.id().to_string(),
+            random_name.clone(),
+        )
+        .await;
+
+        assert!(
+            !hello_world_running && !reaper_running,
+            "reaper should have stopped container"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_reaper_does_not_stop_unassociated_container_after_timeout() -> anyhow::Result<()>
+    {
+        let r: f32 = rand::random_range(0.0..=1e9);
+        let random_name = format!("hello-world-{}", r);
+
+        let client = Client::lazy_client().await?;
+        let docker_client = crate::core::client::docker_client_instance().await?;
+
+        // this should not be stopped by the reaper
+        let other_container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_reaper(false)
+            .start()
+            .await?;
+
+        let container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_reaper(true)
+            .with_reaper_ttl_seconds(3) // both containers should stop after 3 seconds
+            .with_container_name(random_name.clone())
+            .start()
+            .await?;
+
+        let (mut hello_world_running, mut reaper_running) = reaper_and_test_container_running(
+            client.clone(),
+            docker_client.clone(),
+            container.id().to_string(),
+            random_name.clone(),
+        )
+        .await;
+        assert!(
+            hello_world_running && reaper_running,
+            "could not find reaper or test container"
+        );
+
+        // wait > 3 seconds for the containers to be stopped by the reaper
+        std::thread::sleep(std::time::Duration::from_millis(5 * 1000));
+
+        (hello_world_running, reaper_running) = reaper_and_test_container_running(
+            client.clone(),
+            docker_client.clone(),
+            container.id().to_string(),
+            random_name.clone(),
+        )
+        .await;
+
+        assert!(
+            !hello_world_running && !reaper_running,
+            "reaper should have stopped container"
+        );
+
+        let (other_container_running, _) = reaper_and_test_container_running(
+            client.clone(),
+            docker_client.clone(),
+            other_container.id().to_string(),
+            String::new(),
+        )
+        .await;
+
+        assert!(
+            other_container_running,
+            "other container (not using reaper) should be running"
+        );
+        Ok(())
+    }
+
+    async fn reaper_and_test_container_running(
+        client: std::sync::Arc<Client>,
+        docker_client: crate::bollard::Docker,
+        container_id: String,
+        container_name: String,
+    ) -> (bool, bool) {
+        let options = bollard::query_parameters::ListContainersOptionsBuilder::new()
+            .all(false)
+            .build();
+
+        let containers = docker_client.list_containers(Some(options)).await.unwrap();
+
+        let mut found_hello_world = false;
+        let mut found_reaper = false;
+
+        for c in containers {
+            for n in c.names.unwrap() {
+                if n.contains(&container_name) {
+                    found_hello_world = true;
+                }
+            }
+
+            if c.image.unwrap().contains("testcontainers/ryuk") {
+                let expected_message =
+                    format!("msg=\"adding filter\" type=id values=[{}]", container_id);
+                let found_message =
+                    logs_contain(client.clone(), c.id.unwrap(), expected_message).await;
+                if found_message {
+                    found_reaper = true;
+                }
+            }
+        }
+
+        if !found_hello_world {
+            println!(
+                "could not find container under test with name {}",
+                container_name
+            )
+        }
+
+        if !found_reaper {
+            println!("could not find reaper container");
+        }
+
+        return (found_hello_world, found_reaper);
+    }
+
+    async fn logs_contain(
+        client: std::sync::Arc<Client>,
+        container_id: String,
+        expected_message: String,
+    ) -> bool {
+        let mut found_message = false;
+        let mut log_stream = client.logs(&container_id, false);
+        while let Some(log_frame) = log_stream.next().await {
+            match log_frame {
+                Ok(frame) => {
+                    println!("{}", String::from_utf8_lossy(&frame.bytes()));
+                    if String::from_utf8_lossy(&frame.bytes()).contains(expected_message.as_str()) {
+                        found_message = true;
+                    }
+                }
+                Err(e) => panic!("Error reading log: {}", e),
+            }
+        }
+
+        return found_message;
     }
 }
