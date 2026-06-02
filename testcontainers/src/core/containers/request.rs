@@ -28,6 +28,7 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) overridden_cmd: Vec<String>,
     pub(crate) image_name: Option<String>,
     pub(crate) image_tag: Option<String>,
+    pub(crate) image_digest: Option<String>,
     pub(crate) container_name: Option<String>,
     pub(crate) platform: Option<String>,
     pub(crate) network: Option<String>,
@@ -181,13 +182,22 @@ impl<I: Image> ContainerRequest<I> {
     }
 
     pub fn descriptor(&self) -> String {
-        let original_name = self.image.name();
-        let original_tag = self.image.tag();
+        let name = self
+            .image_name
+            .as_deref()
+            .unwrap_or_else(|| self.image.name());
+        let tag = self
+            .image_tag
+            .as_deref()
+            .unwrap_or_else(|| self.image.tag());
 
-        let name = self.image_name.as_deref().unwrap_or(original_name);
-        let tag = self.image_tag.as_deref().unwrap_or(original_tag);
-
-        format!("{name}:{tag}")
+        // An explicit `with_digest` override takes precedence over a digest baked into the image.
+        // When a digest is present, the reference becomes `name:tag@digest`: Docker resolves the
+        // image by digest, while the tag is kept for readability.
+        match self.image_digest.as_deref().or_else(|| self.image.digest()) {
+            Some(digest) => format!("{name}:{tag}@{digest}"),
+            None => format!("{name}:{tag}"),
+        }
     }
 
     pub fn ready_conditions(&self) -> Vec<WaitFor> {
@@ -265,6 +275,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             overridden_cmd: Vec::new(),
             image_name: None,
             image_tag: None,
+            image_digest: None,
             container_name: None,
             platform: None,
             network: None,
@@ -327,6 +338,7 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("overridden_cmd", &self.overridden_cmd)
             .field("image_name", &self.image_name)
             .field("image_tag", &self.image_tag)
+            .field("image_digest", &self.image_digest)
             .field("container_name", &self.container_name)
             .field("platform", &self.platform)
             .field("network", &self.network)
@@ -366,5 +378,69 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
         repr.field("open_stdin", &self.open_stdin);
 
         repr.finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{images::generic::GenericImage, ImageExt};
+
+    /// Minimal image that pins a digest via the [`Image`] trait itself.
+    #[derive(Debug, Default)]
+    struct DigestPinnedImage;
+
+    impl Image for DigestPinnedImage {
+        fn name(&self) -> &str {
+            "pinned"
+        }
+
+        fn tag(&self) -> &str {
+            "1.0"
+        }
+
+        fn digest(&self) -> Option<&str> {
+            Some("sha256:aaaa")
+        }
+
+        fn ready_conditions(&self) -> Vec<WaitFor> {
+            Vec::new()
+        }
+    }
+
+    #[test]
+    fn descriptor_without_digest_uses_name_and_tag() {
+        let request: ContainerRequest<_> = GenericImage::new("nginx", "1.25").into();
+        assert_eq!(request.descriptor(), "nginx:1.25");
+    }
+
+    #[test]
+    fn descriptor_with_digest_override_keeps_tag() {
+        let request = GenericImage::new("nginx", "1.25").with_digest("sha256:abc123");
+        assert_eq!(request.descriptor(), "nginx:1.25@sha256:abc123");
+    }
+
+    #[test]
+    fn descriptor_uses_digest_from_image_trait() {
+        let request: ContainerRequest<_> = DigestPinnedImage.into();
+        assert_eq!(request.descriptor(), "pinned:1.0@sha256:aaaa");
+    }
+
+    #[test]
+    fn with_digest_overrides_image_trait_digest() {
+        let request = DigestPinnedImage.with_digest("sha256:bbbb");
+        assert_eq!(request.descriptor(), "pinned:1.0@sha256:bbbb");
+    }
+
+    #[test]
+    fn descriptor_combines_name_tag_and_digest_overrides() {
+        let request = GenericImage::new("nginx", "1.25")
+            .with_name("ghcr.io/library/nginx")
+            .with_tag("mainline")
+            .with_digest("sha256:abc123");
+        assert_eq!(
+            request.descriptor(),
+            "ghcr.io/library/nginx:mainline@sha256:abc123"
+        );
     }
 }
