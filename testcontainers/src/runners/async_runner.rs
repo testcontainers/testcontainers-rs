@@ -419,9 +419,9 @@ where
 impl From<&Mount> for bollard::models::Mount {
     fn from(mount: &Mount) -> Self {
         let mount_type = match mount.mount_type() {
-            MountType::Bind => bollard::models::MountTypeEnum::BIND,
-            MountType::Volume => bollard::models::MountTypeEnum::VOLUME,
-            MountType::Tmpfs => bollard::models::MountTypeEnum::TMPFS,
+            MountType::Bind => bollard::models::MountType::BIND,
+            MountType::Volume => bollard::models::MountType::VOLUME,
+            MountType::Tmpfs => bollard::models::MountType::TMPFS,
         };
 
         let is_read_only = matches!(mount.access_mode(), AccessMode::ReadOnly);
