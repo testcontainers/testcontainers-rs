@@ -90,6 +90,29 @@ async fn bollard_pull_missing_image_hello_world() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn run_hello_world_pinned_by_digest() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+    cleanup_hello_world_image().await?;
+
+    // Immutable manifest-list (multi-arch) digest of `hello-world:latest`.
+    // `with_wait_for` is a `GenericImage` method, so it must come before the
+    // `ImageExt::with_digest` call that turns the image into a `ContainerRequest`.
+    let request = GenericImage::new("hello-world", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("Hello from Docker!"))
+        .with_wait_for(WaitFor::exit(ExitWaitStrategy::new().with_exit_code(0)))
+        .with_digest("sha256:0e760fdfbc48ba8041e7c6db999bb40bfca508b4be580ac75d32c4e29d202ce1");
+
+    assert_eq!(
+        request.descriptor(),
+        "hello-world:latest@sha256:0e760fdfbc48ba8041e7c6db999bb40bfca508b4be580ac75d32c4e29d202ce1"
+    );
+
+    // Pulling and starting proves Docker accepts and resolves the `name:tag@digest` reference.
+    let _container = request.start().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn explicit_call_to_pull_missing_image_hello_world() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
     cleanup_hello_world_image().await?;

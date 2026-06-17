@@ -40,6 +40,20 @@ where
     /// suddenly changed.
     fn tag(&self) -> &str;
 
+    /// An optional content digest used to pin the image to an immutable manifest.
+    ///
+    /// Pinning by digest provides the strongest guarantee that the exact same image is used
+    /// across runs, since a digest references immutable content whereas a tag can be overwritten
+    /// in the registry. The returned value must include the algorithm prefix, e.g.
+    /// `sha256:e9b8...`.
+    ///
+    /// When set, the image reference passed to Docker becomes `name:tag@digest`. Docker resolves
+    /// the image by digest; the tag is retained only for readability. Returning `None` (the
+    /// default) leaves the image resolved by tag alone.
+    fn digest(&self) -> Option<&str> {
+        None
+    }
+
     /// Returns a list of conditions that need to be met before a started container is considered ready.
     ///
     /// This method is the **🍞 and butter** of the whole testcontainers library. Containers are
