@@ -179,7 +179,7 @@ fn prepare_host_exposure<I: Image>(
         ssh_retry_delay: Duration::from_millis(100),
         ssh_max_retry_delay: Duration::from_millis(2000),
         ssh_image: "testcontainers/sshd",
-        ssh_tag: "1.3.0",
+        ssh_tag: "1.4.0",
     }))
 }
 
