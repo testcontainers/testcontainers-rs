@@ -65,6 +65,30 @@ pub trait ImageExt<I: Image> {
     /// running container. Users of this API are advised to use this at their own risk.
     fn with_tag(self, tag: impl Into<String>) -> ContainerRequest<I>;
 
+    /// Pins the image to a specific content digest.
+    ///
+    /// Pinning by digest guarantees the exact same image content is used across runs, since a
+    /// digest references an immutable manifest whereas a tag can be overwritten in the registry.
+    /// The digest must include the algorithm prefix, e.g. `sha256:e9b8...`.
+    ///
+    /// The image reference sent to Docker becomes `name:tag@digest`. Docker resolves the image by
+    /// digest, so it takes precedence over the tag; the tag is retained only for readability.
+    /// This override takes precedence over any digest provided by the image's [`Image::digest`].
+    ///
+    /// There is no guarantee that the specified digest for an image would result in a running
+    /// container. Users of this API are advised to use this at their own risk.
+    ///
+    /// # Examples
+    /// ```rust,no_run
+    /// use testcontainers::{GenericImage, ImageExt};
+    ///
+    /// let image = GenericImage::new("hello-world", "latest")
+    ///     .with_digest("sha256:0e760fdfbc48ba8041e7c6db999bb40bfca508b4be580ac75d32c4e29d202ce1");
+    /// ```
+    ///
+    /// [`Image::digest`]: crate::Image::digest
+    fn with_digest(self, digest: impl Into<String>) -> ContainerRequest<I>;
+
     /// Sets the container name.
     fn with_container_name(self, name: impl Into<String>) -> ContainerRequest<I>;
 
@@ -321,6 +345,14 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let container_req = self.into();
         ContainerRequest {
             image_tag: Some(tag.into()),
+            ..container_req
+        }
+    }
+
+    fn with_digest(self, digest: impl Into<String>) -> ContainerRequest<I> {
+        let container_req = self.into();
+        ContainerRequest {
+            image_digest: Some(digest.into()),
             ..container_req
         }
     }
