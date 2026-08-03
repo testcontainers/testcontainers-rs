@@ -28,7 +28,7 @@ jobs:
         with:
           toolchain: ${{steps.current_msrv.outputs.msrv}}
       - uses: Swatinem/rust-cache@v2.7.3
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@v2.85.5
         with:
           tool: cargo-hack
       - name: Build
@@ -63,10 +63,10 @@ jobs:
           sudo cp ./.github/docker.override.conf /etc/systemd/system/docker.service.d/override.conf
           sudo systemctl daemon-reload
           sudo systemctl restart docker
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@v2.85.5
         with:
           tool: cargo-hack
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@v2.85.5
         with:
           tool: cargo-nextest
       - name: Tests
