@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.0] - 2026-08-06
+### Details
+#### Miscellaneous Tasks
+- Update astral-tokio-tar from 0.6.0 to 0.6.1 ([#940](https://github.com/testcontainers/testcontainers-rs/pull/940))
+- Update parse-display requirement from 0.9.0 to 0.11.0 ([#942](https://github.com/testcontainers/testcontainers-rs/pull/942))
+- Bump testcontainers/sshd image from 1.3.0 to 1.4.0 ([#952](https://github.com/testcontainers/testcontainers-rs/pull/952))
+- Update russh requirement from 0.60.0 to 0.61.2 ([#950](https://github.com/testcontainers/testcontainers-rs/pull/950))
+- [❗] Update bollard 0.20 to 0.21 ([#943](https://github.com/testcontainers/testcontainers-rs/pull/943))
+- Update docker-compose-types requirement from 0.23 to 0.24 ([#951](https://github.com/testcontainers/testcontainers-rs/pull/951))
+
 ## [0.27.3] - 2026-04-15
 ### Details
 #### Bug Fixes
