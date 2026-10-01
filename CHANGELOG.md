@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Bug Fixes
+- Keep `host-port-exposure` dependencies compatible with the declared MSRV.
+
 ## [0.28.0] - 2026-08-06
 ### Details
 #### Miscellaneous Tasks
