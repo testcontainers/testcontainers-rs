@@ -2,6 +2,136 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.0] - 2026-08-06
+### Details
+#### Miscellaneous Tasks
+- Update astral-tokio-tar from 0.6.0 to 0.6.1 ([#940](https://github.com/testcontainers/testcontainers-rs/pull/940))
+- Update parse-display requirement from 0.9.0 to 0.11.0 ([#942](https://github.com/testcontainers/testcontainers-rs/pull/942))
+- Bump testcontainers/sshd image from 1.3.0 to 1.4.0 ([#952](https://github.com/testcontainers/testcontainers-rs/pull/952))
+- Update russh requirement from 0.60.0 to 0.61.2 ([#950](https://github.com/testcontainers/testcontainers-rs/pull/950))
+- [❗] Update bollard 0.20 to 0.21 ([#943](https://github.com/testcontainers/testcontainers-rs/pull/943))
+- Update docker-compose-types requirement from 0.23 to 0.24 ([#951](https://github.com/testcontainers/testcontainers-rs/pull/951))
+
+## [0.27.3] - 2026-04-15
+### Details
+#### Bug Fixes
+- Pass Docker Hub credentials for images without a registry prefix ([#935](https://github.com/testcontainers/testcontainers-rs/pull/935))
+
+#### Miscellaneous Tasks
+- Update docker-compose-types requirement from 0.22 to 0.23 ([#931](https://github.com/testcontainers/testcontainers-rs/pull/931))
+- Update ferroid requirement from 0.8.7 to 2.0.0 ([#929](https://github.com/testcontainers/testcontainers-rs/pull/929))
+- Update russh requirement from 0.56.0 to 0.60.0 ([#933](https://github.com/testcontainers/testcontainers-rs/pull/933))
+- Update signal-hook requirement from 0.3 to 0.4 ([#934](https://github.com/testcontainers/testcontainers-rs/pull/934))
+- Update temp-dir requirement from 0.1 to 0.2 ([#921](https://github.com/testcontainers/testcontainers-rs/pull/921))
+
+## [0.27.2] - 2026-03-23
+### Details
+#### Miscellaneous Tasks
+- Update astral-tokio-tar requirement from 0.5.6 to 0.6.0 ([#927](https://github.com/testcontainers/testcontainers-rs/pull/927))
+
+## [0.27.1] - 2026-02-22
+### Details
+#### Bug Fixes
+- Pass env vars via Docker exec API instead of prepending to command ([#920](https://github.com/testcontainers/testcontainers-rs/pull/920))
+
+#### Features
+- Allow people to disable the default wait behavior  ([#922](https://github.com/testcontainers/testcontainers-rs/pull/922))
+
+## [0.27.0] - 2026-02-06
+### Details
+#### Features
+- Add User-Agent header 'tc-rust/<version>' to Docker API requests ([#897](https://github.com/testcontainers/testcontainers-rs/pull/897))
+- Open stdin option for container request ([#904](https://github.com/testcontainers/testcontainers-rs/pull/904))
+
+#### Miscellaneous Tasks
+- Update russh requirement from 0.55.0 to 0.56.0 ([#902](https://github.com/testcontainers/testcontainers-rs/pull/902))
+- Update reqwest requirement from 0.12.5 to 0.13.1 ([#905](https://github.com/testcontainers/testcontainers-rs/pull/905))
+
+## [0.26.4] - 2026-02-05
+### Details
+#### Features
+- Add User-Agent header 'tc-rust/<version>' to Docker API requests ([#897](https://github.com/testcontainers/testcontainers-rs/pull/897))
+
+#### Miscellaneous Tasks
+- Update russh requirement from 0.55.0 to 0.56.0 ([#902](https://github.com/testcontainers/testcontainers-rs/pull/902))
+- Update reqwest requirement from 0.12.5 to 0.13.1 ([#905](https://github.com/testcontainers/testcontainers-rs/pull/905))
+
+## [0.26.3] - 2025-12-24
+### Details
+#### Features
+- Support for reusable containers that have been stopped ([#896](https://github.com/testcontainers/testcontainers-rs/pull/896))
+- Support auto-detection of docker-compose client ([#898](https://github.com/testcontainers/testcontainers-rs/pull/898))
+- Allow customizations of host-config ([#899](https://github.com/testcontainers/testcontainers-rs/pull/899))
+
+## [0.26.2] - 2025-12-19
+### Details
+#### Features
+- Allow overriding project name ([#894](https://github.com/testcontainers/testcontainers-rs/pull/894))
+
+## [0.26.1] - 2025-12-19
+### Details
+#### Bug Fixes
+- Reuse container requires name ([#887](https://github.com/testcontainers/testcontainers-rs/pull/887))
+- Respect `TESTCONTAINERS_COMMAND` ([#891](https://github.com/testcontainers/testcontainers-rs/pull/891))
+
+#### Miscellaneous Tasks
+- Update russh requirement from 0.54.4 to 0.55.0 ([#888](https://github.com/testcontainers/testcontainers-rs/pull/888))
+
+## [0.26.0] - 2025-12-01
+### Details
+#### Bug Fixes
+- Make port_bindings consistent with docker cli when publish_all_ports = true ([#885](https://github.com/testcontainers/testcontainers-rs/pull/885))
+
+#### Features
+- Support build options - `no_cache`, `skip_if_exists` and `buildargs` ([#856](https://github.com/testcontainers/testcontainers-rs/pull/856))
+- Support docker-compose ([#864](https://github.com/testcontainers/testcontainers-rs/pull/864))
+- Add target options with custom mode ([#878](https://github.com/testcontainers/testcontainers-rs/pull/878))
+- Support copying from containers ([#871](https://github.com/testcontainers/testcontainers-rs/pull/871))
+
+#### Miscellaneous Tasks
+- Use bollard 0.19.4 ([#870](https://github.com/testcontainers/testcontainers-rs/pull/870))
+- Update etcetera requirement from 0.10.0 to 0.11.0 ([#869](https://github.com/testcontainers/testcontainers-rs/pull/869))
+
+#### Performance
+- Replace `ulid` with `ferroid`'s ULID for better performance ([#829](https://github.com/testcontainers/testcontainers-rs/pull/829))
+- Update ferroid for better performance during encode/decode ([#879](https://github.com/testcontainers/testcontainers-rs/pull/879))
+
+## [0.25.2] - 2025-10-27
+### Details
+#### Features
+- Platform config passing through ImageExt trait ([#838](https://github.com/testcontainers/testcontainers-rs/pull/838))
+
+#### Miscellaneous Tasks
+- Remove usage of reqwest hickory dns feature ([#860](https://github.com/testcontainers/testcontainers-rs/pull/860))
+- Drop weak dependencies due to cargo bug ([#862](https://github.com/testcontainers/testcontainers-rs/pull/862))
+
+## [0.25.1] - 2025-10-27
+### Details
+#### Bug Fixes
+- Replace tokio-tar with astral-tokio-tar ([#852](https://github.com/testcontainers/testcontainers-rs/pull/852))
+
+#### Documentation
+- Rustdoc for builder API ([#820](https://github.com/testcontainers/testcontainers-rs/pull/820))
+
+#### Features
+- Use DOCKER_DEFAULT_PLATFORM env var to specify platform ([#800](https://github.com/testcontainers/testcontainers-rs/pull/800))
+- Fallback to platform linux/amd64 when image pull fails ([#837](https://github.com/testcontainers/testcontainers-rs/pull/837))
+- Add support for devices request ([#832](https://github.com/testcontainers/testcontainers-rs/pull/832))
+- Add configurable tmpfs mount sizes ([#853](https://github.com/testcontainers/testcontainers-rs/pull/853))
+- Support `http_wait` functionallity without tls dependencies ([#850](https://github.com/testcontainers/testcontainers-rs/pull/850))
+- Add container hostname support ([#848](https://github.com/testcontainers/testcontainers-rs/pull/848))
+- Expose host ports between host and containers via ssh sidecar ([#846](https://github.com/testcontainers/testcontainers-rs/pull/846))
+
+#### Miscellaneous Tasks
+- Update bollard-stubs requirement from =1.48.3-rc.28.0.4 to =1.49.0-rc.28.3.3 ([#828](https://github.com/testcontainers/testcontainers-rs/pull/828))
+
+#### Refactor
+- Remove bollard_stubs dependency as bollard re-exports it ([#844](https://github.com/testcontainers/testcontainers-rs/pull/844))
+
+#### Testing
+- Avoid flakiness in `platform` test
+- Switch to testcontainers/helloworld and reduce some flakiness ([#855](https://github.com/testcontainers/testcontainers-rs/pull/855))
+
 ## [0.25.0] - 2025-07-27
 ### Details
 #### Bug Fixes

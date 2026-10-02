@@ -1,0 +1,10 @@
+services:
+  hello1:
+    image: testcontainers/helloworld:1.3.0
+    ports:
+      - "8080"
+  hello2:
+    image: testcontainers/helloworld:1.3.0
+    ports:
+      - "8080"
+

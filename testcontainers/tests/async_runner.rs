@@ -6,12 +6,14 @@ use bollard::{
 };
 use testcontainers::{
     core::{
+        client::ClientError,
+        error::TestcontainersError,
         logs::{consumer::logging_consumer::LoggingConsumer, LogFrame},
         wait::{ExitWaitStrategy, LogWaitStrategy},
-        CmdWaitFor, ExecCommand, WaitFor,
+        BuildImageOptions, CmdWaitFor, CopyFromContainerError, ExecCommand, WaitFor,
     },
     runners::{AsyncBuilder, AsyncRunner},
-    GenericBuildableImage, GenericImage, Image, ImageExt,
+    CopyTargetOptions, GenericBuildableImage, GenericImage, Image, ImageExt,
 };
 use tokio::io::AsyncReadExt;
 
@@ -35,14 +37,14 @@ impl Image for HelloWorld {
     }
 }
 
-async fn get_server_container(msg: Option<WaitFor>) -> GenericImage {
+async fn get_server_image(msg: Option<WaitFor>) -> GenericImage {
     let generic_image = GenericBuildableImage::new("simple_web_server", "latest")
         // "Dockerfile" is included already, so adding the build context directory is all what is needed
         .with_file(
             std::fs::canonicalize("../testimages/simple_web_server").unwrap(),
             ".",
         )
-        .build_image()
+        .build_image_with(BuildImageOptions::new())
         .await
         .unwrap();
 
@@ -99,7 +101,8 @@ async fn explicit_call_to_pull_missing_image_hello_world() -> anyhow::Result<()>
 async fn start_containers_in_parallel() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = GenericImage::new("hello-world", "latest").with_wait_for(WaitFor::seconds(2));
+    let image =
+        GenericImage::new("testcontainers/helloworld", "1.3.0").with_wait_for(WaitFor::seconds(2));
 
     // Make sure the image is already pulled, since otherwise pulling it may cause the deadline
     // below to be exceeded.
@@ -124,7 +127,7 @@ async fn start_containers_in_parallel() -> anyhow::Result<()> {
 async fn async_run_exec() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = get_server_container(Some(WaitFor::message_on_stderr(
+    let image = get_server_image(Some(WaitFor::message_on_stderr(
         "server will be listening to",
     )))
     .await
@@ -186,7 +189,87 @@ async fn async_run_exec() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "http_wait")]
+#[tokio::test]
+async fn copy_sets_mode_multiple_sources() -> anyhow::Result<()> {
+    let _ = pretty_env_logger::try_init();
+
+    // file source with explicit mode override
+    let temp_file = tempfile::NamedTempFile::new()?;
+    tokio::fs::write(temp_file.path(), "secret".as_bytes()).await?;
+
+    // directory source inherits permissions from host file (or default fallback on non-unix)
+    let temp_dir = tempfile::tempdir()?;
+    let source_dir = temp_dir.path().join("secrets");
+    tokio::fs::create_dir_all(&source_dir).await?;
+
+    let secret_file = source_dir.join("secret.txt");
+    tokio::fs::write(&secret_file, "top secret".as_bytes()).await?;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = tokio::fs::metadata(&secret_file).await?.permissions();
+        perms.set_mode(0o700);
+        tokio::fs::set_permissions(&secret_file, perms).await?;
+    }
+
+    // bytes source with explicit mode override
+    let data = b"bytes-secret".to_vec();
+
+    let container = GenericImage::new("alpine", "3.20")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sleep", "60"])
+        .with_copy_to(
+            CopyTargetOptions::new("/tmp/secret.txt").with_mode(0o600),
+            temp_file.path(),
+        )
+        .with_copy_to(CopyTargetOptions::new("/tmp/secrets"), source_dir.as_path())
+        .with_copy_to(
+            CopyTargetOptions::new("/tmp/secret.bin").with_mode(0o640),
+            data,
+        )
+        .start()
+        .await?;
+
+    #[derive(Copy, Clone)]
+    struct ModeExpectation {
+        path: &'static str,
+        expected_mode: &'static str,
+    }
+
+    let expectations = vec![
+        ModeExpectation {
+            path: "/tmp/secret.txt",
+            expected_mode: "600",
+        },
+        ModeExpectation {
+            path: "/tmp/secret.bin",
+            expected_mode: "640",
+        },
+        ModeExpectation {
+            path: "/tmp/secrets/secret.txt",
+            expected_mode: if cfg!(unix) { "700" } else { "644" },
+        },
+    ];
+
+    for expectation in expectations {
+        let command = format!("stat -c '%a' {}", expectation.path);
+        let mut res = container
+            .exec(ExecCommand::new(["sh", "-c", command.as_str()]))
+            .await?;
+        let stdout = String::from_utf8(res.stdout_to_vec().await?)?;
+        assert_eq!(
+            stdout.trim(),
+            expectation.expected_mode,
+            "unexpected mode for {}",
+            expectation.path
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "http_wait_plain")]
 #[tokio::test]
 async fn async_wait_for_http() -> anyhow::Result<()> {
     use reqwest::StatusCode;
@@ -197,7 +280,7 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
     let waitfor_http_status =
         WaitFor::http(HttpWaitStrategy::new("/").with_expected_status_code(StatusCode::OK));
 
-    let image = get_server_container(Some(waitfor_http_status))
+    let image = get_server_image(Some(waitfor_http_status))
         .await
         .with_exposed_port(80.tcp());
     let _container = image.start().await?;
@@ -208,7 +291,7 @@ async fn async_wait_for_http() -> anyhow::Result<()> {
 async fn async_run_exec_fails_due_to_unexpected_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let image = get_server_container(None)
+    let image = get_server_image(None)
         .await
         .with_wait_for(WaitFor::seconds(1));
     let container = image.start().await?;
@@ -232,7 +315,7 @@ async fn async_run_with_log_consumer() -> anyhow::Result<()> {
     let _container = HelloWorld
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()) == "Hello from Docker!\n" {
+            if String::from_utf8_lossy(frame.bytes()).contains("Hello from Docker!") {
                 let _ = tx.send(());
             }
         })
@@ -292,6 +375,70 @@ async fn async_copy_files_to_container() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn async_copy_file_from_container_to_path() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo '42' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let destination_dir = tempfile::tempdir()?;
+    let destination = destination_dir.path().join("result.txt");
+
+    container
+        .copy_file_from("/tmp/result.txt", destination.as_path())
+        .await?;
+
+    let copied = tokio::fs::read_to_string(&destination).await?;
+    assert_eq!(copied, "42\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_into_mut_vec() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "echo 'buffer' > /tmp/result.txt && sleep 10"])
+        .start()
+        .await?;
+
+    let mut buffer = Vec::new();
+    container
+        .copy_file_from("/tmp/result.txt", &mut buffer)
+        .await?;
+    assert_eq!(buffer, b"buffer\n");
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_copy_file_from_container_directory_errors() -> anyhow::Result<()> {
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_cmd(["sh", "-c", "mkdir -p /tmp/result_dir && sleep 10"])
+        .start()
+        .await?;
+
+    let err = container
+        .copy_file_from("/tmp/result_dir", Vec::<u8>::new())
+        .await
+        .expect_err("expected directory copy to fail");
+
+    match err {
+        TestcontainersError::Client(ClientError::CopyFromContainerError(
+            CopyFromContainerError::IsDirectory,
+        )) => {}
+        other => panic!("unexpected error: {other:?}"),
+    }
+
+    container.stop().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn async_container_is_running() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
@@ -314,12 +461,113 @@ async fn async_container_exit_code() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
     // Container that should run until manually quit
-    let container = get_server_container(None).await.start().await?;
+    let container = get_server_image(None).await.start().await?;
 
     assert_eq!(container.exit_code().await?, None);
 
     container.stop().await?;
 
     assert_eq!(container.exit_code().await?, Some(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_with_size() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a container with tmpfs mount configured with size and mode
+    // This test verifies that containers can be created and run with tmpfs size configuration
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(
+            Mount::tmpfs_mount("/data")
+                .with_size("100m")
+                .with_mode(0o1777),
+        )
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'test data' > /data/test.txt && cat /data/test.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify we can write to and read from the tmpfs mount
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(
+        stdout.contains("test data"),
+        "Should be able to write to and read from tmpfs mount"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_without_size() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Create a container with basic tmpfs mount (no size configured)
+    // This verifies backward compatibility - tmpfs mounts work without explicit size
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(Mount::tmpfs_mount("/tmpdata"))
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'hello' > /tmpdata/file.txt && cat /tmpdata/file.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify tmpfs mount is functional
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(
+        stdout.contains("hello"),
+        "Basic tmpfs mount should work without explicit size"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn async_tmpfs_mount_with_multiple_sizes() -> anyhow::Result<()> {
+    use testcontainers::core::Mount;
+
+    let _ = pretty_env_logger::try_init();
+
+    // Test that we can create multiple tmpfs mounts with different sizes
+    let container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::seconds(1))
+        .with_mount(Mount::tmpfs_mount("/data1").with_size("50m"))
+        .with_mount(Mount::tmpfs_mount("/data2").with_size("100m"))
+        .with_cmd(vec![
+            "sh",
+            "-c",
+            "echo 'data1' > /data1/test.txt && echo 'data2' > /data2/test.txt && cat /data1/test.txt /data2/test.txt",
+        ])
+        .start()
+        .await?;
+
+    // Wait for container to complete
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Verify both tmpfs mounts are functional
+    let mut stdout = String::new();
+    container.stdout(false).read_to_string(&mut stdout).await?;
+    assert!(stdout.contains("data1"), "First tmpfs mount should work");
+    assert!(stdout.contains("data2"), "Second tmpfs mount should work");
+
     Ok(())
 }

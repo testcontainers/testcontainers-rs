@@ -55,8 +55,8 @@ pub enum WaitContainerError {
     #[error("container state is unavailable")]
     StateUnavailable,
     #[error("container is not ready: {0}")]
-    #[cfg(feature = "http_wait")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "http_wait")))]
+    #[cfg(feature = "http_wait_plain")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "http_wait_plain")))]
     HttpWait(#[from] crate::core::wait::http_strategy::HttpWaitError),
     #[error("healthcheck is not configured for container: {0}")]
     HealthCheckNotConfigured(String),

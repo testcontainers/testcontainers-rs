@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bollard_stubs::models::HealthConfig;
+use bollard::models::HealthConfig;
 
 /// Represents a custom health check configuration for a container.
 ///

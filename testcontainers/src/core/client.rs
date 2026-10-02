@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{self},
-    str::FromStr,
-};
+use std::{collections::HashMap, io, str::FromStr, sync::Arc};
 
 use bollard::{
     auth::DockerCredentials,
@@ -10,24 +6,36 @@ use bollard::{
     container::LogOutput,
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    models::{ContainerCreateBody, NetworkCreateRequest},
+    models::{
+        ContainerCreateBody, ContainerInspectResponse, ExecInspectResponse, NetworkCreateRequest,
+        NetworkInspect,
+    },
     query_parameters::{
         BuildImageOptionsBuilder, BuilderVersion, CreateContainerOptions,
-        CreateImageOptionsBuilder, InspectContainerOptions, InspectContainerOptionsBuilder,
-        InspectNetworkOptions, InspectNetworkOptionsBuilder, ListContainersOptionsBuilder,
-        ListNetworksOptions, LogsOptionsBuilder, RemoveContainerOptionsBuilder,
-        StartContainerOptions, StopContainerOptionsBuilder, UploadToContainerOptionsBuilder,
+        CreateImageOptionsBuilder, DownloadFromContainerOptionsBuilder, InspectContainerOptions,
+        InspectContainerOptionsBuilder, InspectNetworkOptions, InspectNetworkOptionsBuilder,
+        ListContainersOptionsBuilder, ListNetworksOptions, LogsOptionsBuilder,
+        RemoveContainerOptionsBuilder, StartContainerOptions, StopContainerOptionsBuilder,
+        UploadToContainerOptionsBuilder,
     },
     Docker,
 };
-use bollard_stubs::models::{ContainerInspectResponse, ExecInspectResponse, Network};
-use futures::{StreamExt, TryStreamExt};
-use tokio::sync::OnceCell;
+use ferroid::{base32::Base32UlidExt, id::ULID};
+use futures::{pin_mut, StreamExt, TryStreamExt};
+use tokio::{
+    io::AsyncRead,
+    sync::{Mutex, OnceCell},
+};
+use tokio_tar::{Archive as AsyncTarArchive, EntryType};
+use tokio_util::io::StreamReader;
 use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
-    copy::{CopyToContainer, CopyToContainerCollection, CopyToContainerError},
+    copy::{
+        CopyFileFromContainer, CopyFromContainerError, CopyToContainer, CopyToContainerCollection,
+        CopyToContainerError,
+    },
     env::{self, ConfigurationError},
     logs::{
         stream::{LogStream, RawLogStream},
@@ -43,6 +51,20 @@ mod factory;
 pub use factory::docker_client_instance;
 
 static IN_A_CONTAINER: OnceCell<bool> = OnceCell::const_new();
+
+type BuildLockMap = Mutex<HashMap<String, Arc<Mutex<()>>>>;
+static BUILD_LOCKS: OnceCell<BuildLockMap> = OnceCell::const_new();
+
+async fn get_build_lock(descriptor: &str) -> Arc<Mutex<()>> {
+    let locks = BUILD_LOCKS
+        .get_or_init(|| async { Mutex::new(HashMap::new()) })
+        .await;
+
+    let mut map = locks.lock().await;
+    map.entry(descriptor.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
 
 // See https://github.com/docker/docker/blob/a9fa38b1edf30b23cae3eade0be48b3d4b1de14b/daemon/initlayer/setup_unix.go#L25
 // and Java impl: https://github.com/testcontainers/testcontainers-java/blob/994b385761dde7d832ab7b6c10bc62747fe4b340/core/src/main/java/org/testcontainers/dockerclient/DockerClientConfigUtils.java#L16C5-L17
@@ -109,6 +131,16 @@ pub enum ClientError {
     UploadToContainerError(BollardError),
     #[error("failed to prepare data for copy-to-container: {0}")]
     CopyToContainerError(CopyToContainerError),
+    #[error("failed to handle data copied from container: {0}")]
+    CopyFromContainerError(CopyFromContainerError),
+}
+
+/// Information about a container returned from lookup operations.
+#[cfg(feature = "reusable-containers")]
+#[derive(Debug, Clone)]
+pub(crate) struct ContainerInfo {
+    pub id: String,
+    pub is_running: bool,
 }
 
 /// The internal client.
@@ -120,8 +152,11 @@ pub(crate) struct Client {
 impl Client {
     async fn new() -> Result<Client, ClientError> {
         let config = env::Config::load::<env::Os>().await?;
-        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
+        Self::new_with_config(config)
+    }
 
+    pub(crate) fn new_with_config(config: env::Config) -> Result<Client, ClientError> {
+        let bollard = bollard_client::init(&config).map_err(ClientError::Init)?;
         Ok(Client { config, bollard })
     }
 
@@ -163,6 +198,29 @@ impl Client {
             .inspect_container(id, None::<InspectContainerOptions>)
             .await
             .map_err(ClientError::InspectContainer)
+    }
+
+    // It's used under a feature, but feature gate doesn't make a lot of sense here.
+    #[allow(dead_code)]
+    pub(crate) async fn list_containers_by_label(
+        &self,
+        label_key: &str,
+        label_value: &str,
+    ) -> Result<Vec<bollard::models::ContainerSummary>, ClientError> {
+        let filters = HashMap::from([(
+            "label".to_string(),
+            vec![format!("{}={}", label_key, label_value)],
+        )]);
+
+        let options = ListContainersOptionsBuilder::new()
+            .all(true)
+            .filters(&filters)
+            .build();
+
+        self.bollard
+            .list_containers(Some(options))
+            .await
+            .map_err(ClientError::ListContainers)
     }
 
     pub(crate) async fn rm(&self, id: &str) -> Result<(), ClientError> {
@@ -219,11 +277,24 @@ impl Client {
         &self,
         container_id: &str,
         cmd: Vec<String>,
+        env_vars: std::collections::HashMap<String, String>,
     ) -> Result<ExecResult, ClientError> {
+        let env = if env_vars.is_empty() {
+            None
+        } else {
+            Some(
+                env_vars
+                    .into_iter()
+                    .map(|(k, v)| format!("{k}={v}"))
+                    .collect(),
+            )
+        };
+
         let config = CreateExecOptions {
             cmd: Some(cmd),
             attach_stdout: Some(true),
             attach_stderr: Some(true),
+            env,
             ..Default::default()
         };
 
@@ -311,7 +382,7 @@ impl Client {
     }
 
     /// Inspects a network
-    pub(crate) async fn inspect_network(&self, name: &str) -> Result<Network, ClientError> {
+    pub(crate) async fn inspect_network(&self, name: &str) -> Result<NetworkInspect, ClientError> {
         self.bollard
             .inspect_network(name, Some(InspectNetworkOptionsBuilder::new().build()))
             .await
@@ -360,6 +431,65 @@ impl Client {
             .map_err(ClientError::UploadToContainerError)
     }
 
+    pub(crate) async fn copy_file_from_container<T>(
+        &self,
+        container_id: impl AsRef<str>,
+        container_path: impl AsRef<str>,
+        target: T,
+    ) -> Result<T::Output, ClientError>
+    where
+        T: CopyFileFromContainer,
+    {
+        let container_id = container_id.as_ref();
+        let options = DownloadFromContainerOptionsBuilder::new()
+            .path(container_path.as_ref())
+            .build();
+
+        let stream = self
+            .bollard
+            .download_from_container(container_id, Some(options))
+            .map_err(io::Error::other);
+        let reader = StreamReader::new(stream);
+        Self::extract_file_entry(reader, target)
+            .await
+            .map_err(ClientError::CopyFromContainerError)
+    }
+
+    async fn extract_file_entry<R, T>(
+        reader: R,
+        target: T,
+    ) -> Result<T::Output, CopyFromContainerError>
+    where
+        R: AsyncRead + Unpin,
+        T: CopyFileFromContainer,
+    {
+        let mut archive = AsyncTarArchive::new(reader);
+        let entries = archive.entries().map_err(CopyFromContainerError::Io)?;
+
+        pin_mut!(entries);
+
+        while let Some(entry) = entries
+            .try_next()
+            .await
+            .map_err(CopyFromContainerError::Io)?
+        {
+            match entry.header().entry_type() {
+                EntryType::GNULongName
+                | EntryType::GNULongLink
+                | EntryType::XGlobalHeader
+                | EntryType::XHeader
+                | EntryType::GNUSparse => continue, // skip metadata entries
+                EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
+                EntryType::Regular | EntryType::Continuous => {
+                    return target.copy_from_reader(entry).await
+                }
+                et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
+            }
+        }
+
+        Err(CopyFromContainerError::EmptyArchive)
+    }
+
     pub(crate) async fn container_is_running(
         &self,
         container_id: &str,
@@ -402,28 +532,71 @@ impl Client {
         &self,
         descriptor: &str,
         build_context: &CopyToContainerCollection,
+        options: crate::core::build::build_options::BuildImageOptions,
+    ) -> Result<(), ClientError> {
+        if options.skip_if_exists {
+            let lock = get_build_lock(descriptor).await;
+            let _guard = lock.lock().await;
+
+            match self.bollard.inspect_image(descriptor).await {
+                Ok(_) => {
+                    log::info!("Image '{}' already exists, skipping build", descriptor);
+                    return Ok(());
+                }
+                Err(BollardError::DockerResponseServerError {
+                    status_code: 404, ..
+                }) => {
+                    log::info!("Image '{}' not found, proceeding with build", descriptor);
+                }
+                Err(err) => {
+                    log::warn!(
+                        "Failed to inspect image '{}': {:?}, proceeding with build",
+                        descriptor,
+                        err
+                    );
+                }
+            }
+
+            self.build_image_impl(descriptor, build_context, options)
+                .await
+        } else {
+            self.build_image_impl(descriptor, build_context, options)
+                .await
+        }
+    }
+
+    async fn build_image_impl(
+        &self,
+        descriptor: &str,
+        build_context: &CopyToContainerCollection,
+        options: crate::core::build::build_options::BuildImageOptions,
     ) -> Result<(), ClientError> {
         let tar = build_context
             .tar()
             .await
             .map_err(ClientError::CopyToContainerError)?;
 
-        let session = ulid::Ulid::new().to_string();
+        let session = ULID::now().encode();
 
-        let options = BuildImageOptionsBuilder::new()
+        let mut builder = BuildImageOptionsBuilder::new()
             .dockerfile("Dockerfile")
             .t(descriptor)
             .rm(true)
-            .nocache(false)
+            .nocache(options.no_cache)
             .version(BuilderVersion::BuilderBuildKit)
-            .session(&session)
-            .build();
+            .session(session.as_str());
+
+        if !options.build_args.is_empty() {
+            builder = builder.buildargs(&options.build_args);
+        }
+
+        let build_options = builder.build();
 
         let credentials = None;
 
-        let mut building = self
-            .bollard
-            .build_image(options, credentials, Some(body_full(tar)));
+        let mut building =
+            self.bollard
+                .build_image(build_options, credentials, Some(body_full(tar)));
 
         while let Some(result) = building.next().await {
             match result {
@@ -445,19 +618,65 @@ impl Client {
         Ok(())
     }
 
-    pub(crate) async fn pull_image(&self, descriptor: &str) -> Result<(), ClientError> {
+    pub(crate) async fn pull_image(
+        &self,
+        descriptor: &str,
+        platform: Option<String>,
+    ) -> Result<(), ClientError> {
         let pull_options = CreateImageOptionsBuilder::new()
             .from_image(descriptor)
+            .platform(
+                platform
+                    .as_deref()
+                    .unwrap_or_else(|| self.config.platform().unwrap_or_default()),
+            )
+            .build();
+
+        let credentials = self.credentials_for_image(descriptor).await;
+        let mut pulling = self
+            .bollard
+            .create_image(Some(pull_options), None, credentials);
+        while let Some(result) = pulling.next().await {
+            // if the image pull fails, try to pull the image for linux/amd64 platform instead
+            match result {
+                Ok(_) => {}
+                Err(BollardError::DockerResponseServerError {
+                    status_code: _,
+                    message: _,
+                }) if !matches!(platform.as_deref(), Some("linux/amd64")) => {
+                    self.pull_image_linux_amd64(descriptor).await?;
+                }
+                _ => {
+                    // if the linux/amd64 image pull also fails, return the initial error
+                    result.map_err(|err| ClientError::PullImage {
+                        descriptor: descriptor.to_string(),
+                        err,
+                    })?;
+                }
+            };
+        }
+        Ok(())
+    }
+
+    async fn pull_image_linux_amd64(&self, descriptor: &str) -> Result<(), ClientError> {
+        let pull_options = CreateImageOptionsBuilder::new()
+            .from_image(descriptor)
+            .platform("linux/amd64")
             .build();
         let credentials = self.credentials_for_image(descriptor).await;
         let mut pulling = self
             .bollard
             .create_image(Some(pull_options), None, credentials);
         while let Some(result) = pulling.next().await {
-            result.map_err(|err| ClientError::PullImage {
-                descriptor: descriptor.to_string(),
-                err,
-            })?;
+            match result {
+                Ok(_) => {}
+                Err(err) => {
+                    return Err(ClientError::PullImage {
+                        descriptor: descriptor.to_string(),
+                        err,
+                    });
+                }
+            };
         }
         Ok(())
     }
@@ -521,7 +740,7 @@ impl Client {
 
     async fn credentials_for_image(&self, descriptor: &str) -> Option<DockerCredentials> {
         let auth_config = self.config.docker_auth_config()?.to_string();
-        let (server, _) = descriptor.split_once('/')?;
+        let server = resolve_registry(descriptor);
 
         // `docker_credential` uses blocking API, thus we spawn blocking task to prevent executor from being blocked
         let cloned_server = server.to_string();
@@ -552,17 +771,17 @@ impl Client {
         Some(bollard_credentials)
     }
 
-    /// Get the `id` of the first running container whose `name`, `network`,
-    /// and `labels` match the supplied values
-    #[cfg_attr(not(feature = "reusable-containers"), allow(dead_code))]
-    pub(crate) async fn get_running_container_id(
+    /// Get information about the first container whose `name`, `network`,
+    /// and `labels` match the supplied values, regardless of status.
+    #[cfg(feature = "reusable-containers")]
+    pub(crate) async fn get_container(
         &self,
         name: Option<&str>,
         network: Option<&str>,
         labels: &HashMap<String, String>,
-    ) -> Result<Option<String>, ClientError> {
+    ) -> Result<Option<ContainerInfo>, ClientError> {
+        use bollard::models::ContainerSummaryStateEnum;
         let filters = [
-            Some(("status".to_string(), vec!["running".to_string()])),
             name.map(|value| ("name".to_string(), vec![value.to_string()])),
             network.map(|value| ("network".to_string(), vec![value.to_string()])),
             Some((
@@ -578,7 +797,7 @@ impl Client {
         .collect::<HashMap<_, _>>();
 
         let options = ListContainersOptionsBuilder::new()
-            .all(false)
+            .all(true)
             .size(false)
             .filters(&filters)
             .build();
@@ -602,7 +821,13 @@ impl Client {
             // Use `max_by_key()` instead of `next()` to ensure we're
             // returning the id of most recently created container.
             .max_by_key(|container| container.created.unwrap_or(i64::MIN))
-            .and_then(|container| container.id))
+            .and_then(|container| {
+                container.id.map(|id| {
+                    let is_running =
+                        matches!(container.state, Some(ContainerSummaryStateEnum::RUNNING));
+                    ContainerInfo { id, is_running }
+                })
+            }))
     }
 }
 
@@ -634,5 +859,142 @@ where
             })
             .boxed();
         LogStream::new(stream)
+    }
+}
+
+/// Docker Hub's canonical registry hostname, used for credential lookups when
+/// an image descriptor has no explicit registry prefix (e.g. `postgres:16`).
+const DOCKER_HUB_REGISTRY: &str = "index.docker.io";
+
+/// Extracts the registry server from a Docker image descriptor.
+///
+/// Docker image descriptors follow the pattern `[registry/][namespace/]name[:tag]`.
+/// When no explicit registry is present, images are pulled from Docker Hub.
+///
+/// The first path component is treated as a registry hostname only if it contains
+/// a `.` or a `:` (port), matching the Docker CLI's resolution logic. Otherwise
+/// it is a Docker Hub namespace (e.g. `library`, `confluentinc`).
+fn resolve_registry(descriptor: &str) -> &str {
+    match descriptor.split_once('/') {
+        Some((first, _)) if first.contains('.') || first.contains(':') => first,
+        _ => DOCKER_HUB_REGISTRY,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bollard::query_parameters::RemoveImageOptions;
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct OsEnvWithPlatformLinuxAmd64;
+
+    impl env::GetEnvValue for OsEnvWithPlatformLinuxAmd64 {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_DEFAULT_PLATFORM" => Some("linux/amd64".to_string()),
+                _ => env::Os::get_env_value(key),
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    struct OsEnvWithPlatformLinux386;
+
+    impl env::GetEnvValue for OsEnvWithPlatformLinux386 {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_DEFAULT_PLATFORM" => Some("linux/386".to_string()),
+                _ => env::Os::get_env_value(key),
+            }
+        }
+    }
+
+    #[tokio::test]
+    // Tehcnically the test is racy if we would want to use image in other tests, but we don't use
+    // it usually, so no serial-tests or anything like that is used
+    async fn test_client_pull_image_with_platform() -> anyhow::Result<()> {
+        const IMAGE: &str = "hello-world:linux";
+
+        let config = env::Config::load::<OsEnvWithPlatformLinuxAmd64>().await?;
+        println!("Config platform: {:?}", config.platform());
+        let client = Client::new_with_config(config)?;
+
+        // remove image if exists (it may already have another platform variant)
+        let credentials = client.credentials_for_image(IMAGE).await;
+        let _ = client
+            .bollard
+            .remove_image(
+                IMAGE,
+                Option::<RemoveImageOptions>::None,
+                credentials.clone(),
+            )
+            .await;
+
+        client.pull_image(IMAGE, None).await?;
+
+        let image = client.bollard.inspect_image(IMAGE).await?;
+
+        assert_eq!(Some("linux".to_string()), image.os);
+        assert_eq!(Some("amd64".to_string()), image.architecture);
+
+        let config = env::Config::load::<OsEnvWithPlatformLinux386>().await?;
+        let client = Client::new_with_config(config)?;
+
+        client
+            .bollard
+            .remove_image(IMAGE, Option::<RemoveImageOptions>::None, credentials)
+            .await?;
+
+        client.pull_image(IMAGE, None).await?;
+
+        let image = client.bollard.inspect_image(IMAGE).await?;
+
+        assert_eq!(Some("linux".to_string()), image.os);
+        assert_eq!(Some("386".to_string()), image.architecture);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_registry_docker_hub_library_image() {
+        assert_eq!(resolve_registry("postgres:16"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("redis:7-alpine"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("hello-world:linux"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("ubuntu"), DOCKER_HUB_REGISTRY);
+    }
+
+    #[test]
+    fn test_resolve_registry_docker_hub_namespaced_image() {
+        assert_eq!(
+            resolve_registry("confluentinc/cp-kafka:6.1.1"),
+            DOCKER_HUB_REGISTRY
+        );
+        assert_eq!(resolve_registry("library/postgres:16"), DOCKER_HUB_REGISTRY);
+        assert_eq!(resolve_registry("minio/minio:latest"), DOCKER_HUB_REGISTRY);
+    }
+
+    #[test]
+    fn test_resolve_registry_private_registry() {
+        assert_eq!(resolve_registry("ghcr.io/myorg/myimage:latest"), "ghcr.io");
+        assert_eq!(resolve_registry("quay.io/lakekeeper/catalog:v1"), "quay.io");
+        assert_eq!(
+            resolve_registry("registry.example.com/app:1.0"),
+            "registry.example.com"
+        );
+        assert_eq!(
+            resolve_registry("my-registry.io:5000/image:tag"),
+            "my-registry.io:5000"
+        );
+    }
+
+    #[test]
+    fn test_resolve_registry_with_digest() {
+        assert_eq!(
+            resolve_registry("postgres@sha256:abcdef1234567890"),
+            DOCKER_HUB_REGISTRY
+        );
+        assert_eq!(resolve_registry("ghcr.io/org/img@sha256:abcdef"), "ghcr.io");
     }
 }

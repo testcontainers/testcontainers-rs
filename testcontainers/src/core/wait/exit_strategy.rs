@@ -1,9 +1,7 @@
 use std::time::Duration;
 
-use crate::{
-    core::{client::Client, error::WaitContainerError, wait::WaitStrategy},
-    ContainerAsync, Image,
-};
+use super::RawContainer;
+use crate::core::{client::Client, error::WaitContainerError, wait::WaitStrategy};
 
 #[derive(Debug, Clone)]
 pub struct ExitWaitStrategy {
@@ -34,10 +32,10 @@ impl ExitWaitStrategy {
 }
 
 impl WaitStrategy for ExitWaitStrategy {
-    async fn wait_until_ready<I: Image>(
+    async fn wait_until_ready(
         self,
         client: &Client,
-        container: &ContainerAsync<I>,
+        container: &RawContainer,
     ) -> crate::core::error::Result<()> {
         loop {
             let container_state = client

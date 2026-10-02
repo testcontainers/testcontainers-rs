@@ -1,7 +1,7 @@
 use std::{fmt, io::BufRead, net::IpAddr, sync::Arc};
 
 use crate::{
-    core::{env, error::Result, ports::Ports, ContainerPort, ExecCommand},
+    core::{copy::CopyFileFromContainer, error::Result, ports::Ports, ContainerPort, ExecCommand},
     ContainerAsync, Image,
 };
 
@@ -41,7 +41,10 @@ where
             .field("id", &self.id())
             .field("image", &self.image())
             .field("ports", &self.ports())
-            .field("command", &self.async_impl().docker_client.config.command())
+            .field(
+                "command",
+                &self.async_impl().docker_client().config.command(),
+            )
             .finish()
     }
 }
@@ -125,6 +128,26 @@ where
             inner: async_exec,
             runtime: self.rt().clone(),
         })
+    }
+
+    /// Copies a single file from the container into an arbitrary target implementing [`CopyFileFromContainer`].
+    ///
+    /// # Behavior
+    /// - Regular files are streamed directly into the target (e.g. `PathBuf`, `Vec<u8>`).
+    /// - Additional archive entries (metadata or other files) are skipped after the first regular file.
+    /// - If `container_path` resolves to a directory, an error is returned and no data is written.
+    /// - Symlink handling follows Docker's `GET /containers/{id}/archive` endpoint behavior without extra processing.
+    pub fn copy_file_from<T>(
+        &self,
+        container_path: impl Into<String>,
+        target: T,
+    ) -> Result<T::Output>
+    where
+        T: CopyFileFromContainer,
+    {
+        let container_path = container_path.into();
+        self.rt()
+            .block_on(self.async_impl().copy_file_from(container_path, target))
     }
 
     /// Stops the container (not the same with `pause`) using the default 10 second timeout.
@@ -232,17 +255,12 @@ where
 
 impl<I: Image> Drop for Container<I> {
     fn drop(&mut self) {
-        if let Some(active) = self.inner.take() {
-            active.runtime.block_on(async {
-                match active.async_impl.docker_client.config.command() {
-                    env::Command::Remove => {
-                        if let Err(e) = active.async_impl.rm().await {
-                            log::error!("Failed to remove container on drop: {}", e);
-                        }
-                    }
-                    env::Command::Keep => {}
-                }
-            });
+        if let Some(ActiveContainer {
+            runtime,
+            async_impl,
+        }) = self.inner.take()
+        {
+            runtime.block_on(async { drop(async_impl) });
         }
     }
 }
@@ -257,15 +275,15 @@ mod test {
 
     impl Image for HelloWorld {
         fn name(&self) -> &str {
-            "hello-world"
+            "testcontainers/helloworld"
         }
 
         fn tag(&self) -> &str {
-            "latest"
+            "1.3.0"
         }
 
         fn ready_conditions(&self) -> Vec<WaitFor> {
-            vec![WaitFor::message_on_stdout("Hello from Docker!")]
+            vec![WaitFor::message_on_stderr("Ready, listening on")]
         }
     }
 
@@ -293,9 +311,12 @@ mod test {
             .with_ready_conditions(vec![WaitFor::healthcheck()])
             .start()?;
 
-        let inspect_info = container
-            .rt()
-            .block_on(container.async_impl().docker_client.inspect(container.id()))?;
+        let inspect_info = container.rt().block_on(
+            container
+                .async_impl()
+                .docker_client()
+                .inspect(container.id()),
+        )?;
 
         assert!(inspect_info.config.is_some());
         let config = inspect_info
@@ -324,7 +345,7 @@ mod test {
 
     #[test]
     fn sync_logs_are_accessible() -> anyhow::Result<()> {
-        let image = GenericImage::new("testcontainers/helloworld", "1.2.0");
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.start()?;
 
         let stderr = container.stderr(true);

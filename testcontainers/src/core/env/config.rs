@@ -17,6 +17,9 @@ pub enum ConfigurationError {
     #[cfg(feature = "properties-config")]
     #[error("failed to load testcontainers properties: {0}")]
     WrongPropertiesFormat(#[from] serde_java_properties::de::Error),
+    #[cfg(feature = "reusable-containers")]
+    #[error("container name or labels must be provided when reusing containers")]
+    MissingContainerNameAndLabels,
 }
 
 /// The default path to the Docker configuration file.
@@ -42,6 +45,7 @@ pub(crate) struct Config {
     cert_path: Option<PathBuf>,
     command: Option<Command>,
     docker_auth_config: Option<String>,
+    platform: Option<String>,
 }
 
 #[cfg(feature = "properties-config")]
@@ -94,6 +98,7 @@ impl Config {
                 cert_path: env_config.cert_path.or(properties.cert_path),
                 command: env_config.command,
                 docker_auth_config: env_config.docker_auth_config,
+                platform: env_config.platform,
             })
         }
         #[cfg(not(feature = "properties-config"))]
@@ -111,6 +116,7 @@ impl Config {
             .filter(|v| !v.trim().is_empty())
             .map(|v| v.parse())
             .transpose()?;
+        let platform = E::get_env_value("DOCKER_DEFAULT_PLATFORM").filter(|v| !v.trim().is_empty());
 
         let docker_auth_config = read_docker_auth_config::<E>().await;
 
@@ -121,6 +127,7 @@ impl Config {
             tls_verify,
             cert_path,
             docker_auth_config,
+            platform,
         })
     }
 
@@ -183,6 +190,10 @@ impl Config {
 
     pub(crate) fn docker_auth_config(&self) -> Option<&str> {
         self.docker_auth_config.as_deref()
+    }
+
+    pub(crate) fn platform(&self) -> Option<&str> {
+        self.platform.as_deref()
     }
 }
 

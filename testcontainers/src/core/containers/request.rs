@@ -3,10 +3,13 @@ use std::{
     collections::BTreeMap,
     fmt::{Debug, Formatter},
     net::IpAddr,
+    sync::Arc,
     time::Duration,
 };
 
-use bollard_stubs::models::ResourcesUlimits;
+#[cfg(feature = "device-requests")]
+use bollard::models::DeviceRequest;
+use bollard::models::{HostConfig, ResourcesUlimits};
 
 use crate::{
     core::{
@@ -16,6 +19,8 @@ use crate::{
     Image, TestcontainersError,
 };
 
+pub(crate) type HostConfigModifier = Arc<dyn Fn(&mut HostConfig) + Send + Sync + 'static>;
+
 /// Represents a request to start a container, allowing customization of the container.
 #[must_use]
 pub struct ContainerRequest<I: Image> {
@@ -24,13 +29,17 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) image_name: Option<String>,
     pub(crate) image_tag: Option<String>,
     pub(crate) container_name: Option<String>,
+    pub(crate) platform: Option<String>,
     pub(crate) network: Option<String>,
+    pub(crate) hostname: Option<String>,
     pub(crate) labels: BTreeMap<String, String>,
     pub(crate) env_vars: BTreeMap<String, String>,
     pub(crate) hosts: BTreeMap<String, Host>,
     pub(crate) mounts: Vec<Mount>,
     pub(crate) copy_to_sources: Vec<CopyToContainer>,
     pub(crate) ports: Option<Vec<PortMapping>>,
+    #[cfg(feature = "host-port-exposure")]
+    pub(crate) host_port_exposures: Option<Vec<u16>>,
     pub(crate) ulimits: Option<Vec<ResourcesUlimits>>,
     pub(crate) privileged: bool,
     pub(crate) cap_add: Option<Vec<String>>,
@@ -43,11 +52,15 @@ pub struct ContainerRequest<I: Image> {
     pub(crate) startup_timeout: Option<Duration>,
     pub(crate) working_dir: Option<String>,
     pub(crate) log_consumers: Vec<Box<dyn LogConsumer + 'static>>,
+    pub(crate) host_config_modifier: Option<HostConfigModifier>,
     #[cfg(feature = "reusable-containers")]
     pub(crate) reuse: crate::ReuseDirective,
     pub(crate) user: Option<String>,
     pub(crate) ready_conditions: Option<Vec<WaitFor>>,
     pub(crate) health_check: Option<Healthcheck>,
+    #[cfg(feature = "device-requests")]
+    pub(crate) device_requests: Option<Vec<DeviceRequest>>,
+    pub(crate) open_stdin: Option<bool>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -90,6 +103,10 @@ impl<I: Image> ContainerRequest<I> {
         &self.container_name
     }
 
+    pub fn platform(&self) -> &Option<String> {
+        &self.platform
+    }
+
     pub fn env_vars(&self) -> impl Iterator<Item = (Cow<'_, str>, Cow<'_, str>)> {
         self.image
             .env_vars()
@@ -119,6 +136,11 @@ impl<I: Image> ContainerRequest<I> {
 
     pub fn ports(&self) -> Option<&Vec<PortMapping>> {
         self.ports.as_ref()
+    }
+
+    #[cfg(feature = "host-port-exposure")]
+    pub fn host_port_exposures(&self) -> Option<&[u16]> {
+        self.host_port_exposures.as_deref()
     }
 
     pub fn privileged(&self) -> bool {
@@ -213,9 +235,26 @@ impl<I: Image> ContainerRequest<I> {
         self.readonly_rootfs
     }
 
+    pub fn hostname(&self) -> Option<&str> {
+        self.hostname.as_deref()
+    }
+
     /// Returns the custom health check configuration for the container.
     pub fn health_check(&self) -> Option<&Healthcheck> {
         self.health_check.as_ref()
+    }
+
+    pub fn host_config_modifier(&self) -> Option<&HostConfigModifier> {
+        self.host_config_modifier.as_ref()
+    }
+
+    #[cfg(feature = "device-requests")]
+    pub fn device_requests(&self) -> Option<&[DeviceRequest]> {
+        self.device_requests.as_deref()
+    }
+
+    pub fn open_stdin(&self) -> Option<bool> {
+        self.open_stdin
     }
 }
 
@@ -227,13 +266,17 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             image_name: None,
             image_tag: None,
             container_name: None,
+            platform: None,
             network: None,
+            hostname: None,
             labels: BTreeMap::default(),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
             mounts: Vec::new(),
             copy_to_sources: Vec::new(),
             ports: None,
+            #[cfg(feature = "host-port-exposure")]
+            host_port_exposures: None,
             ulimits: None,
             privileged: false,
             cap_add: None,
@@ -246,11 +289,15 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             startup_timeout: None,
             working_dir: None,
             log_consumers: vec![],
+            host_config_modifier: None,
             #[cfg(feature = "reusable-containers")]
             reuse: crate::ReuseDirective::Never,
             user: None,
             ready_conditions: None,
             health_check: None,
+            #[cfg(feature = "device-requests")]
+            device_requests: None,
+            open_stdin: None,
         }
     }
 }
@@ -281,13 +328,19 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("image_name", &self.image_name)
             .field("image_tag", &self.image_tag)
             .field("container_name", &self.container_name)
+            .field("platform", &self.platform)
             .field("network", &self.network)
+            .field("hostname", &self.hostname)
             .field("labels", &self.labels)
             .field("env_vars", &self.env_vars)
             .field("hosts", &self.hosts)
             .field("mounts", &self.mounts)
-            .field("ports", &self.ports)
-            .field("ulimits", &self.ulimits)
+            .field("ports", &self.ports);
+
+        #[cfg(feature = "host-port-exposure")]
+        repr.field("host_port_exposures", &self.host_port_exposures);
+
+        repr.field("ulimits", &self.ulimits)
             .field("privileged", &self.privileged)
             .field("cap_add", &self.cap_add)
             .field("cap_drop", &self.cap_drop)
@@ -298,10 +351,19 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
             .field("working_dir", &self.working_dir)
             .field("user", &self.user)
             .field("ready_conditions", &self.ready_conditions)
-            .field("health_check", &self.health_check);
+            .field("health_check", &self.health_check)
+            .field(
+                "has_host_config_modifier",
+                &self.host_config_modifier.is_some(),
+            );
 
         #[cfg(feature = "reusable-containers")]
         repr.field("reusable", &self.reuse);
+
+        #[cfg(feature = "device-requests")]
+        repr.field("device_requests", &self.device_requests);
+
+        repr.field("open_stdin", &self.open_stdin);
 
         repr.finish()
     }

@@ -90,7 +90,7 @@ pub use crate::core::Container;
 #[cfg(feature = "reusable-containers")]
 pub use crate::core::ReuseDirective;
 pub use crate::core::{
-    copy::{CopyDataSource, CopyToContainer, CopyToContainerError},
+    copy::{CopyDataSource, CopyTargetOptions, CopyToContainer, CopyToContainerError},
     error::TestcontainersError,
     BuildableImage, ContainerAsync, ContainerRequest, Healthcheck, Image, ImageExt,
 };
@@ -106,9 +106,12 @@ pub use buildables::generic::GenericBuildableImage;
 mod images;
 pub use images::generic::GenericImage;
 
+#[cfg(feature = "docker-compose")]
+#[cfg_attr(docsrs, doc(cfg(feature = "docker-compose")))]
+pub mod compose;
+
 pub mod runners;
 
 /// Re-export of the `bollard` crate to allow direct interaction with the Docker API.
 /// This also solves potential version conflicts between `testcontainers` and `bollard` deps.
 pub use bollard;
-pub use bollard_stubs;
