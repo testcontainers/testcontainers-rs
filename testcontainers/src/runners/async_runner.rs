@@ -130,11 +130,22 @@ where
                     )));
                 }
 
+                // The `org.testcontainers` standard label identifies containers
+                // for ecosystem tooling, but reusable containers created before
+                // it was added don't carry it. Exclude it from the lookup filter
+                // so they stay findable; it is still stamped on created
+                // containers via `labels` below.
+                let lookup_labels: HashMap<String, String> = labels
+                    .iter()
+                    .filter(|(key, _)| key.as_str() != "org.testcontainers")
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect();
+
                 if let Some(container_info) = client
                     .get_container(
                         container_req.container_name().as_deref(),
                         container_req.network().as_deref(),
-                        &labels,
+                        &lookup_labels,
                     )
                     .await?
                 {
@@ -528,6 +539,7 @@ mod tests {
             "testcontainers".to_string(),
         );
 
+        labels.insert("org.testcontainers".to_string(), "true".to_string());
         #[cfg(feature = "reusable-containers")]
         labels.extend([(
             "org.testcontainers.session-id".to_string(),
@@ -1095,6 +1107,49 @@ mod tests {
         assert_eq!(
             container_id_1, container_id_2,
             "Should reuse the same container ID"
+        );
+        assert!(
+            client.container_is_running(&container_id_2).await?,
+            "Container should be running after restart"
+        );
+        container2.rm().await.map_err(anyhow::Error::from)
+    }
+
+    #[cfg(feature = "reusable-containers")]
+    #[tokio::test]
+    async fn async_start_should_reuse_legacy_container_without_standard_label() -> anyhow::Result<()>
+    {
+        use crate::ReuseDirective;
+
+        let client = Client::lazy_client().await?;
+        let container_name = format!("test-reuse-legacy-{}", std::process::id());
+
+        // Simulate a reusable container created before `org.testcontainers=true`
+        // existed: overriding the label with an empty value drops it from the
+        // created container, like pre-upgrade versions did.
+        let container1 = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_container_name(&container_name)
+            .with_reuse(ReuseDirective::Always)
+            .with_label("org.testcontainers", "")
+            .start()
+            .await?;
+        let container_id_1 = container1.id().to_string();
+
+        container1.stop().await?;
+
+        // A current-version request (with the standard label) must still find
+        // and reuse the legacy container instead of failing with a 409 name
+        // conflict on create.
+        let container2 = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_container_name(&container_name)
+            .with_reuse(ReuseDirective::Always)
+            .start()
+            .await?;
+        let container_id_2 = container2.id().to_string();
+
+        assert_eq!(
+            container_id_1, container_id_2,
+            "Should reuse the legacy container ID"
         );
         assert!(
             client.container_is_running(&container_id_2).await?,
