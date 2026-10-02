@@ -107,6 +107,14 @@ where
     fn exec_before_ready(&self, cs: ContainerState) -> Result<Vec<ExecCommand>> {
         Ok(Default::default())
     }
+
+    fn reaper(&self) -> bool {
+        false
+    }
+
+    fn reaper_ttl_seconds(&self) -> u32 {
+        60
+    }
 }
 
 #[derive(Debug)]

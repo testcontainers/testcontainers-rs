@@ -33,6 +33,7 @@ pub(crate) mod raw;
 /// [drop_impl]: struct.ContainerAsync.html#impl-Drop
 pub struct ContainerAsync<I: Image> {
     pub(super) raw: raw::RawContainer,
+    pub no_drop: bool,
     image: ContainerRequest<I>,
     network: Option<Arc<Network>>,
     dropped: bool,
@@ -92,6 +93,7 @@ where
             host_port_exposure,
             #[cfg(feature = "reusable-containers")]
             reuse,
+            no_drop: false,
         };
 
         if !log_consumers.is_empty() {
@@ -246,6 +248,10 @@ where
     I: Image,
 {
     fn drop(&mut self) {
+        if self.no_drop {
+            return;
+        }
+
         #[cfg(feature = "reusable-containers")]
         {
             use crate::ReuseDirective::{Always, CurrentSession};
