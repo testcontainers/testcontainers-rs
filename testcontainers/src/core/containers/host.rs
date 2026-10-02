@@ -400,7 +400,7 @@ impl client::Handler for HostExposeHandler {
 
     fn check_server_key(
         &mut self,
-        _server_public_key: &russh::keys::PublicKey,
+        _server_public_key: &russh::keys::PublicKeyOrCertificate,
     ) -> impl future::Future<Output = Result<bool, Self::Error>> + Send {
         // skip server key verification for the ephemeral SSHD sidecar
         future::ready(Ok(true))
@@ -413,6 +413,7 @@ impl client::Handler for HostExposeHandler {
         connected_port: u32,
         originator_address: &str,
         originator_port: u32,
+        reply: client::ChannelOpenHandle,
         _session: &mut client::Session,
     ) -> impl future::Future<Output = Result<(), Self::Error>> + Send {
         let client = self.clone();
@@ -434,6 +435,8 @@ impl client::Handler for HostExposeHandler {
                     originator_port,
                 )
                 .await?;
+
+            reply.accept().await;
 
             client.start_forward_connection(channel, stream, remote_port);
 
