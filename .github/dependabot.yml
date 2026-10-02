@@ -20,3 +20,10 @@ updates:
       prefix: chore
       prefix-development: test
       include: scope
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: chore
+      include: scope
