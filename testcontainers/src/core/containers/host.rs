@@ -424,8 +424,6 @@ impl client::Handler for HostExposeHandler {
                 return Ok(());
             }
 
-            reply.accept().await;
-
             let remote_port = u16::try_from(connected_port)
                 .expect("forwarded connection reported port outside u16 range");
 
@@ -437,6 +435,8 @@ impl client::Handler for HostExposeHandler {
                     originator_port,
                 )
                 .await?;
+
+            reply.accept().await;
 
             client.start_forward_connection(channel, stream, remote_port);
 
