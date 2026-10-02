@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["testcontainers"]
 exclude = ["testimages/no_expose_port", "testimages/simple-web-server"]
 
