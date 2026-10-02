@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
@@ -22,7 +25,7 @@ pub struct CopyTargetOptions {
 #[derive(Debug, Clone)]
 pub enum CopyDataSource {
     File(PathBuf),
-    Data(Vec<u8>),
+    Data(Cow<'static, [u8]>),
 }
 
 /// Errors that can occur while materializing data copied from a container.
@@ -242,9 +245,28 @@ impl From<PathBuf> for CopyDataSource {
         CopyDataSource::File(value)
     }
 }
+
 impl From<Vec<u8>> for CopyDataSource {
     fn from(value: Vec<u8>) -> Self {
-        CopyDataSource::Data(value)
+        CopyDataSource::Data(Cow::Owned(value))
+    }
+}
+
+impl From<String> for CopyDataSource {
+    fn from(value: String) -> Self {
+        CopyDataSource::Data(Cow::Owned(value.into_bytes()))
+    }
+}
+
+impl From<&'static [u8]> for CopyDataSource {
+    fn from(value: &'static [u8]) -> Self {
+        CopyDataSource::Data(Cow::Borrowed(value))
+    }
+}
+
+impl From<&'static str> for CopyDataSource {
+    fn from(value: &'static str) -> Self {
+        CopyDataSource::Data(Cow::Borrowed(value.as_bytes()))
     }
 }
 
@@ -324,7 +346,7 @@ async fn append_tar_file(
 
 async fn append_tar_bytes(
     ar: &mut tokio_tar::Builder<Vec<u8>>,
-    data: &Vec<u8>,
+    data: &[u8],
     target: &CopyTargetOptions,
 ) -> Result<(), CopyToContainerError> {
     let relative_target_path = make_path_relative(target.target());
@@ -334,7 +356,7 @@ async fn append_tar_bytes(
     header.set_mode(target.mode().unwrap_or(0o0644));
     header.set_cksum();
 
-    ar.append_data(&mut header, relative_target_path, data.as_slice())
+    ar.append_data(&mut header, relative_target_path, data)
         .await
         .map_err(CopyToContainerError::IoError)?;
 
