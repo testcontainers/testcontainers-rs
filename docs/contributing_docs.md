@@ -11,7 +11,7 @@ We publish our documentation using Netlify.
 
 ### Using Python locally
 
-* Ensure that you have Python 3.8.0 or higher.
+* Ensure that you have Python 3.12 or higher.
 * Create a Python virtualenv. E.g. `python3 -m venv tc-venv`.
 * Activate the virtualenv. E.g. `source tc-venv/bin/activate`.
 * Run `pip3 install -r requirements.txt && ./tc-venv/bin/mkdocs serve` from the `testcontainers-rs` root directory. It will start a local auto-updating MkDocs server.
