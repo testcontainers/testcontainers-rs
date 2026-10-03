@@ -95,14 +95,19 @@ jobs:
           args: --all -- --check
 
   clippy:
-    name: Clippy check
-    runs-on: ubuntu-latest
+    name: Clippy check (${{ matrix.toolchain }}${{ matrix.os != 'ubuntu-latest' && format(', {0}', matrix.os) || '' }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os:
+          - ubuntu-latest
         toolchain:
           - stable
           - nightly
+        include:
+          - os: windows-latest
+            toolchain: stable
     steps:
       - name: Checkout sources
         uses: actions/checkout@v7
@@ -116,7 +121,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+          args: --all-features --all-targets
 
   prlint:
     name: PR name check
