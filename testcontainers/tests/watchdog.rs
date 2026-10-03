@@ -19,7 +19,7 @@ use tokio::{
     process::{Child, Command},
 };
 
-const LABEL_KEY: &str = "org.testcontainers.watchdog-test";
+const LABEL_KEY: &str = "watchdog-test";
 const LABEL_ENV: &str = "WATCHDOG_TEST_LABEL";
 const COUNT_ENV: &str = "WATCHDOG_TEST_COUNT";
 const MOUNT_ENV: &str = "WATCHDOG_TEST_MOUNT";
@@ -97,6 +97,11 @@ async fn spawn_child(label: &str, count: usize, mount: Option<&Path>) -> Child {
     .await
     .expect("child starts its containers in time");
 
+    assert_eq!(
+        labelled(label).await.len(),
+        count,
+        "every container is found by its label"
+    );
     // The watchdog registers its signal handlers on a background thread after the first container.
     tokio::time::sleep(Duration::from_millis(500)).await;
     child
@@ -129,11 +134,10 @@ async fn wait_and_collect(mut child: Child, label: &str, started: Instant) -> In
     }
 }
 
-/// Force-removes the containers carrying `label` and returns their ids.
-async fn remove_labelled(label: &str) -> Vec<String> {
+async fn labelled(label: &str) -> Vec<String> {
     let docker = docker_client_instance().await.expect("docker client");
     let filters = HashMap::from([("label".to_string(), vec![format!("{LABEL_KEY}={label}")])]);
-    let ids: Vec<String> = docker
+    docker
         .list_containers(Some(
             ListContainersOptionsBuilder::new()
                 .all(true)
@@ -144,7 +148,13 @@ async fn remove_labelled(label: &str) -> Vec<String> {
         .expect("list containers")
         .into_iter()
         .filter_map(|summary| summary.id)
-        .collect();
+        .collect()
+}
+
+/// Force-removes the containers carrying `label` and returns their ids.
+async fn remove_labelled(label: &str) -> Vec<String> {
+    let docker = docker_client_instance().await.expect("docker client");
+    let ids = labelled(label).await;
     for id in &ids {
         let _ = docker
             .remove_container(
