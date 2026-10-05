@@ -102,8 +102,6 @@ async fn spawn_child(label: &str, count: usize, mount: Option<&Path>) -> Child {
         count,
         "every container is found by its label"
     );
-    // The watchdog registers its signal handlers on a background thread after the first container.
-    tokio::time::sleep(Duration::from_millis(500)).await;
     child
 }
 
