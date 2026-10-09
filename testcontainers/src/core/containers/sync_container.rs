@@ -172,13 +172,13 @@ where
 
     /// Pause the container.
     /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerPause)
-    pub async fn pause(&self) -> Result<()> {
+    pub fn pause(&self) -> Result<()> {
         self.rt().block_on(self.async_impl().pause())
     }
 
     /// Resume/Unpause the container.
     /// [Docker Engine API](https://docs.docker.com/reference/api/engine/version/v1.48/#tag/Container/operation/ContainerUnpause)
-    pub async fn unpause(&self) -> Result<()> {
+    pub fn unpause(&self) -> Result<()> {
         self.rt().block_on(self.async_impl().unpause())
     }
 
@@ -341,6 +341,30 @@ mod test {
 
         assert!(container.is_running()?);
         Ok(())
+    }
+
+    #[test]
+    fn sync_pause_and_unpause() -> anyhow::Result<()> {
+        let container = GenericImage::new("alpine", "latest")
+            .with_cmd(["sleep", "30"])
+            .start()?;
+
+        container.pause()?;
+        assert_eq!(paused(&container)?, Some(true));
+
+        container.unpause()?;
+        assert_eq!(paused(&container)?, Some(false));
+        Ok(())
+    }
+
+    fn paused<I: Image>(container: &Container<I>) -> anyhow::Result<Option<bool>> {
+        let inspect_info = container.rt().block_on(
+            container
+                .async_impl()
+                .docker_client()
+                .inspect(container.id()),
+        )?;
+        Ok(inspect_info.state.and_then(|state| state.paused))
     }
 
     #[test]

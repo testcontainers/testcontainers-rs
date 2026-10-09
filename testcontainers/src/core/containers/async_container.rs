@@ -355,6 +355,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn async_pause_and_unpause() -> anyhow::Result<()> {
+        let container = GenericImage::new("alpine", "latest")
+            .with_cmd(["sleep", "30"])
+            .start()
+            .await?;
+
+        container.pause().await?;
+        assert_eq!(paused(&container).await?, Some(true));
+
+        container.unpause().await?;
+        assert_eq!(paused(&container).await?, Some(false));
+        Ok(())
+    }
+
+    async fn paused<I: Image>(
+        container: &super::ContainerAsync<I>,
+    ) -> anyhow::Result<Option<bool>> {
+        let inspect_info = container.docker_client().inspect(container.id()).await?;
+        Ok(inspect_info.state.and_then(|state| state.paused))
+    }
+
+    #[tokio::test]
     async fn async_logs_are_accessible() -> anyhow::Result<()> {
         let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
         let container = image.start().await?;
