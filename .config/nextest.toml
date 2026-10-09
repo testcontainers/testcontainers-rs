@@ -1,3 +1,5 @@
 [profile.default]
 # Enable automatic retries for flaky tests with exponential backoff.
 retries = { backoff = "exponential", count = 2, delay = "1s" }
+# Fail a hung test after 5 minutes, far above the slowest test (under a minute with cold image pulls).
+slow-timeout = { period = "60s", terminate-after = 5 }
