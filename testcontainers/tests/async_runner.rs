@@ -311,18 +311,27 @@ async fn async_run_exec_fails_due_to_unexpected_code() -> anyhow::Result<()> {
 async fn async_run_with_log_consumer() -> anyhow::Result<()> {
     let _ = pretty_env_logger::try_init();
 
-    let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    let _container = HelloWorld
+    // The consumer runs as a task on this runtime, so blocking this thread would starve it.
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let _container = GenericImage::new("alpine", "latest")
+        .with_wait_for(WaitFor::message_on_stdout("ready"))
+        .with_cmd([
+            "sh",
+            "-c",
+            "echo ready; sleep 1; echo after ready; sleep 60",
+        ])
         .with_log_consumer(move |frame: &LogFrame| {
             // notify when the expected message is found
-            if String::from_utf8_lossy(frame.bytes()).contains("Hello from Docker!") {
+            if String::from_utf8_lossy(frame.bytes()).contains("after ready") {
                 let _ = tx.send(());
             }
         })
         .with_log_consumer(LoggingConsumer::new().with_stderr_level(log::Level::Error))
         .start()
         .await?;
-    rx.recv()?; // notification from consumer
+    tokio::time::timeout(Duration::from_secs(30), rx.recv())
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("log consumer dropped before the line arrived"))?;
     Ok(())
 }
 
