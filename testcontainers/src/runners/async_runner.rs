@@ -371,7 +371,7 @@ where
 
         #[cfg(feature = "watchdog")]
         if client.config.command() == crate::core::env::Command::Remove {
-            crate::watchdog::register(container_id.clone());
+            crate::watchdog::register(&client, container_id.clone());
         }
 
         let startup_timeout = container_req
