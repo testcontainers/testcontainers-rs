@@ -59,3 +59,26 @@ fn create_redis() -> ContainerRequest<Redis> {
         .with_env_var(("REDIS_PASSWORD", "my_secret_password"))
 }
 ```
+
+### Pinning an image by digest
+
+For reproducible pulls you can pin a module to an immutable content digest with
+[`with_digest`](https://docs.rs/testcontainers/latest/testcontainers/core/trait.ImageExt.html#tymethod.with_digest).
+Unlike a tag, a digest can't be overwritten in the registry, so the exact same
+image is used on every run. The digest must include the algorithm prefix (e.g.
+`sha256:...`); the reference sent to Docker becomes `name:tag@digest`, and Docker
+resolves the image by digest while the tag is kept for readability:
+
+```rust
+use testcontainers_modules::{
+    redis::Redis,
+    testcontainers::{ContainerRequest, ImageExt},
+};
+
+/// Pin the Redis module to a specific image digest
+fn create_pinned_redis() -> ContainerRequest<Redis> {
+    Redis::default()
+        .with_tag("6.2-alpine")
+        .with_digest("sha256:e2c2f1f4c0a8b6d4e3f9a1b7c5d2e8f0a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4")
+}
+```
