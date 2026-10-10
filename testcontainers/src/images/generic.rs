@@ -49,6 +49,8 @@ pub struct GenericImage {
     wait_for: Vec<WaitFor>,
     entrypoint: Option<String>,
     exposed_ports: Vec<ContainerPort>,
+    reaper: bool,
+    reaper_ttl_seconds: u32,
 }
 
 impl GenericImage {
@@ -59,11 +61,23 @@ impl GenericImage {
             wait_for: Vec::new(),
             entrypoint: None,
             exposed_ports: Vec::new(),
+            reaper: false,
+            reaper_ttl_seconds: 60, // default *_TIMEOUT for ryuk
         }
     }
 
     pub fn with_wait_for(mut self, wait_for: WaitFor) -> Self {
         self.wait_for.push(wait_for);
+        self
+    }
+
+    pub fn with_reaper_ttl_seconds(mut self, ttl_seconds: u32) -> Self {
+        self.reaper_ttl_seconds = ttl_seconds;
+        self
+    }
+
+    pub fn with_reaper(mut self, reaper: bool) -> Self {
+        self.reaper = reaper;
         self
     }
 
@@ -97,6 +111,14 @@ impl Image for GenericImage {
 
     fn expose_ports(&self) -> &[ContainerPort] {
         &self.exposed_ports
+    }
+
+    fn reaper(&self) -> bool {
+        self.reaper
+    }
+
+    fn reaper_ttl_seconds(&self) -> u32 {
+        self.reaper_ttl_seconds
     }
 }
 
