@@ -3,7 +3,8 @@ use std::{collections::HashMap, time::Duration};
 use async_trait::async_trait;
 use bollard::{
     models::{
-        ContainerCreateBody, HostConfig, HostConfigCgroupnsModeEnum, PortBinding, ResourcesUlimits,
+        ContainerCreateBody, EndpointSettings, HostConfig, HostConfigCgroupnsModeEnum,
+        NetworkingConfig, PortBinding, ResourcesUlimits,
     },
     query_parameters::{CreateContainerOptions, CreateContainerOptionsBuilder},
 };
@@ -14,7 +15,8 @@ use crate::{
     core::{
         client::{Client, ClientError},
         copy::CopyToContainer,
-        error::{Result, WaitContainerError},
+        env::ConfigurationError,
+        error::{Result, TestcontainersError, WaitContainerError},
         mounts::{AccessMode, Mount, MountType},
         network::Network,
         CgroupnsMode, ContainerState,
@@ -199,6 +201,28 @@ where
                 host_config.network_mode = Some(network.to_string());
                 host_config
             });
+
+            if let Some(aliases) = container_req.network_aliases() {
+                // network aliases are only supported on user-defined bridge networks
+                if matches!(network.as_str(), "bridge" | "host" | "none")
+                    || network.starts_with("container:")
+                {
+                    return Err(TestcontainersError::Client(ClientError::Configuration(
+                        ConfigurationError::NetworkAliasesNotSupported,
+                    )));
+                }
+
+                config.networking_config = Some(NetworkingConfig {
+                    endpoints_config: Some(HashMap::from([(
+                        network.to_string(),
+                        EndpointSettings {
+                            aliases: Some(aliases.to_vec()),
+                            ..Default::default()
+                        },
+                    )])),
+                });
+            }
+
             Network::new(network, client.clone()).await?
         } else {
             None
@@ -1101,5 +1125,96 @@ mod tests {
             "Container should be running after restart"
         );
         container2.rm().await.map_err(anyhow::Error::from)
+    }
+
+    fn assert_network_aliases_not_supported(err: TestcontainersError) {
+        assert!(
+            matches!(
+                err,
+                TestcontainersError::Client(ClientError::Configuration(
+                    ConfigurationError::NetworkAliasesNotSupported
+                ))
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn async_run_command_should_apply_network_aliases_on_custom_network() -> anyhow::Result<()>
+    {
+        let network = format!("aliases-net-{}", std::process::id());
+        let client = Client::lazy_client().await?;
+        let image = GenericImage::new("testcontainers/helloworld", "1.3.0");
+        let container = image
+            .with_network_and_aliases(&network, ["api-service", "backend-host"])
+            .start()
+            .await?;
+
+        let networks = client
+            .inspect(container.id())
+            .await?
+            .network_settings
+            .expect("NetworkSettings")
+            .networks
+            .expect("Networks");
+        let endpoint = networks.get(&network).expect("network endpoint");
+
+        let aliases = endpoint
+            .aliases
+            .as_ref()
+            .expect("network aliases should be set");
+
+        assert!(aliases.contains(&"api-service".to_string()));
+        assert!(aliases.contains(&"backend-host".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_rejects_network_aliases_on_bridge() -> anyhow::Result<()> {
+        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_network_and_aliases("bridge", ["alias"])
+            .start()
+            .await
+            .unwrap_err();
+
+        assert_network_aliases_not_supported(err);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_rejects_network_aliases_on_host() -> anyhow::Result<()> {
+        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_network_and_aliases("host", ["alias"])
+            .start()
+            .await
+            .unwrap_err();
+
+        assert_network_aliases_not_supported(err);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_rejects_network_aliases_on_none() -> anyhow::Result<()> {
+        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_network_and_aliases("none", ["alias"])
+            .start()
+            .await
+            .unwrap_err();
+
+        assert_network_aliases_not_supported(err);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_rejects_network_aliases_on_container_network_mode() -> anyhow::Result<()> {
+        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_network_and_aliases("container:some-id", ["alias"])
+            .start()
+            .await
+            .unwrap_err();
+
+        assert_network_aliases_not_supported(err);
+        Ok(())
     }
 }
