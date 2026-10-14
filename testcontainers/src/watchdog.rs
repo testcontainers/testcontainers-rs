@@ -7,6 +7,7 @@ use std::{
     collections::BTreeSet,
     sync::{mpsc, Arc, Mutex},
     thread,
+    time::Duration,
 };
 
 use conquer_once::OnceCell;
@@ -21,6 +22,8 @@ use crate::core::client::Client;
 
 /// Seconds Docker gives a container to stop before killing it, small enough to fit nextest's 10 second grace period.
 const STOP_TIMEOUT_SECS: i32 = 5;
+/// How long removal waits for the stop request, since Docker answers it only once a killed container has exited.
+const STOP_REQUEST_LIMIT: Duration = Duration::from_secs(7);
 
 static WATCHDOG: OnceCell<Mutex<Watchdog>> = OnceCell::uninit();
 
@@ -129,8 +132,13 @@ fn registered_containers() -> Vec<String> {
 
 async fn stop_and_remove(docker: &Client, containers: &[String]) {
     join_all(containers.iter().map(|id| async move {
-        if let Err(error) = docker.stop(id, Some(STOP_TIMEOUT_SECS)).await {
-            log::error!("Failed to stop container {id} on interrupt: {error}");
+        let stop = docker.stop(id, Some(STOP_TIMEOUT_SECS));
+        match tokio::time::timeout(STOP_REQUEST_LIMIT, stop).await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => log::error!("Failed to stop container {id} on interrupt: {error}"),
+            Err(_) => log::error!(
+                "Container {id} did not stop within {STOP_REQUEST_LIMIT:?} of the interrupt"
+            ),
         }
         remove(docker, id).await;
     }))
@@ -172,5 +180,91 @@ pub(crate) fn unregister(container_id: &str) {
             .expect("failed to access watchdog")
             .containers
             .remove(container_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{sync::OnceLock, time::Duration};
+
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::{TcpListener, TcpStream},
+        sync::mpsc,
+    };
+
+    use super::stop_and_remove;
+    use crate::core::{client::Client, env};
+
+    /// nextest kills a test this long after forwarding the interrupt.
+    const NEXTEST_GRACE: Duration = Duration::from_secs(10);
+
+    static DAEMON: OnceLock<String> = OnceLock::new();
+
+    struct FakeDaemonEnv;
+
+    impl env::GetEnvValue for FakeDaemonEnv {
+        fn get_env_value(key: &str) -> Option<String> {
+            match key {
+                "DOCKER_HOST" => DAEMON.get().cloned(),
+                _ => None,
+            }
+        }
+    }
+
+    /// Never answers a stop, like Docker waiting on a container that outlives SIGKILL, and answers every removal.
+    async fn serve(listener: TcpListener, removals: mpsc::UnboundedSender<String>) {
+        loop {
+            let (stream, _) = listener.accept().await.expect("fake daemon accepts");
+            tokio::spawn(answer(stream, removals.clone()));
+        }
+    }
+
+    async fn answer(mut stream: TcpStream, removals: mpsc::UnboundedSender<String>) {
+        let mut head = Vec::new();
+        while !head.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            if stream.read(&mut byte).await.expect("fake daemon reads") == 0 {
+                return;
+            }
+            head.push(byte[0]);
+        }
+        let head = String::from_utf8(head).expect("request head is UTF-8");
+        if let Some(target) = head.strip_prefix("DELETE ") {
+            let target = target.split(' ').next().expect("request target");
+            removals
+                .send(target.to_owned())
+                .expect("test awaits removals");
+            stream
+                .write_all(b"HTTP/1.1 204 No Content\r\n\r\n")
+                .await
+                .expect("fake daemon answers");
+        }
+        std::future::pending::<()>().await;
+    }
+
+    #[tokio::test]
+    async fn removal_goes_ahead_when_the_stop_request_stalls() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("fake daemon binds");
+        let address = listener.local_addr().expect("fake daemon address");
+        DAEMON
+            .set(format!("tcp://{address}"))
+            .expect("only this test sets the daemon");
+        let (sender, mut removals) = mpsc::unbounded_channel();
+        tokio::spawn(serve(listener, sender));
+
+        let config = env::Config::load::<FakeDaemonEnv>()
+            .await
+            .expect("config loads");
+        let docker = Client::new_with_config(config).expect("client connects");
+        tokio::spawn(async move { stop_and_remove(&docker, &["stalled".to_owned()]).await });
+
+        let target = tokio::time::timeout(NEXTEST_GRACE, removals.recv())
+            .await
+            .expect("removal is requested within nextest's grace period")
+            .expect("fake daemon is running");
+        assert!(target.contains("/containers/stalled?"), "{target}");
     }
 }
