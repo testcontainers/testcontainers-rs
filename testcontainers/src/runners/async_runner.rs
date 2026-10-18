@@ -46,11 +46,19 @@ pub(crate) fn session_id() -> &'static ferroid::id::ULID {
     &TESTCONTAINERS_SESSION_ID
 }
 
-/// Builds the effective network-alias list: hostname first (when set), then
-/// explicit network aliases, skipping a duplicate of the hostname.
+/// Builds the effective network-alias list: hostname first (when set and the
+/// network supports aliases), then explicit network aliases, skipping a
+/// duplicate of the hostname.
 fn effective_network_aliases<I: Image>(container_req: &ContainerRequest<I>) -> Vec<String> {
     let mut aliases = Vec::new();
-    if let Some(hostname) = container_req.hostname() {
+    let network_ok = container_req
+        .network()
+        .as_deref()
+        .map(network_supports_aliases)
+        .unwrap_or(false);
+    // support for case: `.with_network("custom-network").with_hostname("x")`
+    // make the container reachable as "x" on that user-defined network.
+    if let Some(hostname) = container_req.hostname().filter(|_| network_ok) {
         aliases.push(hostname.to_string());
     }
     if let Some(network_aliases) = container_req.network_aliases() {
@@ -78,34 +86,6 @@ fn ensure_network_aliases_supported(network: &str) -> Result<()> {
             ConfigurationError::NetworkAliasesNotSupported,
         )))
     }
-}
-
-/// Returns `true` if the container's endpoint on `network` includes all `required` aliases.
-#[cfg(feature = "reusable-containers")]
-async fn container_has_network_aliases(
-    client: &Client,
-    container_id: &str,
-    network: &str,
-    required: &[String],
-) -> Result<bool> {
-    if required.is_empty() {
-        return Ok(true);
-    }
-
-    let networks = match client.inspect(container_id).await?.network_settings {
-        Some(settings) => settings.networks.unwrap_or_default(),
-        None => return Ok(false),
-    };
-
-    let Some(endpoint) = networks.get(network) else {
-        return Ok(false);
-    };
-    let aliases = endpoint.aliases.as_deref().unwrap_or(&[]);
-    // Nested scan is fine here: Docker network alias lists are tiny, so a HashSet
-    // would add overhead without a meaningful complexity win.
-    Ok(required
-        .iter()
-        .all(|alias| aliases.iter().any(|a| a == alias)))
 }
 
 #[async_trait]
@@ -194,13 +174,6 @@ where
                     )));
                 }
 
-                let requested_aliases = effective_network_aliases(&container_req);
-                if !requested_aliases.is_empty() {
-                    if let Some(network) = container_req.network() {
-                        ensure_network_aliases_supported(network)?;
-                    }
-                }
-
                 if let Some(container_info) = client
                     .get_container(
                         container_req.container_name().as_deref(),
@@ -209,41 +182,25 @@ where
                     )
                     .await?
                 {
-                    let aliases_match = match container_req.network() {
-                        Some(network) if !requested_aliases.is_empty() => {
-                            container_has_network_aliases(
-                                &client,
-                                &container_info.id,
-                                network,
-                                &requested_aliases,
-                            )
-                            .await?
-                        }
-                        _ => true,
+                    // Check if container is running, and start it if not
+                    if !container_info.is_running {
+                        client.start_container(&container_info.id).await?;
+                    }
+
+                    let network = if let Some(network) = container_req.network() {
+                        Network::new(network, client.clone()).await?
+                    } else {
+                        None
                     };
 
-                    if aliases_match {
-                        // Check if container is running, and start it if not
-                        if !container_info.is_running {
-                            client.start_container(&container_info.id).await?;
-                        }
-
-                        let network = if let Some(network) = container_req.network() {
-                            Network::new(network, client.clone()).await?
-                        } else {
-                            None
-                        };
-
-                        return Ok(ContainerAsync::construct(
-                            container_info.id,
-                            client,
-                            container_req,
-                            network,
-                            #[cfg(feature = "host-port-exposure")]
-                            host_port_exposure,
-                        ));
-                    }
-                    // Candidate is missing requested aliases — fall through and create.
+                    return Ok(ContainerAsync::construct(
+                        container_info.id,
+                        client,
+                        container_req,
+                        network,
+                        #[cfg(feature = "host-port-exposure")]
+                        host_port_exposure,
+                    ));
                 }
             }
         }
@@ -1207,91 +1164,6 @@ mod tests {
         container2.rm().await.map_err(anyhow::Error::from)
     }
 
-    #[cfg(feature = "reusable-containers")]
-    #[tokio::test]
-    async fn async_reuse_rejects_hostname_alias_on_bridge_before_lookup() -> anyhow::Result<()> {
-        use crate::ReuseDirective;
-
-        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
-            .with_container_name(format!("reuse-hostname-bridge-{}", std::process::id()))
-            .with_reuse(ReuseDirective::Always)
-            .with_network("bridge")
-            .with_hostname("my-hostname")
-            .start()
-            .await
-            .unwrap_err();
-
-        assert_network_aliases_not_supported(err);
-        Ok(())
-    }
-
-    #[cfg(feature = "reusable-containers")]
-    #[tokio::test]
-    async fn async_reuse_when_network_aliases_match() -> anyhow::Result<()> {
-        use crate::ReuseDirective;
-
-        let network = format!("reuse-aliases-match-{}", std::process::id());
-        let labels = [("test-name", "async_reuse_when_network_aliases_match")];
-
-        let first = GenericImage::new("testcontainers/helloworld", "1.3.0")
-            .with_reuse(ReuseDirective::Always)
-            .with_labels(labels)
-            .with_network_and_aliases(&network, ["api-service"])
-            .start()
-            .await?;
-        let first_id = first.id().to_string();
-
-        let second = GenericImage::new("testcontainers/helloworld", "1.3.0")
-            .with_reuse(ReuseDirective::Always)
-            .with_labels(labels)
-            .with_network_and_aliases(&network, ["api-service"])
-            .start()
-            .await?;
-
-        assert_eq!(first_id, second.id());
-        second.rm().await.map_err(anyhow::Error::from)
-    }
-
-    #[cfg(feature = "reusable-containers")]
-    #[tokio::test]
-    async fn async_reuse_skips_candidate_missing_network_aliases() -> anyhow::Result<()> {
-        use crate::ReuseDirective;
-
-        let client = Client::lazy_client().await?;
-        let network = format!("reuse-aliases-skip-{}", std::process::id());
-        let labels = [(
-            "test-name",
-            "async_reuse_skips_candidate_missing_network_aliases",
-        )];
-
-        let first = GenericImage::new("testcontainers/helloworld", "1.3.0")
-            .with_reuse(ReuseDirective::Always)
-            .with_labels(labels)
-            .with_network(&network)
-            .start()
-            .await?;
-        let first_id = first.id().to_string();
-
-        let second = GenericImage::new("testcontainers/helloworld", "1.3.0")
-            .with_reuse(ReuseDirective::Always)
-            .with_labels(labels)
-            .with_network_and_aliases(&network, ["api-service"])
-            .start()
-            .await?;
-
-        assert_ne!(
-            first_id,
-            second.id(),
-            "should create a new container when candidate lacks aliases"
-        );
-
-        let aliases = network_aliases_for(&client, second.id(), &network).await?;
-        assert!(aliases.contains(&"api-service".to_string()));
-
-        first.rm().await?;
-        second.rm().await.map_err(anyhow::Error::from)
-    }
-
     /// Asserts that `err` is `ConfigurationError::NetworkAliasesNotSupported`.
     fn assert_network_aliases_not_supported(err: TestcontainersError) {
         assert!(
@@ -1433,15 +1305,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn async_start_rejects_hostname_alias_on_bridge() -> anyhow::Result<()> {
-        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
+    async fn async_start_allows_hostname_on_bridge_without_network_aliases() -> anyhow::Result<()> {
+        let _container = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_network("bridge")
             .with_hostname("my-hostname")
             .start()
-            .await
-            .unwrap_err();
+            .await?;
 
-        assert_network_aliases_not_supported(err);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_allows_hostname_on_default_network() -> anyhow::Result<()> {
+        let _container = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_hostname("my-hostname")
+            .start()
+            .await?;
+
         Ok(())
     }
 
