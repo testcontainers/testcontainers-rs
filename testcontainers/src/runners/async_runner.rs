@@ -103,7 +103,9 @@ async fn container_has_network_aliases(
     let aliases = endpoint.aliases.as_deref().unwrap_or(&[]);
     // Nested scan is fine here: Docker network alias lists are tiny, so a HashSet
     // would add overhead without a meaningful complexity win.
-    Ok(required.iter().all(|alias| aliases.iter().any(|a| a == alias)))
+    Ok(required
+        .iter()
+        .all(|alias| aliases.iter().any(|a| a == alias)))
 }
 
 #[async_trait]
@@ -1211,10 +1213,7 @@ mod tests {
         use crate::ReuseDirective;
 
         let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
-            .with_container_name(format!(
-                "reuse-hostname-bridge-{}",
-                std::process::id()
-            ))
+            .with_container_name(format!("reuse-hostname-bridge-{}", std::process::id()))
             .with_reuse(ReuseDirective::Always)
             .with_network("bridge")
             .with_hostname("my-hostname")
@@ -1260,7 +1259,10 @@ mod tests {
 
         let client = Client::lazy_client().await?;
         let network = format!("reuse-aliases-skip-{}", std::process::id());
-        let labels = [("test-name", "async_reuse_skips_candidate_missing_network_aliases")];
+        let labels = [(
+            "test-name",
+            "async_reuse_skips_candidate_missing_network_aliases",
+        )];
 
         let first = GenericImage::new("testcontainers/helloworld", "1.3.0")
             .with_reuse(ReuseDirective::Always)
@@ -1406,7 +1408,10 @@ mod tests {
         let aliases = network_aliases_for(&client, container.id(), &network).await?;
 
         assert_eq!(
-            aliases.iter().filter(|alias| *alias == "my-hostname").count(),
+            aliases
+                .iter()
+                .filter(|alias| *alias == "my-hostname")
+                .count(),
             1,
             "hostname should appear once in aliases: {aliases:?}"
         );
