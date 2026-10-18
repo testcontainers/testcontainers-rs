@@ -47,8 +47,8 @@ pub(crate) fn session_id() -> &'static ferroid::id::ULID {
 }
 
 /// Builds the effective network-alias list: hostname first (when set and the
-/// network supports aliases), then explicit network aliases, skipping a
-/// duplicate of the hostname.
+/// network supports aliases), then explicit network aliases. Duplicates of the
+/// hostname are skipped only when the hostname was added to this list.
 fn effective_network_aliases<I: Image>(container_req: &ContainerRequest<I>) -> Vec<String> {
     let mut aliases = Vec::new();
     let network_ok = container_req
@@ -58,14 +58,15 @@ fn effective_network_aliases<I: Image>(container_req: &ContainerRequest<I>) -> V
         .unwrap_or(false);
     // support for case: `.with_network("custom-network").with_hostname("x")`
     // make the container reachable as "x" on that user-defined network.
-    if let Some(hostname) = container_req.hostname().filter(|_| network_ok) {
+    let hostname_alias = container_req.hostname().filter(|_| network_ok);
+    if let Some(hostname) = hostname_alias {
         aliases.push(hostname.to_string());
     }
     if let Some(network_aliases) = container_req.network_aliases() {
         aliases.extend(
             network_aliases
                 .iter()
-                .filter(|alias| Some(alias.as_str()) != container_req.hostname())
+                .filter(|alias| hostname_alias != Some(alias.as_str()))
                 .cloned(),
         );
     }
@@ -1312,6 +1313,19 @@ mod tests {
             .start()
             .await?;
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_rejects_hostname_matching_alias_on_bridge() -> anyhow::Result<()> {
+        let err = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_hostname("my-hostname")
+            .with_network_and_aliases("bridge", ["my-hostname"])
+            .start()
+            .await
+            .unwrap_err();
+
+        assert_network_aliases_not_supported(err);
         Ok(())
     }
 
