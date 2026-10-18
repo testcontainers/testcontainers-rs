@@ -66,7 +66,7 @@ fn effective_network_aliases<I: Image>(container_req: &ContainerRequest<I>) -> V
         aliases.extend(
             network_aliases
                 .iter()
-                .filter(|alias| hostname_alias != Some(alias.as_str()))
+                .filter(|&alias| hostname_alias != Some(alias.as_str()))
                 .cloned(),
         );
     }
