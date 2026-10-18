@@ -258,6 +258,7 @@ impl<I: Image> ContainerRequest<I> {
         self.open_stdin
     }
 
+    /// Returns the configured network aliases, if any.
     pub fn network_aliases(&self) -> Option<&[String]> {
         self.network_aliases.as_deref()
     }
