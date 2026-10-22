@@ -28,7 +28,7 @@ const STOP_REQUEST_LIMIT: Duration = Duration::from_secs(7);
 static WATCHDOG: OnceCell<Mutex<Watchdog>> = OnceCell::uninit();
 
 /// Installs the signal handlers before returning, so a signal from then on reaches the background thread.
-fn arm(docker: Arc<Client>) {
+fn start(docker: Arc<Client>) {
     let runtime = match tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -68,9 +68,13 @@ fn watch(docker: &Client, receiver: &mpsc::Receiver<(Runtime, TerminationSignals
     runtime.block_on(async {
         let signal = signals.recv().await;
         let containers = registered_containers();
+        let cleanup = ContainerCleanup {
+            docker,
+            containers: &containers,
+        };
         tokio::select! {
-            () = stop_and_remove(docker, &containers) => {}
-            _ = signals.recv() => force_remove(docker, &containers).await,
+            () = cleanup.stop_and_remove() => {}
+            _ = signals.recv() => cleanup.force_remove().await,
         }
 
         let _ = signal_hook::low_level::emulate_default_handler(signal);
@@ -88,38 +92,38 @@ impl TerminationSignals {
     /// Must run inside the watchdog runtime's context.
     fn register() -> Self {
         Self {
-            interrupt: install(SignalKind::interrupt(), "SIGINT"),
-            terminate: install(SignalKind::terminate(), "SIGTERM"),
-            quit: install(SignalKind::quit(), "SIGQUIT"),
+            interrupt: Self::install(SignalKind::interrupt(), "SIGINT"),
+            terminate: Self::install(SignalKind::terminate(), "SIGTERM"),
+            quit: Self::install(SignalKind::quit(), "SIGQUIT"),
         }
     }
 
     /// Waits for the next termination signal and returns its number.
     async fn recv(&mut self) -> i32 {
         tokio::select! {
-            () = next(&mut self.interrupt) => SIGINT,
-            () = next(&mut self.terminate) => SIGTERM,
-            () = next(&mut self.quit) => SIGQUIT,
+            () = Self::next(&mut self.interrupt) => SIGINT,
+            () = Self::next(&mut self.terminate) => SIGTERM,
+            () = Self::next(&mut self.quit) => SIGQUIT,
         }
     }
-}
 
-fn install(kind: SignalKind, name: &str) -> Option<Signal> {
-    signal(kind)
-        .inspect_err(|error| {
-            log::error!("Failed to watch {name}, it keeps its default behaviour: {error}");
-        })
-        .ok()
-}
-
-async fn next(signal: &mut Option<Signal>) {
-    if let Some(signal) = signal {
-        if signal.recv().await.is_some() {
-            return;
-        }
+    fn install(kind: SignalKind, name: &str) -> Option<Signal> {
+        signal(kind)
+            .inspect_err(|error| {
+                log::error!("Failed to watch {name}, it keeps its default behaviour: {error}");
+            })
+            .ok()
     }
-    // A closed stream never yields again, like a signal that is not watched.
-    std::future::pending().await
+
+    async fn next(signal: &mut Option<Signal>) {
+        if let Some(signal) = signal {
+            if signal.recv().await.is_some() {
+                return;
+            }
+        }
+        // A closed stream never yields again, like a signal that is not watched.
+        std::future::pending().await
+    }
 }
 
 fn registered_containers() -> Vec<String> {
@@ -130,28 +134,37 @@ fn registered_containers() -> Vec<String> {
         .unwrap_or_default()
 }
 
-async fn stop_and_remove(docker: &Client, containers: &[String]) {
-    join_all(containers.iter().map(|id| async move {
-        let stop = docker.stop(id, Some(STOP_TIMEOUT_SECS));
-        match tokio::time::timeout(STOP_REQUEST_LIMIT, stop).await {
-            Ok(Ok(())) => {}
-            Ok(Err(error)) => log::error!("Failed to stop container {id} on interrupt: {error}"),
-            Err(_) => log::error!(
-                "Container {id} did not stop within {STOP_REQUEST_LIMIT:?} of the interrupt"
-            ),
+struct ContainerCleanup<'a> {
+    docker: &'a Client,
+    containers: &'a [String],
+}
+
+impl ContainerCleanup<'_> {
+    async fn stop_and_remove(&self) {
+        join_all(self.containers.iter().map(|id| async move {
+            let stop = self.docker.stop(id, Some(STOP_TIMEOUT_SECS));
+            match tokio::time::timeout(STOP_REQUEST_LIMIT, stop).await {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    log::error!("Failed to stop container {id} on interrupt: {error}")
+                }
+                Err(_) => log::error!(
+                    "Container {id} did not stop within {STOP_REQUEST_LIMIT:?} of the interrupt"
+                ),
+            }
+            self.remove(id).await;
+        }))
+        .await;
+    }
+
+    async fn force_remove(&self) {
+        join_all(self.containers.iter().map(|id| self.remove(id))).await;
+    }
+
+    async fn remove(&self, id: &str) {
+        if let Err(error) = self.docker.rm(id).await {
+            log::error!("Failed to remove container {id} on interrupt: {error}");
         }
-        remove(docker, id).await;
-    }))
-    .await;
-}
-
-async fn force_remove(docker: &Client, containers: &[String]) {
-    join_all(containers.iter().map(|id| remove(docker, id))).await;
-}
-
-async fn remove(docker: &Client, id: &str) {
-    if let Err(error) = docker.rm(id).await {
-        log::error!("Failed to remove container {id} on interrupt: {error}");
     }
 }
 
@@ -160,11 +173,11 @@ pub(crate) struct Watchdog {
     containers: BTreeSet<String>,
 }
 
-/// Register a container for observation, arming the watchdog with `docker` on the first call
+/// Registers a container for observation, starting the watchdog with `docker` on the first call.
 pub(crate) fn register(docker: &Arc<Client>, container_id: String) {
     WATCHDOG
         .get_or_init(|| {
-            arm(Arc::clone(docker));
+            start(Arc::clone(docker));
             Mutex::default()
         })
         .lock()
@@ -193,7 +206,7 @@ mod tests {
         sync::mpsc,
     };
 
-    use super::stop_and_remove;
+    use super::ContainerCleanup;
     use crate::core::{client::Client, env};
 
     /// nextest kills a test this long after forwarding the interrupt.
@@ -259,7 +272,14 @@ mod tests {
             .await
             .expect("config loads");
         let docker = Client::new_with_config(config).expect("client connects");
-        tokio::spawn(async move { stop_and_remove(&docker, &["stalled".to_owned()]).await });
+        tokio::spawn(async move {
+            ContainerCleanup {
+                docker: &docker,
+                containers: &["stalled".to_owned()],
+            }
+            .stop_and_remove()
+            .await;
+        });
 
         let target = tokio::time::timeout(NEXTEST_GRACE, removals.recv())
             .await
