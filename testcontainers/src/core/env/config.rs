@@ -20,6 +20,9 @@ pub enum ConfigurationError {
     #[cfg(feature = "reusable-containers")]
     #[error("container name or labels must be provided when reusing containers")]
     MissingContainerNameAndLabels,
+    /// Network aliases were requested on a built-in or `container:` network mode.
+    #[error("network aliases are supported only on user-defined bridge networks, not supported with docker built-in networks: bridge, host, none, or container network modes")]
+    NetworkAliasesNotSupported,
 }
 
 /// The default path to the Docker configuration file.
