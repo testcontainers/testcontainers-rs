@@ -1,6 +1,6 @@
 /// Represents a filesystem mount.
 /// For more information see [Docker Storage](https://docs.docker.com/storage/) documentation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Mount {
     access_mode: AccessMode,
     mount_type: MountType,
@@ -10,7 +10,7 @@ pub struct Mount {
 }
 
 /// Options for configuring tmpfs mounts.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct MountTmpfsOptions {
     /// Size of the tmpfs mount in bytes.
     pub size_bytes: Option<i64>,
