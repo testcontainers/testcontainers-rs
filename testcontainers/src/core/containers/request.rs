@@ -269,7 +269,13 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             platform: None,
             network: None,
             hostname: None,
-            labels: BTreeMap::default(),
+            labels: BTreeMap::from([
+                ("org.testcontainers".to_string(), "true".to_string()),
+                (
+                    "org.testcontainers.managed-by".to_string(),
+                    "testcontainers".to_string(),
+                ),
+            ]),
             env_vars: BTreeMap::default(),
             hosts: BTreeMap::default(),
             mounts: Vec::new(),
