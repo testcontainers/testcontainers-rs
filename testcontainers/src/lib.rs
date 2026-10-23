@@ -51,6 +51,7 @@
 //!    1. `${XDG_RUNTIME_DIR}/.docker/run/docker.sock`.
 //!    2. `${HOME}/.docker/run/docker.sock`.
 //!    3. `${HOME}/.docker/desktop/docker.sock`.
+//!    4. `${XDG_RUNTIME_DIR}/docker.sock`.
 //! 6. The default Docker socket including schema will be returned if none of the above are set.
 //!
 //! ### Docker authentication
