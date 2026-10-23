@@ -61,6 +61,8 @@ pub struct ContainerRequest<I: Image> {
     #[cfg(feature = "device-requests")]
     pub(crate) device_requests: Option<Vec<DeviceRequest>>,
     pub(crate) open_stdin: Option<bool>,
+    pub(crate) reaper: bool,
+    pub(crate) reaper_ttl_seconds: u32,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -260,6 +262,9 @@ impl<I: Image> ContainerRequest<I> {
 
 impl<I: Image> From<I> for ContainerRequest<I> {
     fn from(image: I) -> Self {
+        let reaper = image.reaper();
+        let reaper_ttl_seconds = image.reaper_ttl_seconds();
+
         Self {
             image,
             overridden_cmd: Vec::new(),
@@ -298,6 +303,8 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             #[cfg(feature = "device-requests")]
             device_requests: None,
             open_stdin: None,
+            reaper: reaper,
+            reaper_ttl_seconds: reaper_ttl_seconds,
         }
     }
 }
