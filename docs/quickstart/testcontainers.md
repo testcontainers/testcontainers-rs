@@ -42,7 +42,7 @@ Here we use the `GenericImage` struct to create a Redis container.
 
 * `GenericImage::new` accepts the image name and tag.
 * `with_exposed_port` adds a port to be exposed from the container (can be called multiple times).
-* `with_wait_for` allows to pass conditions (`WaitFor`) of container rediness. It
+* `with_wait_for` allows to pass conditions (`WaitFor`) of container readiness. It
   is important to get this set because it helps to know when the container is
   ready to receive any traffic. In this case, we check for the logs we know come
   from Redis, telling us that it is ready to accept requests.
