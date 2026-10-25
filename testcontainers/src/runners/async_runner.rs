@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use bollard::{
@@ -12,8 +12,10 @@ use bollard::{
 use crate::core::containers::host::HostPortExposure;
 use crate::{
     core::{
+        async_drop,
         client::{Client, ClientError},
         copy::CopyToContainer,
+        env,
         error::{Result, WaitContainerError},
         mounts::{AccessMode, Mount, MountType},
         network::Network,
@@ -23,6 +25,57 @@ use crate::{
 };
 
 const DEFAULT_STARTUP_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Removes a created container on drop, unless disarmed.
+///
+/// Covers the window between `create_container` and the start of the container, after
+/// which the [`ContainerAsync`]'s own `Drop` takes over. Without it, a failure or a
+/// startup timeout in that window would leave the container behind.
+struct CreatedContainerGuard {
+    id: String,
+    client: Arc<Client>,
+    armed: bool,
+}
+
+impl CreatedContainerGuard {
+    fn new(id: String, client: Arc<Client>) -> Self {
+        Self {
+            id,
+            client,
+            armed: true,
+        }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for CreatedContainerGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+
+        let id = self.id.clone();
+        let client = self.client.clone();
+        let command = client.config.command();
+
+        async_drop::async_drop(async move {
+            log::trace!("Container {id} was not started, cleaning up");
+            match command {
+                env::Command::Remove => {
+                    if let Err(e) = client.rm(&id).await {
+                        log::error!("Failed to remove container that was not started: {e}");
+                    }
+                }
+                env::Command::Keep => {}
+            }
+            #[cfg(feature = "watchdog")]
+            crate::watchdog::unregister(&id);
+        });
+    }
+}
 #[cfg(feature = "reusable-containers")]
 static TESTCONTAINERS_SESSION_ID: std::sync::LazyLock<ferroid::id::ULID> =
     std::sync::LazyLock::new(ferroid::id::ULID::now);
@@ -361,6 +414,9 @@ where
             res => res,
         }?;
 
+        // removes the container again if starting it fails or times out
+        let mut guard = CreatedContainerGuard::new(container_id.clone(), client.clone());
+
         let copy_to_sources: Vec<&CopyToContainer> = container_req.copy_to_sources().collect();
 
         for copy_to_source in copy_to_sources {
@@ -380,6 +436,8 @@ where
 
         tokio::time::timeout(startup_timeout, async {
             client.start_container(&container_id).await?;
+            // from here on, the container's own `Drop` is responsible
+            guard.disarm();
 
             let container = ContainerAsync::new(
                 container_id,
@@ -1056,6 +1114,73 @@ mod tests {
             .user
             .expect("User");
         assert_eq!(expected_user, &user, "user must be `root`");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_should_remove_container_on_startup_timeout() -> anyhow::Result<()> {
+        let client = Client::lazy_client().await?;
+        let test_name = format!("startup-timeout-{}", std::process::id());
+
+        let result = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_label("test-name", &test_name)
+            // expires while the container is being started
+            .with_startup_timeout(Duration::from_millis(1))
+            .start()
+            .await;
+
+        // remove what was left behind first, so that a failing test does not leak it
+        let leftovers = client
+            .list_containers_by_label("test-name", &test_name)
+            .await?;
+        for container in &leftovers {
+            client
+                .rm(container.id.as_deref().unwrap_or_default())
+                .await?;
+        }
+
+        assert!(
+            matches!(
+                result,
+                Err(crate::TestcontainersError::WaitContainer(
+                    WaitContainerError::StartupTimeout
+                ))
+            ),
+            "start must time out"
+        );
+        assert!(
+            leftovers.is_empty(),
+            "containers left behind: {leftovers:?}"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_start_should_remove_container_that_fails_to_start() -> anyhow::Result<()> {
+        let client = Client::lazy_client().await?;
+        let test_name = format!("failed-start-{}", std::process::id());
+
+        let result = GenericImage::new("testcontainers/helloworld", "1.3.0")
+            .with_entrypoint("/does-not-exist")
+            .with_label("test-name", &test_name)
+            .start()
+            .await;
+
+        // remove what was left behind first, so that a failing test does not leak it
+        let leftovers = client
+            .list_containers_by_label("test-name", &test_name)
+            .await?;
+        for container in &leftovers {
+            client
+                .rm(container.id.as_deref().unwrap_or_default())
+                .await?;
+        }
+
+        assert!(result.is_err(), "start must fail");
+        assert!(
+            leftovers.is_empty(),
+            "containers left behind: {leftovers:?}"
+        );
         Ok(())
     }
 
