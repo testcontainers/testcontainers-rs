@@ -75,6 +75,35 @@ jobs:
         if: matrix.toolchain == 'stable' && matrix.partition == '1/4'
         run: cargo test --doc --workspace --all-features
 
+  rootless:
+    name: Test with rootless Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+      - uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Stop the rootful Docker daemon
+        run: |
+          sudo systemctl stop docker.service docker.socket
+          sudo rm -f /var/run/docker.sock
+      - name: Set up rootless Docker
+        id: rootless-docker
+        uses: docker/setup-docker-action@v5
+        with:
+          rootless: true
+          daemon-config: '{"exec-opts": ["native.cgroupdriver=cgroupfs"]}'
+      - name: Tests
+        env:
+          ROOTLESS_SOCKET: ${{ steps.rootless-docker.outputs.sock }}
+        run: |
+          export XDG_RUNTIME_DIR="$(dirname "${ROOTLESS_SOCKET#unix://}")"
+          cargo test --test async_runner -- --exact \
+            bollard_can_run_hello_world_with_multi_thread
+
   fmt:
     name: Rustfmt check
     runs-on: ubuntu-latest
