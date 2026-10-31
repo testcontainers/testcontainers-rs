@@ -61,6 +61,7 @@ pub struct ContainerRequest<I: Image> {
     #[cfg(feature = "device-requests")]
     pub(crate) device_requests: Option<Vec<DeviceRequest>>,
     pub(crate) open_stdin: Option<bool>,
+    pub(crate) network_aliases: Option<Vec<String>>,
 }
 
 /// Represents a port mapping between a host's external port and the internal port of a container.
@@ -256,6 +257,11 @@ impl<I: Image> ContainerRequest<I> {
     pub fn open_stdin(&self) -> Option<bool> {
         self.open_stdin
     }
+
+    /// Returns the configured network aliases, if any.
+    pub fn network_aliases(&self) -> Option<&[String]> {
+        self.network_aliases.as_deref()
+    }
 }
 
 impl<I: Image> From<I> for ContainerRequest<I> {
@@ -298,6 +304,7 @@ impl<I: Image> From<I> for ContainerRequest<I> {
             #[cfg(feature = "device-requests")]
             device_requests: None,
             open_stdin: None,
+            network_aliases: None,
         }
     }
 }
@@ -363,7 +370,8 @@ impl<I: Image + Debug> Debug for ContainerRequest<I> {
         #[cfg(feature = "device-requests")]
         repr.field("device_requests", &self.device_requests);
 
-        repr.field("open_stdin", &self.open_stdin);
+        repr.field("open_stdin", &self.open_stdin)
+            .field("network_aliases", &self.network_aliases);
 
         repr.finish()
     }

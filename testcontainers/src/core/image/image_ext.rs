@@ -85,6 +85,15 @@ pub trait ImageExt<I: Image> {
     /// Sets the network the container will be connected to.
     fn with_network(self, network: impl Into<String>) -> ContainerRequest<I>;
 
+    /// Sets the network the container will be connected to and defines network aliases for the container.
+    /// **Note**: Network aliases are only supported on user-defined bridge networks,
+    /// built-in docker networks: `bridge`, `host`, `none`, or `container` do not support aliases.
+    fn with_network_and_aliases(
+        self,
+        network: impl Into<String>,
+        aliases: impl IntoIterator<Item = impl Into<String>>,
+    ) -> ContainerRequest<I>;
+
     /// Adds the specified label to the container.
     ///
     /// **Note**: all keys in the `org.testcontainers.*` namespace should be regarded
@@ -347,7 +356,25 @@ impl<RI: Into<ContainerRequest<I>>, I: Image> ImageExt<I> for RI {
         let container_req = self.into();
         ContainerRequest {
             network: Some(network.into()),
+            network_aliases: None,
             ..container_req
+        }
+    }
+
+    fn with_network_and_aliases(
+        self,
+        network: impl Into<String>,
+        aliases: impl IntoIterator<Item = impl Into<String>>,
+    ) -> ContainerRequest<I> {
+        let container_req = self.with_network(network);
+        let network_aliases: Vec<String> = aliases.into_iter().map(Into::into).collect();
+        if network_aliases.is_empty() {
+            container_req
+        } else {
+            ContainerRequest {
+                network_aliases: Some(network_aliases),
+                ..container_req
+            }
         }
     }
 
@@ -669,5 +696,44 @@ mod tests {
 
         // The result should include all ports: 8080 (from first call), 9090, 3000 (from second call)
         assert_eq!(request.host_port_exposures, Some(vec![3000, 8080, 9090]));
+    }
+}
+
+#[cfg(test)]
+mod network_aliases_tests {
+    use super::*;
+    use crate::images::generic::GenericImage;
+
+    #[test]
+    fn with_network_and_aliases_sets_network_and_aliases() {
+        let image = GenericImage::new("test", "latest");
+        let request = image.with_network_and_aliases("my-net", ["api-service", "backend-host"]);
+
+        assert_eq!(request.network(), &Some("my-net".into()));
+        assert_eq!(
+            request.network_aliases(),
+            Some(&["api-service".to_string(), "backend-host".to_string()][..])
+        );
+    }
+
+    #[test]
+    fn with_network_and_aliases_empty_leaves_aliases_unset() {
+        let image = GenericImage::new("test", "latest");
+        let aliases: [&str; 0] = [];
+        let request = image.with_network_and_aliases("my-net", aliases);
+
+        assert_eq!(request.network(), &Some("my-net".into()));
+        assert!(request.network_aliases().is_none());
+    }
+
+    #[test]
+    fn with_network_clears_aliases() {
+        let image = GenericImage::new("test", "latest");
+        let request = image
+            .with_network_and_aliases("my-net", ["alias"])
+            .with_network("other-net");
+
+        assert_eq!(request.network(), &Some("other-net".into()));
+        assert!(request.network_aliases().is_none());
     }
 }
