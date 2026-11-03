@@ -17,7 +17,7 @@ to be executed after the container is started and ready.
 - [Image::exec_before_ready](https://docs.rs/testcontainers/latest/testcontainers/core/trait.Image.html#method.exec_before_ready)
 
 Only if you implement your own `Image`: Allows to define commands
-to be executed executed after the container has started,
+to be executed after the container has started,
 but before the `Image::ready_conditions` are awaited for.
 
 Here we will focus on the first option, which is the most common one.
