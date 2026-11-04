@@ -20,7 +20,6 @@ async-trait = { version = "0.1" }
 bollard = { version = "0.21.0", features = ["buildkit_providerless", "time"] }
 http = "1.1"
 bytes = "1.6.0"
-conquer-once = { version = "0.4", optional = true }
 docker-compose-types = { version = "0.24", optional = true }
 docker_credential = "1.3.1"
 either = "1.12.0"
@@ -57,7 +56,7 @@ ring = ["bollard/ssl"]
 aws-lc-rs = ["bollard/aws-lc-rs"]
 ssl = ["bollard/ssl_providerless"]
 blocking = []
-watchdog = ["signal-hook", "conquer-once", "tokio/signal"]
+watchdog = ["signal-hook", "tokio/signal"]
 http_wait = ["http_wait_plain", "reqwest/rustls"]
 http_wait_plain = ["reqwest"]
 properties-config = ["serde-java-properties"]

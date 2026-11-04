@@ -5,12 +5,11 @@
 
 use std::{
     collections::BTreeSet,
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc, Mutex, OnceLock},
     thread,
     time::Duration,
 };
 
-use conquer_once::OnceCell;
 use futures::future::join_all;
 use signal_hook::consts::{SIGINT, SIGQUIT, SIGTERM};
 use tokio::{
@@ -25,7 +24,7 @@ const STOP_TIMEOUT_SECS: i32 = 5;
 /// How long removal waits for the stop request, since Docker answers it only once a killed container has exited.
 const STOP_REQUEST_LIMIT: Duration = Duration::from_secs(7);
 
-static WATCHDOG: OnceCell<Mutex<Watchdog>> = OnceCell::uninit();
+static WATCHDOG: OnceLock<Mutex<Watchdog>> = OnceLock::new();
 
 /// Installs the signal handlers before returning, so a signal from then on reaches the background thread.
 fn start(docker: Arc<Client>) {
