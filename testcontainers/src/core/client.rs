@@ -1,4 +1,9 @@
-use std::{collections::HashMap, io, str::FromStr, sync::Arc};
+use std::{
+    collections::HashMap,
+    io::{self, Read},
+    str::FromStr,
+    sync::Arc,
+};
 
 use bollard::{
     auth::DockerCredentials,
@@ -21,20 +26,20 @@ use bollard::{
     Docker,
 };
 use ferroid::{base32::Base32UlidExt, id::ULID};
-use futures::{pin_mut, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
+use tar::{Archive as TarArchive, EntryType};
 use tokio::{
-    io::AsyncRead,
+    io::{AsyncRead, AsyncReadExt},
     sync::{Mutex, OnceCell},
 };
-use tokio_tar::{Archive as AsyncTarArchive, EntryType};
-use tokio_util::io::StreamReader;
+use tokio_util::io::{StreamReader, SyncIoBridge};
 use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
     copy::{
-        CopyFileFromContainer, CopyFromContainerError, CopyToContainer, CopyToContainerCollection,
-        CopyToContainerError,
+        run_blocking, CopyFileFromContainer, CopyFromContainerError, CopyToContainer,
+        CopyToContainerCollection, CopyToContainerError,
     },
     env::{self, ConfigurationError},
     logs::{
@@ -455,39 +460,51 @@ impl Client {
             .map_err(ClientError::CopyFromContainerError)
     }
 
+    /// Streams the first regular file of the tar `reader` into `target`.
+    ///
+    /// The synchronous `tar` parser reads the headers on a blocking thread and stops at the
+    /// start of the file's payload, which is then read asynchronously from the same stream.
     async fn extract_file_entry<R, T>(
         reader: R,
         target: T,
     ) -> Result<T::Output, CopyFromContainerError>
     where
-        R: AsyncRead + Unpin,
+        R: AsyncRead + Unpin + Send + 'static,
         T: CopyFileFromContainer,
     {
-        let mut archive = AsyncTarArchive::new(reader);
-        let entries = archive.entries().map_err(CopyFromContainerError::Io)?;
+        let reader = SyncIoBridge::new(reader);
+        let (reader, size) = run_blocking(move || Self::locate_file_entry(reader)).await??;
 
-        pin_mut!(entries);
-
-        while let Some(entry) = entries
-            .try_next()
+        target
+            .copy_from_reader(reader.into_inner().take(size))
             .await
-            .map_err(CopyFromContainerError::Io)?
-        {
-            match entry.header().entry_type() {
-                EntryType::GNULongName
-                | EntryType::GNULongLink
-                | EntryType::XGlobalHeader
-                | EntryType::XHeader
-                | EntryType::GNUSparse => continue, // skip metadata entries
-                EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
-                EntryType::Regular | EntryType::Continuous => {
-                    return target.copy_from_reader(entry).await
-                }
-                et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
-            }
-        }
+    }
 
-        Err(CopyFromContainerError::EmptyArchive)
+    /// Reads tar headers until the first regular file and returns the reader positioned at its
+    /// payload, together with the payload size.
+    fn locate_file_entry<R: Read>(reader: R) -> Result<(R, u64), CopyFromContainerError> {
+        let mut archive = TarArchive::new(reader);
+        let size = {
+            let mut entries = archive.entries().map_err(CopyFromContainerError::Io)?;
+            loop {
+                let Some(entry) = entries.next() else {
+                    return Err(CopyFromContainerError::EmptyArchive);
+                };
+                let entry = entry.map_err(CopyFromContainerError::Io)?;
+                match entry.header().entry_type() {
+                    EntryType::GNULongName
+                    | EntryType::GNULongLink
+                    | EntryType::XGlobalHeader
+                    | EntryType::XHeader
+                    | EntryType::GNUSparse => continue, // skip metadata entries
+                    EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
+                    EntryType::Regular | EntryType::Continuous => break entry.size(),
+                    et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
+                }
+            }
+        };
+
+        Ok((archive.into_inner(), size))
     }
 
     pub(crate) async fn container_is_running(
@@ -996,5 +1013,80 @@ mod tests {
             DOCKER_HUB_REGISTRY
         );
         assert_eq!(resolve_registry("ghcr.io/org/img@sha256:abcdef"), "ghcr.io");
+    }
+
+    fn ustar_header(entry_type: EntryType, size: usize) -> tar::Header {
+        let mut header = tar::Header::new_ustar();
+        header.set_entry_type(entry_type);
+        header.set_size(u64::try_from(size).unwrap());
+        header.set_mode(0o644);
+        header
+    }
+
+    #[tokio::test]
+    async fn extract_file_entry_reads_only_the_payload_after_pax_headers() {
+        let pax_records = b"23 path=pax/result.txt\n";
+        let mut builder = tar::Builder::new(Vec::new());
+        builder
+            .append_data(
+                &mut ustar_header(EntryType::XHeader, pax_records.len()),
+                "PaxHeaders/result.txt",
+                &pax_records[..],
+            )
+            .unwrap();
+        builder
+            .append_data(
+                &mut ustar_header(EntryType::Regular, 7),
+                "result.txt",
+                &b"payload"[..],
+            )
+            .unwrap();
+        builder
+            .append_data(
+                &mut ustar_header(EntryType::Regular, 5),
+                "next.txt",
+                &b"other"[..],
+            )
+            .unwrap();
+        let archive = std::io::Cursor::new(builder.into_inner().unwrap());
+
+        let copied = Client::extract_file_entry(archive, Vec::new())
+            .await
+            .unwrap();
+
+        assert_eq!(copied, b"payload");
+    }
+
+    #[tokio::test]
+    async fn extract_file_entry_rejects_a_symlink() {
+        let mut builder = tar::Builder::new(Vec::new());
+        builder
+            .append_link(
+                &mut ustar_header(EntryType::Symlink, 0),
+                "link",
+                "result.txt",
+            )
+            .unwrap();
+        let archive = std::io::Cursor::new(builder.into_inner().unwrap());
+
+        let err = Client::extract_file_entry(archive, Vec::new())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            CopyFromContainerError::UnsupportedEntry(EntryType::Symlink)
+        ));
+    }
+
+    #[tokio::test]
+    async fn extract_file_entry_rejects_an_archive_without_entries() {
+        let archive = std::io::Cursor::new(tar::Builder::new(Vec::new()).into_inner().unwrap());
+
+        let err = Client::extract_file_entry(archive, Vec::new())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, CopyFromContainerError::EmptyArchive));
     }
 }
