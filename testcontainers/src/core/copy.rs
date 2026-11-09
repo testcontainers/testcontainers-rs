@@ -1,8 +1,11 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 use async_trait::async_trait;
+use tar::EntryType;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
-use tokio_tar::EntryType;
 
 #[derive(Debug, Clone)]
 pub struct CopyToContainerCollection(Vec<CopyToContainer>);
@@ -156,18 +159,13 @@ impl CopyToContainerCollection {
     }
 
     pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
-        let mut ar = tokio_tar::Builder::new(Vec::new());
+        let mut ar = tar::Builder::new(Vec::new());
 
         for copy_to_container in &self.0 {
-            copy_to_container.append_tar(&mut ar).await?
+            ar = copy_to_container.append_tar(ar).await?;
         }
 
-        let bytes = ar
-            .into_inner()
-            .await
-            .map_err(CopyToContainerError::IoError)?;
-
-        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+        finish_tar(ar)
     }
 }
 
@@ -180,24 +178,23 @@ impl CopyToContainer {
     }
 
     pub(crate) async fn tar(&self) -> Result<bytes::Bytes, CopyToContainerError> {
-        let mut ar = tokio_tar::Builder::new(Vec::new());
+        let ar = self.append_tar(tar::Builder::new(Vec::new())).await?;
 
-        self.append_tar(&mut ar).await?;
-
-        let bytes = ar
-            .into_inner()
-            .await
-            .map_err(CopyToContainerError::IoError)?;
-
-        Ok(bytes::Bytes::copy_from_slice(bytes.as_slice()))
+        finish_tar(ar)
     }
 
     pub(crate) async fn append_tar(
         &self,
-        ar: &mut tokio_tar::Builder<Vec<u8>>,
-    ) -> Result<(), CopyToContainerError> {
+        ar: tar::Builder<Vec<u8>>,
+    ) -> Result<tar::Builder<Vec<u8>>, CopyToContainerError> {
         self.source.append_tar(ar, &self.target).await
     }
+}
+
+fn finish_tar(ar: tar::Builder<Vec<u8>>) -> Result<bytes::Bytes, CopyToContainerError> {
+    ar.into_inner()
+        .map(bytes::Bytes::from)
+        .map_err(CopyToContainerError::IoError)
 }
 
 impl CopyTargetOptions {
@@ -249,96 +246,104 @@ impl From<Vec<u8>> for CopyDataSource {
 }
 
 impl CopyDataSource {
+    /// Appends this source to `ar` under `target`, reading host files on a blocking thread.
     pub(crate) async fn append_tar(
         &self,
-        ar: &mut tokio_tar::Builder<Vec<u8>>,
+        mut ar: tar::Builder<Vec<u8>>,
         target: &CopyTargetOptions,
-    ) -> Result<(), CopyToContainerError> {
+    ) -> Result<tar::Builder<Vec<u8>>, CopyToContainerError> {
         let target_path = target.target();
 
         match self {
             CopyDataSource::File(source_file_path) => {
-                if let Err(e) = append_tar_file(ar, source_file_path, target).await {
+                let source = source_file_path.clone();
+                let options = target.clone();
+                let appended =
+                    run_blocking(move || append_tar_file(&mut ar, &source, &options).map(|()| ar))
+                        .await
+                        .unwrap_or_else(|e| Err(CopyToContainerError::IoError(e)));
+                if appended.is_err() {
                     log::error!(
                         "Could not append file/dir to tar: {source_file_path:?}:{target_path}"
                     );
-                    return Err(e);
                 }
+                appended
             }
             CopyDataSource::Data(data) => {
-                if let Err(e) = append_tar_bytes(ar, data, target).await {
+                if let Err(e) = append_tar_bytes(&mut ar, data, target) {
                     log::error!("Could not append data to tar: {target_path}");
                     return Err(e);
                 }
+                Ok(ar)
             }
-        };
-
-        Ok(())
+        }
     }
 }
 
-async fn append_tar_file(
-    ar: &mut tokio_tar::Builder<Vec<u8>>,
+/// Runs `f` on tokio's blocking pool and re-raises its panic on the awaiting task.
+async fn run_blocking<T, F>(f: F) -> io::Result<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    match tokio::task::spawn_blocking(f).await {
+        Ok(value) => Ok(value),
+        Err(error) if error.is_panic() => std::panic::resume_unwind(error.into_panic()),
+        Err(error) => Err(io::Error::other(error)),
+    }
+}
+
+fn append_tar_file(
+    ar: &mut tar::Builder<Vec<u8>>,
     source_file_path: &Path,
     target: &CopyTargetOptions,
 ) -> Result<(), CopyToContainerError> {
     let target_path = make_path_relative(target.target());
-    let meta = tokio::fs::metadata(source_file_path)
-        .await
-        .map_err(CopyToContainerError::IoError)?;
+    let meta = std::fs::metadata(source_file_path).map_err(CopyToContainerError::IoError)?;
 
     if meta.is_dir() {
-        ar.append_dir_all(target_path, source_file_path)
-            .await
-            .map_err(CopyToContainerError::IoError)?;
-    } else {
-        let f = &mut tokio::fs::File::open(source_file_path)
-            .await
-            .map_err(CopyToContainerError::IoError)?;
+        return ar
+            .append_dir_all(target_path, source_file_path)
+            .map_err(CopyToContainerError::IoError);
+    }
 
-        let mut header = tokio_tar::Header::new_gnu();
-        header.set_size(meta.len());
+    let file = std::fs::File::open(source_file_path).map_err(CopyToContainerError::IoError)?;
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = target.mode().unwrap_or_else(|| meta.permissions().mode());
-            header.set_mode(mode);
-        }
+    let mut header = tar::Header::new_gnu();
+    header.set_size(meta.len());
 
-        #[cfg(not(unix))]
-        {
-            let mode = target.mode().unwrap_or(0o644);
-            header.set_mode(mode);
-        }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = target.mode().unwrap_or_else(|| meta.permissions().mode());
+        header.set_mode(mode);
+    }
 
-        header.set_cksum();
+    #[cfg(not(unix))]
+    {
+        let mode = target.mode().unwrap_or(0o644);
+        header.set_mode(mode);
+    }
 
-        ar.append_data(&mut header, target_path, f)
-            .await
-            .map_err(CopyToContainerError::IoError)?;
-    };
-
-    Ok(())
+    ar.append_data(&mut header, target_path, file)
+        .map_err(CopyToContainerError::IoError)
 }
 
-async fn append_tar_bytes(
-    ar: &mut tokio_tar::Builder<Vec<u8>>,
-    data: &Vec<u8>,
+fn append_tar_bytes(
+    ar: &mut tar::Builder<Vec<u8>>,
+    data: &[u8],
     target: &CopyTargetOptions,
 ) -> Result<(), CopyToContainerError> {
     let relative_target_path = make_path_relative(target.target());
+    let size = u64::try_from(data.len())
+        .map_err(|e| CopyToContainerError::IoError(io::Error::other(e)))?;
 
-    let mut header = tokio_tar::Header::new_gnu();
-    header.set_size(data.len() as u64);
+    let mut header = tar::Header::new_gnu();
+    header.set_size(size);
     header.set_mode(target.mode().unwrap_or(0o0644));
-    header.set_cksum();
 
-    ar.append_data(&mut header, relative_target_path, data.as_slice())
-        .await
-        .map_err(CopyToContainerError::IoError)?;
-
-    Ok(())
+    ar.append_data(&mut header, relative_target_path, data)
+        .map_err(CopyToContainerError::IoError)
 }
 
 fn make_path_relative(path: &str) -> String {
@@ -352,11 +357,13 @@ fn make_path_relative(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Write};
+    use std::{
+        fs::File,
+        io::{Read, Write},
+    };
 
-    use futures::StreamExt;
+    use tar::Archive;
     use tempfile::tempdir;
-    use tokio_tar::Archive;
 
     use super::*;
 
@@ -430,7 +437,7 @@ mod tests {
         let tar_bytes = copy_to_container.tar().await.unwrap();
         let mut archive = Archive::new(std::io::Cursor::new(tar_bytes));
         let mut entries = archive.entries().unwrap();
-        let entry = entries.next().await.unwrap().unwrap();
+        let entry = entries.next().unwrap().unwrap();
 
         assert_eq!(entry.header().mode().unwrap(), 0o600);
     }
@@ -448,8 +455,35 @@ mod tests {
         let tar_bytes = copy_to_container.tar().await.unwrap();
         let mut archive = Archive::new(std::io::Cursor::new(tar_bytes));
         let mut entries = archive.entries().unwrap();
-        let entry = entries.next().await.unwrap().unwrap();
+        let entry = entries.next().unwrap().unwrap();
 
         assert_eq!(entry.header().mode().unwrap(), 0o640);
+    }
+
+    #[tokio::test]
+    async fn tar_directory_copied_to_root_keeps_nested_files() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::create_dir(temp_dir.path().join("subdir")).unwrap();
+        std::fs::write(temp_dir.path().join("subdir/bar.txt"), "bar").unwrap();
+
+        let copy_to_container = CopyToContainer::new(temp_dir.path(), "/");
+
+        let tar_bytes = copy_to_container.tar().await.unwrap();
+        let mut archive = Archive::new(std::io::Cursor::new(tar_bytes));
+        let mut files = Vec::new();
+        for entry in archive.entries().unwrap() {
+            let mut entry = entry.unwrap();
+            if entry.header().entry_type().is_file() {
+                let path = entry.path().unwrap().into_owned();
+                let mut contents = String::new();
+                entry.read_to_string(&mut contents).unwrap();
+                files.push((path, contents));
+            }
+        }
+
+        assert_eq!(
+            files,
+            [(PathBuf::from("subdir/bar.txt"), "bar".to_string())]
+        );
     }
 }
