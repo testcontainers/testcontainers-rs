@@ -1,8 +1,10 @@
 use std::{
     collections::HashMap,
     io::{self, Read},
+    pin::Pin,
     str::FromStr,
     sync::Arc,
+    task::{ready, Context, Poll},
 };
 
 use bollard::{
@@ -29,17 +31,17 @@ use ferroid::{base32::Base32UlidExt, id::ULID};
 use futures::{StreamExt, TryStreamExt};
 use tar::{Archive as TarArchive, EntryType};
 use tokio::{
-    io::{AsyncRead, AsyncReadExt},
+    io::{AsyncRead, AsyncReadExt, ReadBuf, Take},
     sync::{Mutex, OnceCell},
 };
-use tokio_util::io::{StreamReader, SyncIoBridge};
+use tokio_util::io::StreamReader;
 use url::Url;
 
 use crate::core::{
     client::exec::ExecResult,
     copy::{
-        run_blocking, CopyFileFromContainer, CopyFromContainerError, CopyToContainer,
-        CopyToContainerCollection, CopyToContainerError,
+        CopyFileFromContainer, CopyFromContainerError, CopyToContainer, CopyToContainerCollection,
+        CopyToContainerError,
     },
     env::{self, ConfigurationError},
     logs::{
@@ -462,49 +464,89 @@ impl Client {
 
     /// Streams the first regular file of the tar `reader` into `target`.
     ///
-    /// The synchronous `tar` parser reads the headers on a blocking thread and stops at the
-    /// start of the file's payload, which is then read asynchronously from the same stream.
+    /// The synchronous `tar` parser runs over the bytes buffered so far, and more are read from
+    /// `reader` until the file's header is complete. The payload then streams from the buffered
+    /// remainder followed by `reader`, and must yield exactly the size its header declares.
     async fn extract_file_entry<R, T>(
-        reader: R,
+        mut reader: R,
         target: T,
     ) -> Result<T::Output, CopyFromContainerError>
     where
-        R: AsyncRead + Unpin + Send + 'static,
+        R: AsyncRead + Unpin,
         T: CopyFileFromContainer,
     {
-        let reader = SyncIoBridge::new(reader);
-        let (reader, size) = run_blocking(move || Self::locate_file_entry(reader)).await??;
+        const READ_CHUNK: usize = 8 * 1024;
 
-        target
-            .copy_from_reader(reader.into_inner().take(size))
-            .await
-    }
-
-    /// Reads tar headers until the first regular file and returns the reader positioned at its
-    /// payload, together with the payload size.
-    fn locate_file_entry<R: Read>(reader: R) -> Result<(R, u64), CopyFromContainerError> {
-        let mut archive = TarArchive::new(reader);
-        let size = {
-            let mut entries = archive.entries().map_err(CopyFromContainerError::Io)?;
-            loop {
-                let Some(entry) = entries.next() else {
-                    return Err(CopyFromContainerError::EmptyArchive);
-                };
-                let entry = entry.map_err(CopyFromContainerError::Io)?;
-                match entry.header().entry_type() {
-                    EntryType::GNULongName
-                    | EntryType::GNULongLink
-                    | EntryType::XGlobalHeader
-                    | EntryType::XHeader
-                    | EntryType::GNUSparse => continue, // skip metadata entries
-                    EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
-                    EntryType::Regular | EntryType::Continuous => break entry.size(),
-                    et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
-                }
+        let mut buffered = Vec::new();
+        let mut complete = false;
+        let (payload_start, size) = loop {
+            if let Some(located) = Self::locate_file_entry(&buffered, complete)? {
+                break located;
             }
+            buffered.reserve(READ_CHUNK);
+            complete = reader
+                .read_buf(&mut buffered)
+                .await
+                .map_err(CopyFromContainerError::Io)?
+                == 0;
         };
 
-        Ok((archive.into_inner(), size))
+        let payload_start = usize::try_from(payload_start)
+            .ok()
+            .filter(|&start| start <= buffered.len())
+            .ok_or_else(|| {
+                CopyFromContainerError::Io(io::Error::other(
+                    "tar entry payload starts past the parsed header",
+                ))
+            })?;
+        buffered.drain(..payload_start);
+        if let Ok(size) = usize::try_from(size) {
+            buffered.truncate(size);
+        }
+
+        let payload =
+            ExactSizeReader::new(AsyncReadExt::chain(io::Cursor::new(buffered), reader), size);
+        target.copy_from_reader(payload).await
+    }
+
+    /// Finds the first regular file in the tar bytes `data` and returns its payload offset and
+    /// size, or `None` when `data` ends before that is known and the stream is not `complete`.
+    fn locate_file_entry(
+        data: &[u8],
+        complete: bool,
+    ) -> Result<Option<(u64, u64)>, CopyFromContainerError> {
+        let mut source = BufferedArchive {
+            remaining: data,
+            exhausted: false,
+        };
+        match Self::scan_entries(&mut source) {
+            Ok(located) => Ok(Some(located)),
+            Err(_) if source.exhausted && !complete => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Reads tar headers from `source` up to the first regular file and returns its payload
+    /// offset and size.
+    fn scan_entries(source: impl Read) -> Result<(u64, u64), CopyFromContainerError> {
+        let mut archive = TarArchive::new(source);
+        for entry in archive.entries().map_err(CopyFromContainerError::Io)? {
+            let entry = entry.map_err(CopyFromContainerError::Io)?;
+            match entry.header().entry_type() {
+                EntryType::GNULongName
+                | EntryType::GNULongLink
+                | EntryType::XGlobalHeader
+                | EntryType::XHeader
+                | EntryType::GNUSparse => continue, // skip metadata entries
+                EntryType::Directory => return Err(CopyFromContainerError::IsDirectory),
+                EntryType::Regular | EntryType::Continuous => {
+                    return Ok((entry.raw_file_position(), entry.size()))
+                }
+                et => return Err(CopyFromContainerError::UnsupportedEntry(et)),
+            }
+        }
+
+        Err(CopyFromContainerError::EmptyArchive)
     }
 
     pub(crate) async fn container_is_running(
@@ -883,6 +925,54 @@ where
 /// an image descriptor has no explicit registry prefix (e.g. `postgres:16`).
 const DOCKER_HUB_REGISTRY: &str = "index.docker.io";
 
+/// Tar bytes buffered so far, recording whether the parser asked for more than they hold.
+struct BufferedArchive<'a> {
+    remaining: &'a [u8],
+    exhausted: bool,
+}
+
+impl Read for BufferedArchive<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.remaining.is_empty() && !buf.is_empty() {
+            self.exhausted = true;
+            return Ok(0);
+        }
+        Read::read(&mut self.remaining, buf)
+    }
+}
+
+/// Yields exactly `size` bytes of `inner`, failing with `UnexpectedEof` if it ends sooner.
+struct ExactSizeReader<R> {
+    inner: Take<R>,
+}
+
+impl<R: AsyncRead + Unpin> ExactSizeReader<R> {
+    fn new(inner: R, size: u64) -> Self {
+        Self {
+            inner: inner.take(size),
+        }
+    }
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for ExactSizeReader<R> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        let filled = buf.filled().len();
+        ready!(Pin::new(&mut this.inner).poll_read(cx, buf))?;
+        if buf.filled().len() == filled && buf.remaining() > 0 && this.inner.limit() > 0 {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "tar entry payload ended before its declared size",
+            )));
+        }
+        Poll::Ready(Ok(()))
+    }
+}
+
 /// Extracts the registry server from a Docker image descriptor.
 ///
 /// Docker image descriptors follow the pattern `[registry/][namespace/]name[:tag]`.
@@ -901,6 +991,7 @@ fn resolve_registry(descriptor: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use bollard::query_parameters::RemoveImageOptions;
+    use tokio::io::AsyncWriteExt;
 
     use super::*;
 
@@ -1023,8 +1114,8 @@ mod tests {
         header
     }
 
-    #[tokio::test]
-    async fn extract_file_entry_reads_only_the_payload_after_pax_headers() {
+    /// Builds a tar holding a PAX header, `payload` as `result.txt`, then `next.txt`.
+    fn archive_with_pax_header(payload: &[u8]) -> Vec<u8> {
         let pax_records = b"23 path=pax/result.txt\n";
         let mut builder = tar::Builder::new(Vec::new());
         builder
@@ -1036,9 +1127,9 @@ mod tests {
             .unwrap();
         builder
             .append_data(
-                &mut ustar_header(EntryType::Regular, 7),
+                &mut ustar_header(EntryType::Regular, payload.len()),
                 "result.txt",
-                &b"payload"[..],
+                payload,
             )
             .unwrap();
         builder
@@ -1048,13 +1139,58 @@ mod tests {
                 &b"other"[..],
             )
             .unwrap();
-        let archive = std::io::Cursor::new(builder.into_inner().unwrap());
+        builder.into_inner().unwrap()
+    }
 
-        let copied = Client::extract_file_entry(archive, Vec::new())
+    #[tokio::test]
+    async fn extract_file_entry_streams_only_the_payload_after_pax_headers() {
+        let payload: Vec<u8> = (0..20_000u32)
+            .map(|i| u8::try_from(i % 251).unwrap())
+            .collect();
+        let archive = archive_with_pax_header(&payload);
+        let (reader, mut writer) = tokio::io::duplex(100);
+        let feeder = tokio::spawn(async move {
+            // The reader stops at the end of `result.txt`, so the rest may hit a closed pipe.
+            let _ = writer.write_all(&archive).await;
+        });
+
+        let copied = Client::extract_file_entry(reader, Vec::new())
             .await
             .unwrap();
+        feeder.await.unwrap();
 
-        assert_eq!(copied, b"payload");
+        assert_eq!(copied, payload);
+    }
+
+    #[tokio::test]
+    async fn extract_file_entry_rejects_a_truncated_payload() {
+        let mut archive = archive_with_pax_header(b"payload");
+        archive.truncate(3 * 512 + 3);
+
+        let err = Client::extract_file_entry(std::io::Cursor::new(archive), Vec::new())
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            &err,
+            CopyFromContainerError::Io(e) if e.kind() == io::ErrorKind::UnexpectedEof
+        ));
+    }
+
+    #[tokio::test]
+    async fn extract_file_entry_releases_the_reader_when_cancelled() {
+        let (reader, mut writer) = tokio::io::duplex(1024);
+
+        tokio::select! {
+            biased;
+            _ = Client::extract_file_entry(reader, Vec::new()) => {
+                panic!("extraction finished without any archive bytes");
+            }
+            () = std::future::ready(()) => {}
+        }
+
+        let err = writer.write_all(b"late").await.unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::BrokenPipe);
     }
 
     #[tokio::test]

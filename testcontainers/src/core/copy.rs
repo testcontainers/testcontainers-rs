@@ -281,7 +281,7 @@ impl CopyDataSource {
 }
 
 /// Runs `f` on tokio's blocking pool and re-raises its panic on the awaiting task.
-pub(crate) async fn run_blocking<T, F>(f: F) -> io::Result<T>
+async fn run_blocking<T, F>(f: F) -> io::Result<T>
 where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
