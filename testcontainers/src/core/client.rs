@@ -465,7 +465,8 @@ impl Client {
     /// Streams the first regular file of the tar `reader` into `target`.
     ///
     /// The synchronous `tar` parser runs over the bytes buffered so far, and more are read from
-    /// `reader` until the file's header is complete. The payload then streams from the buffered
+    /// `reader` until the file's header is complete, parsing again only once the buffer has
+    /// doubled so a large header costs linear work. The payload then streams from the buffered
     /// remainder followed by `reader`, and must yield exactly the size its header declares.
     async fn extract_file_entry<R, T>(
         mut reader: R,
@@ -479,9 +480,13 @@ impl Client {
 
         let mut buffered = Vec::new();
         let mut complete = false;
-        let (payload_start, size) = loop {
-            if let Some(located) = Self::locate_file_entry(&buffered, complete)? {
-                break located;
+        let mut parse_at = 0;
+        let (payload_offset, size) = loop {
+            if complete || buffered.len() >= parse_at {
+                if let Some(located) = Self::locate_file_entry(&buffered, complete)? {
+                    break located;
+                }
+                parse_at = buffered.len().saturating_mul(2);
             }
             buffered.reserve(READ_CHUNK);
             complete = reader
@@ -491,7 +496,7 @@ impl Client {
                 == 0;
         };
 
-        let payload_start = usize::try_from(payload_start)
+        let payload_start = usize::try_from(payload_offset)
             .ok()
             .filter(|&start| start <= buffered.len())
             .ok_or_else(|| {
@@ -499,13 +504,16 @@ impl Client {
                     "tar entry payload starts past the parsed header",
                 ))
             })?;
-        buffered.drain(..payload_start);
-        if let Ok(size) = usize::try_from(size) {
-            buffered.truncate(size);
+        if let Some(payload_end) = usize::try_from(size)
+            .ok()
+            .and_then(|size| payload_start.checked_add(size))
+        {
+            buffered.truncate(payload_end);
         }
+        let mut buffered = io::Cursor::new(buffered);
+        buffered.set_position(payload_offset);
 
-        let payload =
-            ExactSizeReader::new(AsyncReadExt::chain(io::Cursor::new(buffered), reader), size);
+        let payload = ExactSizeReader::new(AsyncReadExt::chain(buffered, reader), size);
         target.copy_from_reader(payload).await
     }
 
@@ -1114,15 +1122,26 @@ mod tests {
         header
     }
 
-    /// Builds a tar holding a PAX header, `payload` as `result.txt`, then `next.txt`.
-    fn archive_with_pax_header(payload: &[u8]) -> Vec<u8> {
-        let pax_records = b"23 path=pax/result.txt\n";
+    /// Encodes one PAX record, whose leading decimal length counts the whole record itself.
+    fn pax_record(key: &str, value: &str) -> Vec<u8> {
+        let body = format!(" {key}={value}\n");
+        let mut len = body.len();
+        while len.to_string().len() + body.len() != len {
+            len = len.to_string().len() + body.len();
+        }
+        format!("{len}{body}").into_bytes()
+    }
+
+    /// Builds a tar holding a PAX header naming `pax_path`, `payload` as `result.txt`, then
+    /// `next.txt`.
+    fn archive_with_pax_header(pax_path: &str, payload: &[u8]) -> Vec<u8> {
+        let pax_records = pax_record("path", pax_path);
         let mut builder = tar::Builder::new(Vec::new());
         builder
             .append_data(
                 &mut ustar_header(EntryType::XHeader, pax_records.len()),
                 "PaxHeaders/result.txt",
-                &pax_records[..],
+                pax_records.as_slice(),
             )
             .unwrap();
         builder
@@ -1143,11 +1162,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn extract_file_entry_streams_only_the_payload_after_pax_headers() {
+    async fn extract_file_entry_streams_only_the_payload_after_a_long_pax_header() {
         let payload: Vec<u8> = (0..20_000u32)
             .map(|i| u8::try_from(i % 251).unwrap())
             .collect();
-        let archive = archive_with_pax_header(&payload);
+        let pax_path = format!("pax/{}/result.txt", "d".repeat(50_000));
+        let archive = archive_with_pax_header(&pax_path, &payload);
         let (reader, mut writer) = tokio::io::duplex(100);
         let feeder = tokio::spawn(async move {
             // The reader stops at the end of `result.txt`, so the rest may hit a closed pipe.
@@ -1164,7 +1184,7 @@ mod tests {
 
     #[tokio::test]
     async fn extract_file_entry_rejects_a_truncated_payload() {
-        let mut archive = archive_with_pax_header(b"payload");
+        let mut archive = archive_with_pax_header("pax/result.txt", b"payload");
         archive.truncate(3 * 512 + 3);
 
         let err = Client::extract_file_entry(std::io::Cursor::new(archive), Vec::new())
