@@ -20,7 +20,7 @@ use bollard::{
     },
     Docker,
 };
-use ferroid::{base32::Base32UlidExt, id::ULID};
+use ferroid::{base32::Base32Ext, id::ULID};
 use futures::{pin_mut, StreamExt, TryStreamExt};
 use tokio::{
     io::AsyncRead,
