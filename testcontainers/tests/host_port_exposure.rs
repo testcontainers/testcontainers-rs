@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Result;
-use ferroid::{base32::Base32UlidExt, id::ULID};
+use ferroid::{base32::Base32Ext, id::ULID};
 use testcontainers::{
     core::{ExecCommand, Host},
     runners::AsyncRunner,

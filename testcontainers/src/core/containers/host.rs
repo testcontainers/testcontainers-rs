@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, future, sync::Arc, time::Duration};
 
-use ferroid::{base32::Base32UlidExt, id::ULID};
+use ferroid::{base32::Base32Ext, id::ULID};
 use log::{debug, trace};
 use russh::{client, Channel, Disconnect};
 use tokio::{
