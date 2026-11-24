@@ -701,6 +701,10 @@ impl Client {
     }
 
     pub(crate) async fn docker_hostname(&self) -> Result<url::Host, ClientError> {
+        if let Some(host) = self.config.host_override() {
+            return Ok(host.clone());
+        }
+
         let docker_host = &self.config.docker_host();
         let docker_host_url = Url::from_str(docker_host)
             .map_err(|e| ConfigurationError::InvalidDockerHost(e.to_string()))?;

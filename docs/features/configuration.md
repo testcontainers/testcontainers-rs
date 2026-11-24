@@ -22,6 +22,18 @@ The host is resolved in the following order:
 3. Docker host from the "docker.host" property in the `~/.testcontainers.properties` file.
 4. Else, the default Docker socket will be returned.
 
+## Container host resolution
+
+The host used to reach a container's exposed ports (e.g. by `ContainerAsync::get_host`) is resolved in the following order:
+
+1. `TESTCONTAINERS_HOST_OVERRIDE` environment variable.
+2. The host of the Docker host URL, when it is a `tcp`, `http` or `https` URL.
+3. When the Docker host is a socket and the tests run inside a container, the gateway of the `bridge` network.
+4. Else, `localhost`.
+
+`TESTCONTAINERS_HOST_OVERRIDE` changes only where containers are reached, not how the Docker daemon is reached.
+Use it when the two differ, e.g. when tests talk to a Docker-in-Docker daemon over a socket but its ports are published on another address.
+
 ## Docker authentication
 
 Sometimes the Docker images you use live in a private Docker registry.
