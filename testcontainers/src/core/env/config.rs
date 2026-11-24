@@ -12,6 +12,8 @@ use crate::core::env::GetEnvValue;
 pub enum ConfigurationError {
     #[error("invalid DOCKER_HOST: {0}")]
     InvalidDockerHost(String),
+    #[error("invalid TESTCONTAINERS_HOST_OVERRIDE: {0}")]
+    InvalidHostOverride(String),
     #[error("unknown command '{0}' provided via TESTCONTAINERS_COMMAND env variable")]
     UnknownCommand(String),
     #[cfg(feature = "properties-config")]
@@ -41,6 +43,7 @@ pub const DEFAULT_DOCKER_HOST: &str = "npipe:////./pipe/docker_engine";
 pub(crate) struct Config {
     tc_host: Option<String>,
     host: Option<String>,
+    host_override: Option<url::Host>,
     tls_verify: Option<bool>,
     cert_path: Option<PathBuf>,
     command: Option<Command>,
@@ -94,6 +97,7 @@ impl Config {
             Ok(Self {
                 tc_host: env_config.tc_host.or(properties.tc_host),
                 host: env_config.host.or(properties.host),
+                host_override: env_config.host_override,
                 tls_verify: env_config.tls_verify.or(properties.tls_verify),
                 cert_path: env_config.cert_path.or(properties.cert_path),
                 command: env_config.command,
@@ -117,12 +121,18 @@ impl Config {
             .map(|v| v.parse())
             .transpose()?;
         let platform = E::get_env_value("DOCKER_DEFAULT_PLATFORM").filter(|v| !v.trim().is_empty());
+        let host_override = E::get_env_value("TESTCONTAINERS_HOST_OVERRIDE")
+            .map(|v| v.trim().to_owned())
+            .filter(|v| !v.is_empty())
+            .map(|v| url::Host::parse(&v).map_err(|_| ConfigurationError::InvalidHostOverride(v)))
+            .transpose()?;
 
         let docker_auth_config = read_docker_auth_config::<E>().await;
 
         Ok(Config {
             host,
             tc_host: None,
+            host_override,
             command,
             tls_verify,
             cert_path,
@@ -174,6 +184,17 @@ impl Config {
                     DEFAULT_DOCKER_HOST.into()
                 }
             })
+    }
+
+    /// The host on which containers' exposed ports are reachable, from the
+    /// `TESTCONTAINERS_HOST_OVERRIDE` environment variable.
+    ///
+    /// Unlike [`Config::docker_host`], this does not change how the Docker daemon is reached.
+    /// It is for environments where the daemon and the published ports live at different
+    /// addresses, e.g. a daemon reached through a socket while its ports are published on
+    /// another host or network (Docker-in-Docker sidecars, remote build workers).
+    pub(crate) fn host_override(&self) -> Option<&url::Host> {
+        self.host_override.as_ref()
     }
 
     pub(crate) fn tls_verify(&self) -> bool {
@@ -256,6 +277,75 @@ impl FromStr for Command {
             "remove" => Ok(Command::Remove),
             other => Err(ConfigurationError::UnknownCommand(other.to_string())),
         }
+    }
+}
+
+#[cfg(test)]
+mod env_tests {
+    use super::*;
+
+    macro_rules! fake_env {
+        ($name:ident, $value:expr) => {
+            struct $name;
+            impl GetEnvValue for $name {
+                fn get_env_value(key: &str) -> Option<String> {
+                    match key {
+                        "TESTCONTAINERS_HOST_OVERRIDE" => $value.map(str::to_owned),
+                        _ => None,
+                    }
+                }
+            }
+        };
+    }
+
+    fake_env!(NoOverride, None::<&str>);
+    fake_env!(Ipv4Override, Some("172.31.254.2"));
+    fake_env!(DomainOverride, Some(" host.docker.internal "));
+    fake_env!(BlankOverride, Some("  "));
+    fake_env!(InvalidOverride, Some("not a host"));
+
+    #[tokio::test]
+    async fn host_override_is_unset_by_default() {
+        let config = Config::load_from_env_config::<NoOverride>().await.unwrap();
+        assert_eq!(config.host_override(), None);
+    }
+
+    #[tokio::test]
+    async fn host_override_reads_an_ip_address() {
+        let config = Config::load_from_env_config::<Ipv4Override>()
+            .await
+            .unwrap();
+        assert_eq!(
+            config.host_override(),
+            Some(&url::Host::Ipv4([172, 31, 254, 2].into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn host_override_reads_a_domain() {
+        let config = Config::load_from_env_config::<DomainOverride>()
+            .await
+            .unwrap();
+        assert_eq!(
+            config.host_override(),
+            Some(&url::Host::Domain("host.docker.internal".to_owned()))
+        );
+    }
+
+    #[tokio::test]
+    async fn blank_host_override_is_ignored() {
+        let config = Config::load_from_env_config::<BlankOverride>()
+            .await
+            .unwrap();
+        assert_eq!(config.host_override(), None);
+    }
+
+    #[tokio::test]
+    async fn invalid_host_override_is_an_error() {
+        let err = Config::load_from_env_config::<InvalidOverride>()
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ConfigurationError::InvalidHostOverride(v) if v == "not a host"));
     }
 }
 
